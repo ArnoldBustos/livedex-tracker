@@ -1,121 +1,172 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useMemo, useState } from "react";
+import "./App.css";
 
-function App() {
-  const [count, setCount] = useState(0)
+type UploadRecord = {
+  id: string;
+  userId: string;
+  originalFilename: string;
+  storageProvider: string;
+  storageKey: string;
+  fileUrl: string | null;
+  fileSizeBytes: number;
+  parseStatus: string;
+  detectedGame: string | null;
+  parseError: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type UploadResponse = {
+  upload: UploadRecord;
+  debug?: unknown;
+};
+
+const API_BASE_URL = "http://localhost:4000";
+
+const App = () => {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [uploadResponse, setUploadResponse] = useState<UploadResponse | null>(null);
+
+  const prettyResponse = useMemo(() => {
+    if (!uploadResponse) {
+      return "";
+    }
+
+    return JSON.stringify(uploadResponse, null, 2);
+  }, [uploadResponse]);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const nextFile = event.target.files && event.target.files[0] ? event.target.files[0] : null;
+
+    setSelectedFile(nextFile);
+    setErrorMessage("");
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      setErrorMessage("Choose a .sav or .srm file first.");
+      return;
+    }
+
+    setIsUploading(true);
+    setErrorMessage("");
+    setUploadResponse(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("saveFile", selectedFile);
+
+      const response = await fetch(`${API_BASE_URL}/uploads`, {
+        method: "POST",
+        body: formData
+      });
+
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        throw new Error(responseText || "Upload failed");
+      }
+
+      const parsedResponse = JSON.parse(responseText) as UploadResponse;
+      setUploadResponse(parsedResponse);
+    } catch (error) {
+      if (error instanceof Error) {
+        setErrorMessage(error.message);
+      } else {
+        setErrorMessage("Unknown upload error");
+      }
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
+    <main className="app-shell">
+      <section className="hero-panel">
+        <p className="eyebrow">Gen 3 MVP</p>
+        <h1 className="hero-title">LiveDex Tracker</h1>
+        <p className="hero-copy">
+          Upload a Gen 3 save file and inspect the backend response without leaving the page.
+        </p>
       </section>
 
-      <div className="ticks"></div>
+      <section className="upload-panel">
+        <div className="panel-header">
+          <h2>Save Upload</h2>
+          <p>Minimal local test page based on the stitched uploader direction.</p>
+        </div>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+        <div className="upload-controls">
+          <input
+            className="file-input"
+            type="file"
+            accept=".sav,.srm"
+            onChange={handleFileChange}
+          />
+          <button
+            className="upload-button"
+            type="button"
+            onClick={handleUpload}
+            disabled={isUploading}
+          >
+            {isUploading ? "Uploading..." : "Upload Save"}
+          </button>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
+
+        <div className="status-row">
+          <span className="status-label">Selected file</span>
+          <span className="status-value">
+            {selectedFile ? selectedFile.name : "None"}
+          </span>
         </div>
+
+        {errorMessage ? (
+          <div className="message error-message">{errorMessage}</div>
+        ) : null}
+
+        {uploadResponse ? (
+          <div className="result-stack">
+            <div className="result-card">
+              <h3>Upload Summary</h3>
+              <dl className="summary-grid">
+                <div>
+                  <dt>Upload ID</dt>
+                  <dd>{uploadResponse.upload.id}</dd>
+                </div>
+                <div>
+                  <dt>Status</dt>
+                  <dd>{uploadResponse.upload.parseStatus}</dd>
+                </div>
+                <div>
+                  <dt>Detected Game</dt>
+                  <dd>{uploadResponse.upload.detectedGame || "None"}</dd>
+                </div>
+                <div>
+                  <dt>Filename</dt>
+                  <dd>{uploadResponse.upload.originalFilename}</dd>
+                </div>
+                <div>
+                  <dt>File Size</dt>
+                  <dd>{uploadResponse.upload.fileSizeBytes}</dd>
+                </div>
+                <div>
+                  <dt>Parse Error</dt>
+                  <dd>{uploadResponse.upload.parseError || "None"}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="result-card">
+              <h3>Debug Response</h3>
+              <pre className="debug-block">{prettyResponse}</pre>
+            </div>
+          </div>
+        ) : null}
       </section>
+    </main>
+  );
+};
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
-}
-
-export default App
+export default App;

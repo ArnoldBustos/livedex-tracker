@@ -1,3 +1,5 @@
+import { readGen3SaveSections } from "./readGen3SaveSections";
+
 export type ExtractedPokedexFlags = {
     seenNationalDexNumbers: number[];
     ownedNationalDexNumbers: number[];
@@ -6,10 +8,18 @@ export type ExtractedPokedexFlags = {
 export const extractPokedexFlags = (
     fileBuffer: Buffer
 ): ExtractedPokedexFlags => {
-    void fileBuffer;
+    const { activeSaveIndex, sectionsById } = readGen3SaveSections(fileBuffer);
+
+    console.log("extractPokedexFlags activeSaveIndex", activeSaveIndex);
+    console.log(
+        "extractPokedexFlags sectionIds",
+        Array.from(sectionsById.keys()).sort((leftSectionId, rightSectionId) => {
+            return leftSectionId - rightSectionId;
+        })
+    );
 
     return {
-        seenNationalDexNumbers: [1, 4, 7, 25],
-        ownedNationalDexNumbers: [1, 25]
+        seenNationalDexNumbers: [],
+        ownedNationalDexNumbers: []
     };
 };
