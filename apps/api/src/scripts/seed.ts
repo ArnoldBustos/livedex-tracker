@@ -1,31 +1,5 @@
+import { pokemonSpeciesSeedData } from "../data/pokemonSpecies";
 import prismaClient from "../lib/prisma";
-
-const pokemonSpeciesSeedData = [
-    {
-        id: 1,
-        dexNumber: 1,
-        name: "Bulbasaur",
-        generation: 1
-    },
-    {
-        id: 4,
-        dexNumber: 4,
-        name: "Charmander",
-        generation: 1
-    },
-    {
-        id: 7,
-        dexNumber: 7,
-        name: "Squirtle",
-        generation: 1
-    },
-    {
-        id: 25,
-        dexNumber: 25,
-        name: "Pikachu",
-        generation: 1
-    }
-];
 
 const seed = async () => {
     const existingUser = await prismaClient.user.findUnique({
