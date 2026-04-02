@@ -2,12 +2,17 @@ import {
     extractPokedexFlags,
     type ExtractedPokedexFlags
 } from "./extractPokedexFlags";
+import { extractBoxPokemon } from "./extractBoxPokemon";
+import {
+    extractPartyPokemon,
+    type ParsedGen3Pokemon
+} from "./extractPartyPokemon";
 import { readGen3SaveSections } from "./readGen3SaveSections";
 
 export type ParsedGen3Save = {
     detectedGame: "LEAFGREEN";
-    partyPokemon: unknown[];
-    boxPokemon: unknown[];
+    partyPokemon: ParsedGen3Pokemon[];
+    boxPokemon: ParsedGen3Pokemon[];
     pokedexFlags: ExtractedPokedexFlags;
     debug: {
         activeSaveIndex: number;
@@ -16,6 +21,10 @@ export type ParsedGen3Save = {
         ownedNationalDexNumbers: number[];
         seenCount: number;
         ownedCount: number;
+        partyCount: number;
+        partySpeciesIds: number[];
+        boxCount: number;
+        boxSpeciesIds: number[];
     };
 };
 
@@ -30,11 +39,16 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
     });
 
     const pokedexFlags = extractPokedexFlags({
-        activeSaveIndex,
         sectionsById
     });
 
-    console.log("parseGen3Save after extractPokedexFlags", pokedexFlags);
+    const partyPokemon = extractPartyPokemon({
+        sectionsById
+    });
+
+    const boxPokemon = extractBoxPokemon({
+        sectionsById
+    });
 
     const sectionIds = Array.from(sectionsById.keys()).sort((leftSectionId, rightSectionId) => {
         return leftSectionId - rightSectionId;
@@ -42,8 +56,8 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
 
     return {
         detectedGame: "LEAFGREEN",
-        partyPokemon: [],
-        boxPokemon: [],
+        partyPokemon,
+        boxPokemon,
         pokedexFlags,
         debug: {
             activeSaveIndex,
@@ -51,7 +65,15 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
             seenNationalDexNumbers: pokedexFlags.seenNationalDexNumbers,
             ownedNationalDexNumbers: pokedexFlags.ownedNationalDexNumbers,
             seenCount: pokedexFlags.seenNationalDexNumbers.length,
-            ownedCount: pokedexFlags.ownedNationalDexNumbers.length
+            ownedCount: pokedexFlags.ownedNationalDexNumbers.length,
+            partyCount: partyPokemon.length,
+            partySpeciesIds: partyPokemon.map((pokemon) => {
+                return pokemon.speciesId;
+            }),
+            boxCount: boxPokemon.length,
+            boxSpeciesIds: boxPokemon.slice(0, 30).map((pokemon) => {
+                return pokemon.speciesId;
+            })
         }
     };
 };
