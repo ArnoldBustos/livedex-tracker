@@ -1,8 +1,11 @@
 const SECTION_COUNT = 14;
 const SECTION_SIZE_BYTES = 4096;
-const SECTION_DATA_SIZE_BYTES = 3968;
 const SAVE_SLOT_SIZE_BYTES = 57344;
-const SECTION_FOOTER_SIZE_BYTES = 128;
+
+const SECTION_ID_OFFSET = 0x0ff4;
+const CHECKSUM_OFFSET = 0x0ff6;
+const SAVE_INDEX_OFFSET = 0x0ffc;
+const SECTION_DATA_END_OFFSET = 0x0ff4;
 
 type Gen3SectionFooter = {
     sectionId: number;
@@ -21,13 +24,10 @@ export type ReadGen3SaveSectionsResult = {
     activeSaveIndex: number;
     sectionsById: Map<number, Gen3SaveSection>;
 };
-
 const readSectionFooter = (sectionBuffer: Buffer): Gen3SectionFooter => {
-    const footerOffset = SECTION_DATA_SIZE_BYTES;
-
-    const sectionId = sectionBuffer.readUInt16LE(footerOffset);
-    const checksum = sectionBuffer.readUInt16LE(footerOffset + 2);
-    const saveIndex = sectionBuffer.readUInt32LE(footerOffset + 12);
+    const sectionId = sectionBuffer.readUInt16LE(SECTION_ID_OFFSET);
+    const checksum = sectionBuffer.readUInt16LE(CHECKSUM_OFFSET);
+    const saveIndex = sectionBuffer.readUInt32LE(SAVE_INDEX_OFFSET);
 
     return {
         sectionId,
@@ -48,10 +48,17 @@ const readSaveSlotSections = (
 
         const footer = readSectionFooter(sectionBuffer);
 
+        console.log("readSaveSlotSections footer", {
+            sectionIndex,
+            sectionId: footer.sectionId,
+            checksum: footer.checksum,
+            saveIndex: footer.saveIndex
+        });
+
         sections.push({
             sectionId: footer.sectionId,
             saveIndex: footer.saveIndex,
-            data: sectionBuffer.subarray(0, SECTION_DATA_SIZE_BYTES),
+            data: sectionBuffer.subarray(0, SECTION_DATA_END_OFFSET),
             raw: sectionBuffer
         });
     }
@@ -83,6 +90,18 @@ const groupSectionsBySaveIndex = (
 const getActiveSaveIndex = (
     sectionsBySaveIndex: Map<number, Gen3SaveSection[]>
 ): number => {
+    const saveIndexSummary = Array.from(sectionsBySaveIndex.entries()).map(
+        ([saveIndex, sections]) => {
+            return {
+                saveIndex,
+                count: sections.length,
+                sectionIds: sections.map((section) => section.sectionId)
+            };
+        }
+    );
+
+    console.log("sectionsBySaveIndex summary", saveIndexSummary);
+
     const candidateSaveIndexes = Array.from(sectionsBySaveIndex.keys()).filter(
         (saveIndex) => {
             const sections = sectionsBySaveIndex.get(saveIndex);
@@ -105,6 +124,10 @@ const getActiveSaveIndex = (
 export const readGen3SaveSections = (
     fileBuffer: Buffer
 ): ReadGen3SaveSectionsResult => {
+    console.log("readGen3SaveSections entered", {
+        fileSizeBytes: fileBuffer.length
+    });
+
     if (fileBuffer.length < SAVE_SLOT_SIZE_BYTES * 2) {
         throw new Error(`Unexpected Gen 3 save size: ${fileBuffer.length}`);
     }

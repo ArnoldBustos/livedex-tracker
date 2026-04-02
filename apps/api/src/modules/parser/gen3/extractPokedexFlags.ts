@@ -1,15 +1,19 @@
-import { readGen3SaveSections } from "./readGen3SaveSections";
+import type { Gen3SaveSection } from "./readGen3SaveSections";
 
 export type ExtractedPokedexFlags = {
     seenNationalDexNumbers: number[];
     ownedNationalDexNumbers: number[];
 };
 
-export const extractPokedexFlags = (
-    fileBuffer: Buffer
-): ExtractedPokedexFlags => {
-    const { activeSaveIndex, sectionsById } = readGen3SaveSections(fileBuffer);
+type ExtractPokedexFlagsParams = {
+    activeSaveIndex: number;
+    sectionsById: Map<number, Gen3SaveSection>;
+};
 
+export const extractPokedexFlags = ({
+    activeSaveIndex,
+    sectionsById
+}: ExtractPokedexFlagsParams): ExtractedPokedexFlags => {
     console.log("extractPokedexFlags activeSaveIndex", activeSaveIndex);
     console.log(
         "extractPokedexFlags sectionIds",

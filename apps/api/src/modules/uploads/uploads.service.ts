@@ -20,21 +20,25 @@ export const createUpload = async ({
         mimeType: file.mimetype
     });
 
-    const createdUpload = await prismaClient.saveUpload.create({
-        data: {
+    try {
+        console.log("createUpload input", {
             userId,
             originalFilename: file.originalname,
-            storageProvider: "LOCAL",
-            storageKey: storedFile.storageKey,
-            fileUrl: storedFile.fileUrl,
             fileSizeBytes: file.size
-        }
-    });
+        });
 
-    try {
+        const createdUpload = await prismaClient.saveUpload.create({
+            data: {
+                userId,
+                originalFilename: file.originalname,
+                storageProvider: "LOCAL",
+                storageKey: storedFile.storageKey,
+                fileUrl: storedFile.fileUrl,
+                fileSizeBytes: file.size
+            }
+        });
+
         const parseResult = await parseUploadedSave(file.buffer);
-
-        console.log("createUpload parseResult", parseResult);
 
         await syncUserDexFromParse({
             userId,
@@ -53,21 +57,13 @@ export const createUpload = async ({
             }
         });
 
-        return updatedUpload;
+        return {
+            upload: updatedUpload,
+            debug: parseResult.debug
+        };
     } catch (error) {
-        const parseErrorMessage =
-            error instanceof Error ? error.message : "Unknown parse error";
+        console.error("createUpload failed", error);
 
-        const failedUpload = await prismaClient.saveUpload.update({
-            where: {
-                id: createdUpload.id
-            },
-            data: {
-                parseStatus: "FAILED",
-                parseError: parseErrorMessage
-            }
-        });
-
-        return failedUpload;
+        throw error;
     }
 };

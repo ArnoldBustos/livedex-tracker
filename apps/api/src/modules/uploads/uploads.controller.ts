@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import prismaClient from "../../lib/prisma";
 import { createUpload } from "./uploads.service";
 
 export const uploadSaveFile = async (request: Request, response: Response) => {
@@ -11,12 +12,26 @@ export const uploadSaveFile = async (request: Request, response: Response) => {
         return;
     }
 
-    const saveUpload = await createUpload({
-        userId: "cmnhqj13h0000ukhw9vwo4f0b",
+    const devUser = await prismaClient.user.findUnique({
+        where: {
+            email: "dev@example.com"
+        },
+        select: {
+            id: true
+        }
+    });
+
+    if (!devUser) {
+        response.status(500).json({
+            error: "Dev user not found. Run the seed script first."
+        });
+        return;
+    }
+
+    const uploadResult = await createUpload({
+        userId: devUser.id,
         file: uploadedFile
     });
 
-    response.status(201).json({
-        upload: saveUpload
-    });
+    response.status(201).json(uploadResult);
 };

@@ -8,6 +8,7 @@ export const parseUploadedSave = async (
     fileBuffer: Buffer
 ): Promise<ParseSaveResult> => {
     console.log("parseUploadedSave fileBuffer.length", fileBuffer.length);
+    console.log("parseUploadedSave before parseGen3Save");
 
     if (!GEN3_SAVE_FILE_SIZES.has(fileBuffer.length)) {
         throw new Error(`Unsupported save size: ${fileBuffer.length}`);
@@ -15,6 +16,7 @@ export const parseUploadedSave = async (
 
     const parsedSave = parseGen3Save(fileBuffer);
 
+    console.log("parseUploadedSave after parseGen3Save");
     console.log("parseUploadedSave parsedSave", parsedSave);
 
     return parsedSave;
