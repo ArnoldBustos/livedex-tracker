@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SaveParseStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum StorageProvider {
+  LOCAL
+  SUPABASE
+  S3
+}
+
+enum SupportedGame {
+  RUBY
+  SAPPHIRE
+  EMERALD
+  FIRERED
+  LEAFGREEN
+}
+
+model User {
+  id          String       @id @default(cuid())
+  email       String       @unique
+  username    String       @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  saveUploads SaveUpload[]
+  dexEntries  UserDexEntry[]
+}
+
+model SaveUpload {
+  id               String          @id @default(cuid())
+  userId           String
+  originalFilename String
+  storageProvider  StorageProvider
+  storageKey       String
+  fileUrl          String?
+  fileSizeBytes    Int
+  parseStatus      SaveParseStatus @default(PENDING)
+  detectedGame     SupportedGame?
+  parseError       String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PokemonSpecies {
+  id          Int            @id
+  dexNumber   Int            @unique
+  name        String
+  generation  Int
+  isAvailable Boolean        @default(true)
+  dexEntries  UserDexEntry[]
+}
+
+model UserDexEntry {
+  id               String   @id @default(cuid())
+  userId           String
+  pokemonSpeciesId Int
+  seen             Boolean  @default(false)
+  caught           Boolean  @default(false)
+  hasLivingEntry   Boolean  @default(false)
+  updatedAt        DateTime @updatedAt
+
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pokemonSpecies PokemonSpecies @relation(fields: [pokemonSpeciesId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, pokemonSpeciesId])
+}
