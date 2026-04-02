@@ -18,13 +18,15 @@ export type ParsedGen3Save = {
         activeSaveIndex: number;
         sectionIds: number[];
         seenNationalDexNumbers: number[];
-        ownedNationalDexNumbers: number[];
+        caughtNationalDexNumbers: number[];
         seenCount: number;
-        ownedCount: number;
+        caughtCount: number;
         partyCount: number;
         partySpeciesIds: number[];
         boxCount: number;
         boxSpeciesIds: number[];
+        livingNationalDexNumbers: number[];
+        livingCount: number;
     };
 };
 
@@ -50,6 +52,16 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
         sectionsById
     });
 
+    const livingNationalDexNumbers = Array.from(
+        new Set(
+            [...partyPokemon, ...boxPokemon].map((pokemon) => {
+                return pokemon.speciesId;
+            })
+        )
+    ).sort((leftDexNumber, rightDexNumber) => {
+        return leftDexNumber - rightDexNumber;
+    });
+
     const sectionIds = Array.from(sectionsById.keys()).sort((leftSectionId, rightSectionId) => {
         return leftSectionId - rightSectionId;
     });
@@ -63,9 +75,9 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
             activeSaveIndex,
             sectionIds,
             seenNationalDexNumbers: pokedexFlags.seenNationalDexNumbers,
-            ownedNationalDexNumbers: pokedexFlags.ownedNationalDexNumbers,
+            caughtNationalDexNumbers: pokedexFlags.ownedNationalDexNumbers,
             seenCount: pokedexFlags.seenNationalDexNumbers.length,
-            ownedCount: pokedexFlags.ownedNationalDexNumbers.length,
+            caughtCount: pokedexFlags.ownedNationalDexNumbers.length,
             partyCount: partyPokemon.length,
             partySpeciesIds: partyPokemon.map((pokemon) => {
                 return pokemon.speciesId;
@@ -73,7 +85,9 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
             boxCount: boxPokemon.length,
             boxSpeciesIds: boxPokemon.slice(0, 30).map((pokemon) => {
                 return pokemon.speciesId;
-            })
+            }),
+            livingNationalDexNumbers,
+            livingCount: livingNationalDexNumbers.length
         }
     };
 };

@@ -40,10 +40,19 @@ export const createUpload = async ({
 
         const parseResult = await parseUploadedSave(file.buffer);
 
+        const livingNationalDexNumbers = Array.from(
+            new Set(
+                [...parseResult.partyPokemon, ...parseResult.boxPokemon].map((pokemon) => {
+                    return pokemon.speciesId;
+                })
+            )
+        );
+
         await syncUserDexFromParse({
             userId,
             seenNationalDexNumbers: parseResult.pokedexFlags.seenNationalDexNumbers,
-            ownedNationalDexNumbers: parseResult.pokedexFlags.ownedNationalDexNumbers
+            caughtNationalDexNumbers: parseResult.pokedexFlags.ownedNationalDexNumbers,
+            livingNationalDexNumbers
         });
 
         const updatedUpload = await prismaClient.saveUpload.update({

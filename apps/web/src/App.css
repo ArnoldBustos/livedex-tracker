@@ -178,6 +178,37 @@ select {
   font-size: 18px;
 }
 
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.stat-card {
+  background: #0d1015;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.stat-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #9ca6b5;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.stat-value {
+  display: block;
+  color: #f5f7fa;
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -204,6 +235,55 @@ select {
   word-break: break-word;
 }
 
+.dex-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dex-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  color: #f5f7fa;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.dex-chip-caught {
+  background: rgba(188, 1, 0, 0.16);
+  border-color: rgba(188, 1, 0, 0.36);
+}
+
+.empty-copy {
+  margin: 0;
+  color: #9ca6b5;
+  line-height: 1.5;
+}
+
+.debug-details {
+  background: #0d1015;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.debug-details summary {
+  cursor: pointer;
+  color: #f5f7fa;
+  font-weight: 600;
+  user-select: none;
+}
+
+.debug-details[open] summary {
+  margin-bottom: 14px;
+}
+
 .debug-block {
   margin: 0;
   padding: 14px;
@@ -224,7 +304,8 @@ select {
     padding: 18px;
   }
 
-  .summary-grid {
+  .summary-grid,
+  .stats-grid {
     grid-template-columns: 1fr;
   }
 

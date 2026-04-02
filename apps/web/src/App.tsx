@@ -30,6 +30,26 @@ type UploadResponse = {
   debug?: DebugPayload;
 };
 
+type DexEntry = {
+  pokemonSpeciesId: number;
+  dexNumber: number;
+  name: string;
+  generation: number;
+  seen: boolean;
+  caught: boolean;
+  hasLivingEntry: boolean;
+};
+
+type DexResponse = {
+  summary: {
+    totalEntries: number;
+    seenCount: number;
+    caughtCount: number;
+    livingCount: number;
+  };
+  entries: DexEntry[];
+};
+
 const API_BASE_URL = "http://localhost:4000";
 
 const App = () => {
@@ -37,6 +57,7 @@ const App = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [uploadResponse, setUploadResponse] = useState<UploadResponse | null>(null);
+  const [dexResponse, setDexResponse] = useState<DexResponse | null>(null);
 
   const prettyResponse = useMemo(() => {
     if (!uploadResponse) {
@@ -47,25 +68,32 @@ const App = () => {
   }, [uploadResponse]);
 
   const parsedSummary = useMemo(() => {
-    if (!uploadResponse || !uploadResponse.debug) {
+    if (!dexResponse) {
       return {
         seenCount: 0,
-        ownedCount: 0,
-        seenPreview: [] as number[],
-        ownedPreview: [] as number[]
+        caughtCount: 0,
+        livingCount: 0,
+        seenPreview: [] as DexEntry[],
+        caughtPreview: [] as DexEntry[],
+        livingPreview: [] as DexEntry[]
       };
     }
 
-    const seenNationalDexNumbers = uploadResponse.debug.seenNationalDexNumbers || [];
-    const ownedNationalDexNumbers = uploadResponse.debug.ownedNationalDexNumbers || [];
-
     return {
-      seenCount: uploadResponse.debug.seenCount || seenNationalDexNumbers.length,
-      ownedCount: uploadResponse.debug.ownedCount || ownedNationalDexNumbers.length,
-      seenPreview: seenNationalDexNumbers.slice(0, 24),
-      ownedPreview: ownedNationalDexNumbers.slice(0, 24)
+      seenCount: dexResponse.summary.seenCount,
+      caughtCount: dexResponse.summary.caughtCount,
+      livingCount: dexResponse.summary.livingCount,
+      seenPreview: dexResponse.entries.filter((dexEntry) => {
+        return dexEntry.seen;
+      }).slice(0, 24),
+      caughtPreview: dexResponse.entries.filter((dexEntry) => {
+        return dexEntry.caught;
+      }).slice(0, 24),
+      livingPreview: dexResponse.entries.filter((dexEntry) => {
+        return dexEntry.hasLivingEntry;
+      }).slice(0, 24)
     };
-  }, [uploadResponse]);
+  }, [dexResponse]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files && event.target.files[0] ? event.target.files[0] : null;
@@ -83,6 +111,7 @@ const App = () => {
     setIsUploading(true);
     setErrorMessage("");
     setUploadResponse(null);
+    setDexResponse(null);
 
     try {
       const formData = new FormData();
@@ -101,6 +130,17 @@ const App = () => {
 
       const parsedResponse = JSON.parse(responseText) as UploadResponse;
       setUploadResponse(parsedResponse);
+
+      const uploadedUserId = parsedResponse.upload.userId;
+
+      const dexResponse = await fetch(`${API_BASE_URL}/dex/${uploadedUserId}`);
+
+      if (!dexResponse.ok) {
+        throw new Error("Dex fetch failed after upload");
+      }
+
+      const parsedDexResponse = await dexResponse.json() as DexResponse;
+      setDexResponse(parsedDexResponse);
     } catch (error) {
       if (error instanceof Error) {
         setErrorMessage(error.message);
@@ -195,7 +235,11 @@ const App = () => {
               </div>
               <div className="stat-card">
                 <span className="stat-label">Caught</span>
-                <strong className="stat-value">{parsedSummary.ownedCount}</strong>
+                <strong className="stat-value">{parsedSummary.caughtCount}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">Living</span>
+                <strong className="stat-value">{parsedSummary.livingCount}</strong>
               </div>
             </div>
 
@@ -203,10 +247,10 @@ const App = () => {
               <h3>Seen Preview</h3>
               {parsedSummary.seenPreview.length > 0 ? (
                 <div className="dex-chip-list">
-                  {parsedSummary.seenPreview.map((dexNumber) => {
+                  {parsedSummary.seenPreview.map((dexEntry) => {
                     return (
-                      <span key={`seen-${dexNumber}`} className="dex-chip">
-                        #{dexNumber}
+                      <span key={`seen-${dexEntry.dexNumber}`} className="dex-chip">
+                        #{dexEntry.dexNumber} {dexEntry.name}
                       </span>
                     );
                   })}
@@ -218,18 +262,41 @@ const App = () => {
 
             <div className="result-card">
               <h3>Caught Preview</h3>
-              {parsedSummary.ownedPreview.length > 0 ? (
+              {parsedSummary.caughtPreview.length > 0 ? (
                 <div className="dex-chip-list">
-                  {parsedSummary.ownedPreview.map((dexNumber) => {
+                  {parsedSummary.caughtPreview.map((dexEntry) => {
                     return (
-                      <span key={`owned-${dexNumber}`} className="dex-chip dex-chip-caught">
-                        #{dexNumber}
+                      <span
+                        key={`caught-${dexEntry.dexNumber}`}
+                        className="dex-chip dex-chip-caught"
+                      >
+                        #{dexEntry.dexNumber} {dexEntry.name}
                       </span>
                     );
                   })}
                 </div>
               ) : (
                 <p className="empty-copy">No caught entries found.</p>
+              )}
+            </div>
+
+            <div className="result-card">
+              <h3>Living Preview</h3>
+              {parsedSummary.livingPreview.length > 0 ? (
+                <div className="dex-chip-list">
+                  {parsedSummary.livingPreview.map((dexEntry) => {
+                    return (
+                      <span
+                        key={`living-${dexEntry.dexNumber}`}
+                        className="dex-chip"
+                      >
+                        #{dexEntry.dexNumber} {dexEntry.name}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="empty-copy">No living entries found.</p>
               )}
             </div>
 

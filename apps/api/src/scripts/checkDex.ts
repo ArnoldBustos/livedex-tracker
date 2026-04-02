@@ -17,7 +17,23 @@ const checkDex = async () => {
         }
     });
 
-    console.log(JSON.stringify(dexEntries, null, 2));
+    const formattedEntries = dexEntries.map((dexEntry) => {
+        return {
+            dexNumber: dexEntry.pokemonSpecies.dexNumber,
+            name: dexEntry.pokemonSpecies.name,
+            seen: dexEntry.seen,
+            caught: dexEntry.caught,
+            hasLivingEntry: dexEntry.hasLivingEntry
+        };
+    });
+
+    console.table(formattedEntries);
+
+    console.log("total entries:", formattedEntries.length);
+    console.log(
+        "living entries:",
+        formattedEntries.filter((dexEntry) => dexEntry.hasLivingEntry).length
+    );
 };
 
 checkDex()

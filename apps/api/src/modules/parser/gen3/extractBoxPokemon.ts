@@ -1,7 +1,4 @@
-import {
-    decryptGen3StoredPokemon,
-    readGen3SpeciesId
-} from "./gen3PokemonCrypto";
+import { decryptGen3StoredPokemon, readGen3SpeciesId } from "./gen3PokemonCrypto";
 import type { ParsedGen3Pokemon } from "./extractPartyPokemon";
 import type { Gen3SaveSection } from "./readGen3SaveSections";
 
