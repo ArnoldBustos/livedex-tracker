@@ -1,22 +1,29 @@
-import {
-    extractPokedexFlags,
-    type ExtractedPokedexFlags
-} from "./extractPokedexFlags";
 import { extractBoxPokemon } from "./extractBoxPokemon";
 import {
     extractPartyPokemon,
     type ParsedGen3Pokemon
 } from "./extractPartyPokemon";
+import {
+    extractPokedexFlags,
+    type ExtractedPokedexFlags
+} from "./extractPokedexFlags";
+import {
+    extractTrainerInfo,
+    type ExtractedTrainerInfo
+} from "./extractTrainerInfo";
 import { readGen3SaveSections } from "./readGen3SaveSections";
 
 export type ParsedGen3Save = {
     detectedGame: "LEAFGREEN";
+    trainerInfo: ExtractedTrainerInfo;
     partyPokemon: ParsedGen3Pokemon[];
     boxPokemon: ParsedGen3Pokemon[];
     pokedexFlags: ExtractedPokedexFlags;
     debug: {
         activeSaveIndex: number;
         sectionIds: number[];
+        trainerName: string;
+        trainerGender: "male" | "female" | "unknown";
         seenNationalDexNumbers: number[];
         caughtNationalDexNumbers: number[];
         seenCount: number;
@@ -40,6 +47,10 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
         sectionCount: sectionsById.size
     });
 
+    const trainerInfo = extractTrainerInfo({
+        sectionsById
+    });
+
     const pokedexFlags = extractPokedexFlags({
         sectionsById
     });
@@ -54,9 +65,13 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
 
     const livingNationalDexNumbers = Array.from(
         new Set(
-            [...partyPokemon, ...boxPokemon].map((pokemon) => {
-                return pokemon.speciesId;
-            })
+            [...partyPokemon, ...boxPokemon]
+                .map((pokemon) => {
+                    return pokemon.speciesId;
+                })
+                .filter((speciesId) => {
+                    return speciesId > 0 && speciesId <= 386;
+                })
         )
     ).sort((leftDexNumber, rightDexNumber) => {
         return leftDexNumber - rightDexNumber;
@@ -66,14 +81,23 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
         return leftSectionId - rightSectionId;
     });
 
+    console.log("parseGen3Save trainer debug", {
+        trainerName: trainerInfo.name,
+        trainerGender: trainerInfo.gender,
+        livingNationalDexNumbers
+    });
+
     return {
         detectedGame: "LEAFGREEN",
+        trainerInfo,
         partyPokemon,
         boxPokemon,
         pokedexFlags,
         debug: {
             activeSaveIndex,
             sectionIds,
+            trainerName: trainerInfo.name,
+            trainerGender: trainerInfo.gender,
             seenNationalDexNumbers: pokedexFlags.seenNationalDexNumbers,
             caughtNationalDexNumbers: pokedexFlags.ownedNationalDexNumbers,
             seenCount: pokedexFlags.seenNationalDexNumbers.length,

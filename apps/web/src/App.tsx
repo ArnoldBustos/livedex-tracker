@@ -50,7 +50,60 @@ type DexResponse = {
   entries: DexEntry[];
 };
 
+type DexFilter = "all" | "living" | "missing" | "seenOnly" | "caughtNotLiving";
+type DexScope = "national" | "regional";
+
+type DexDisplayStatus = "living" | "caught" | "seen" | "missing";
+
 const API_BASE_URL = "http://localhost:4000";
+
+const getDexEntryStatus = (dexEntry: DexEntry): DexDisplayStatus => {
+  if (dexEntry.hasLivingEntry) {
+    return "living";
+  }
+
+  if (dexEntry.caught) {
+    return "caught";
+  }
+
+  if (dexEntry.seen) {
+    return "seen";
+  }
+
+  return "missing";
+};
+
+const getDexEntryStatusLabel = (status: DexDisplayStatus) => {
+  if (status === "living") {
+    return "Living";
+  }
+
+  if (status === "caught") {
+    return "Caught";
+  }
+
+  if (status === "seen") {
+    return "Seen";
+  }
+
+  return "Missing";
+};
+
+const getDexEntryCardClassName = (status: DexDisplayStatus) => {
+  if (status === "living") {
+    return "dex-grid-card dex-grid-card-living";
+  }
+
+  if (status === "caught") {
+    return "dex-grid-card dex-grid-card-caught";
+  }
+
+  if (status === "seen") {
+    return "dex-grid-card dex-grid-card-seen";
+  }
+
+  return "dex-grid-card dex-grid-card-missing";
+};
 
 const App = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -58,6 +111,9 @@ const App = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [uploadResponse, setUploadResponse] = useState<UploadResponse | null>(null);
   const [dexResponse, setDexResponse] = useState<DexResponse | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<DexFilter>("all");
+  const [selectedScope, setSelectedScope] = useState<DexScope>("national");
+  const [selectedDexNumber, setSelectedDexNumber] = useState<number | null>(null);
 
   const prettyResponse = useMemo(() => {
     if (!uploadResponse) {
@@ -67,33 +123,97 @@ const App = () => {
     return JSON.stringify(uploadResponse, null, 2);
   }, [uploadResponse]);
 
-  const parsedSummary = useMemo(() => {
+  const dexEntries = useMemo(() => {
     if (!dexResponse) {
-      return {
-        seenCount: 0,
-        caughtCount: 0,
-        livingCount: 0,
-        seenPreview: [] as DexEntry[],
-        caughtPreview: [] as DexEntry[],
-        livingPreview: [] as DexEntry[]
-      };
+      return [] as DexEntry[];
     }
 
+    if (selectedScope === "regional") {
+      return dexResponse.entries.filter((dexEntry) => {
+        return dexEntry.generation <= 3;
+      });
+    }
+
+    return dexResponse.entries;
+  }, [dexResponse, selectedScope]);
+
+  const filteredDexEntries = useMemo(() => {
+    return dexEntries.filter((dexEntry) => {
+      const status = getDexEntryStatus(dexEntry);
+
+      if (selectedFilter === "all") {
+        return true;
+      }
+
+      if (selectedFilter === "living") {
+        return status === "living";
+      }
+
+      if (selectedFilter === "missing") {
+        return status === "missing";
+      }
+
+      if (selectedFilter === "seenOnly") {
+        return status === "seen";
+      }
+
+      if (selectedFilter === "caughtNotLiving") {
+        return status === "caught";
+      }
+
+      return true;
+    });
+  }, [dexEntries, selectedFilter]);
+
+  const selectedDexEntry = useMemo(() => {
+    if (filteredDexEntries.length === 0) {
+      return null;
+    }
+
+    if (selectedDexNumber === null) {
+      return filteredDexEntries[0];
+    }
+
+    const matchedDexEntry = filteredDexEntries.find((dexEntry) => {
+      return dexEntry.dexNumber === selectedDexNumber;
+    });
+
+    if (matchedDexEntry) {
+      return matchedDexEntry;
+    }
+
+    return filteredDexEntries[0];
+  }, [filteredDexEntries, selectedDexNumber]);
+
+  const dashboardSummary = useMemo(() => {
+    const seenCount = dexEntries.filter((dexEntry) => {
+      return dexEntry.seen;
+    }).length;
+
+    const caughtCount = dexEntries.filter((dexEntry) => {
+      return dexEntry.caught;
+    }).length;
+
+    const livingCount = dexEntries.filter((dexEntry) => {
+      return dexEntry.hasLivingEntry;
+    }).length;
+
+    const missingCount = dexEntries.filter((dexEntry) => {
+      return getDexEntryStatus(dexEntry) === "missing";
+    }).length;
+
+    const seenOnlyCount = dexEntries.filter((dexEntry) => {
+      return getDexEntryStatus(dexEntry) === "seen";
+    }).length;
+
     return {
-      seenCount: dexResponse.summary.seenCount,
-      caughtCount: dexResponse.summary.caughtCount,
-      livingCount: dexResponse.summary.livingCount,
-      seenPreview: dexResponse.entries.filter((dexEntry) => {
-        return dexEntry.seen;
-      }).slice(0, 24),
-      caughtPreview: dexResponse.entries.filter((dexEntry) => {
-        return dexEntry.caught;
-      }).slice(0, 24),
-      livingPreview: dexResponse.entries.filter((dexEntry) => {
-        return dexEntry.hasLivingEntry;
-      }).slice(0, 24)
+      seenCount,
+      caughtCount,
+      livingCount,
+      missingCount,
+      seenOnlyCount
     };
-  }, [dexResponse]);
+  }, [dexEntries]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files && event.target.files[0] ? event.target.files[0] : null;
@@ -112,6 +232,7 @@ const App = () => {
     setErrorMessage("");
     setUploadResponse(null);
     setDexResponse(null);
+    setSelectedDexNumber(null);
 
     try {
       const formData = new FormData();
@@ -141,6 +262,10 @@ const App = () => {
 
       const parsedDexResponse = await dexResponse.json() as DexResponse;
       setDexResponse(parsedDexResponse);
+
+      if (parsedDexResponse.entries.length > 0) {
+        setSelectedDexNumber(parsedDexResponse.entries[0].dexNumber);
+      }
     } catch (error) {
       if (error instanceof Error) {
         setErrorMessage(error.message);
@@ -153,28 +278,26 @@ const App = () => {
   };
 
   return (
-    <main className="app-shell">
-      <section className="hero-panel">
-        <p className="eyebrow">Gen 3 MVP</p>
-        <h1 className="hero-title">LiveDex Tracker</h1>
-        <p className="hero-copy">
-          Upload a Gen 3 save file and inspect parsed Pokédex progress from the backend.
-        </p>
-      </section>
-
-      <section className="upload-panel">
-        <div className="panel-header">
-          <h2>Save Upload</h2>
-          <p>Local upload test page for Gen 3 parsing and Pokédex progress checks.</p>
+    <div className="dashboard-shell">
+      <header className="topbar">
+        <div className="topbar-brand">
+          <h1 className="topbar-title">LiveDex Tracker</h1>
+          <span className="topbar-game">
+            {uploadResponse?.upload.detectedGame || "Gen 3 Save"}
+          </span>
         </div>
 
-        <div className="upload-controls">
+        <div className="topbar-actions">
           <input
-            className="file-input"
+            className="file-input file-input-hidden"
+            id="save-file-input"
             type="file"
             accept=".sav,.srm"
             onChange={handleFileChange}
           />
+          <label className="upload-button topbar-upload-button" htmlFor="save-file-input">
+            {selectedFile ? selectedFile.name : "Choose Save File"}
+          </label>
           <button
             className="upload-button"
             type="button"
@@ -184,130 +307,246 @@ const App = () => {
             {isUploading ? "Uploading..." : "Upload Save"}
           </button>
         </div>
+      </header>
 
-        <div className="status-row">
-          <span className="status-label">Selected file</span>
-          <span className="status-value">
-            {selectedFile ? selectedFile.name : "None"}
-          </span>
-        </div>
+      <div className="dashboard-body">
+        <aside className="sidebar">
+          <div className="sidebar-card">
+            <div className="sidebar-trainer-name">Red</div>
+            <div className="sidebar-trainer-meta">Active Trainer</div>
+          </div>
 
-        {errorMessage ? (
-          <div className="message error-message">{errorMessage}</div>
-        ) : null}
+          <nav className="sidebar-nav">
+            <button
+              className={selectedFilter === "all" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+              type="button"
+              onClick={() => {
+                setSelectedFilter("all");
+              }}
+            >
+              All
+            </button>
+            <button
+              className={selectedFilter === "living" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+              type="button"
+              onClick={() => {
+                setSelectedFilter("living");
+              }}
+            >
+              Living
+            </button>
+            <button
+              className={selectedFilter === "missing" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+              type="button"
+              onClick={() => {
+                setSelectedFilter("missing");
+              }}
+            >
+              Missing
+            </button>
+            <button
+              className={selectedFilter === "seenOnly" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+              type="button"
+              onClick={() => {
+                setSelectedFilter("seenOnly");
+              }}
+            >
+              Seen Only
+            </button>
+            <button
+              className={selectedFilter === "caughtNotLiving" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+              type="button"
+              onClick={() => {
+                setSelectedFilter("caughtNotLiving");
+              }}
+            >
+              Caught Not Living
+            </button>
+          </nav>
 
-        {uploadResponse ? (
-          <div className="result-stack">
-            <div className="result-card">
-              <h3>Upload Summary</h3>
-              <dl className="summary-grid">
-                <div>
-                  <dt>Status</dt>
-                  <dd>{uploadResponse.upload.parseStatus}</dd>
-                </div>
-                <div>
-                  <dt>Detected Game</dt>
-                  <dd>{uploadResponse.upload.detectedGame || "None"}</dd>
-                </div>
-                <div>
-                  <dt>Filename</dt>
-                  <dd>{uploadResponse.upload.originalFilename}</dd>
-                </div>
-                <div>
-                  <dt>File Size</dt>
-                  <dd>{uploadResponse.upload.fileSizeBytes.toLocaleString()} bytes</dd>
-                </div>
-                <div>
-                  <dt>Parse Error</dt>
-                  <dd>{uploadResponse.upload.parseError || "None"}</dd>
-                </div>
-                <div>
-                  <dt>Upload ID</dt>
-                  <dd>{uploadResponse.upload.id}</dd>
-                </div>
-              </dl>
+          <div className="sidebar-footer">
+            <button className="sidebar-report-button" type="button">
+              Generate Report
+            </button>
+          </div>
+        </aside>
+
+        <main className="dashboard-main">
+          {errorMessage ? (
+            <div className="message error-message">{errorMessage}</div>
+          ) : null}
+
+          <section className="summary-strip">
+            <div className="summary-card summary-card-trainer">
+              <span className="summary-kicker">Trainer</span>
+              <strong className="summary-big">Red</strong>
+              <span className="summary-meta">
+                {uploadResponse?.upload.detectedGame || "Unknown Game"}
+              </span>
             </div>
 
-            <div className="stats-grid">
-              <div className="stat-card">
-                <span className="stat-label">Seen</span>
-                <strong className="stat-value">{parsedSummary.seenCount}</strong>
-              </div>
-              <div className="stat-card">
-                <span className="stat-label">Caught</span>
-                <strong className="stat-value">{parsedSummary.caughtCount}</strong>
-              </div>
-              <div className="stat-card">
-                <span className="stat-label">Living</span>
-                <strong className="stat-value">{parsedSummary.livingCount}</strong>
-              </div>
+            <div className="summary-card">
+              <span className="summary-kicker">Caught</span>
+              <strong className="summary-big">{dashboardSummary.caughtCount}</strong>
             </div>
 
-            <div className="result-card">
-              <h3>Seen Preview</h3>
-              {parsedSummary.seenPreview.length > 0 ? (
-                <div className="dex-chip-list">
-                  {parsedSummary.seenPreview.map((dexEntry) => {
-                    return (
-                      <span key={`seen-${dexEntry.dexNumber}`} className="dex-chip">
-                        #{dexEntry.dexNumber} {dexEntry.name}
+            <div className="summary-card">
+              <span className="summary-kicker">Living Dex</span>
+              <strong className="summary-big">{dashboardSummary.livingCount}</strong>
+            </div>
+
+            <div className="summary-card">
+              <span className="summary-kicker">Missing</span>
+              <strong className="summary-big">{dashboardSummary.missingCount}</strong>
+            </div>
+
+            <div className="summary-card">
+              <span className="summary-kicker">Seen Only</span>
+              <strong className="summary-big">{dashboardSummary.seenOnlyCount}</strong>
+            </div>
+          </section>
+
+          <section className="dex-header">
+            <div>
+              <p className="dex-header-kicker">Database View</p>
+              <h2 className="dex-header-title">
+                {selectedScope === "national" ? "National Dex" : "Regional Dex"}
+              </h2>
+            </div>
+
+            <div className="scope-toggle">
+              <button
+                className={selectedScope === "national" ? "scope-toggle-button active" : "scope-toggle-button"}
+                type="button"
+                onClick={() => {
+                  setSelectedScope("national");
+                }}
+              >
+                National
+              </button>
+              <button
+                className={selectedScope === "regional" ? "scope-toggle-button active" : "scope-toggle-button"}
+                type="button"
+                onClick={() => {
+                  setSelectedScope("regional");
+                }}
+              >
+                Regional
+              </button>
+            </div>
+          </section>
+
+          {uploadResponse ? (
+            <section className="dex-grid">
+              {filteredDexEntries.map((dexEntry) => {
+                const status = getDexEntryStatus(dexEntry);
+                const isSelected = selectedDexEntry?.dexNumber === dexEntry.dexNumber;
+
+                return (
+                  <button
+                    key={dexEntry.dexNumber}
+                    className={isSelected ? `${getDexEntryCardClassName(status)} selected` : getDexEntryCardClassName(status)}
+                    type="button"
+                    onClick={() => {
+                      setSelectedDexNumber(dexEntry.dexNumber);
+                    }}
+                  >
+                    <div className="dex-grid-card-top">
+                      <span className="dex-grid-number">
+                        #{dexEntry.dexNumber.toString().padStart(3, "0")}
                       </span>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="empty-copy">No seen entries found.</p>
-              )}
-            </div>
-
-            <div className="result-card">
-              <h3>Caught Preview</h3>
-              {parsedSummary.caughtPreview.length > 0 ? (
-                <div className="dex-chip-list">
-                  {parsedSummary.caughtPreview.map((dexEntry) => {
-                    return (
-                      <span
-                        key={`caught-${dexEntry.dexNumber}`}
-                        className="dex-chip dex-chip-caught"
-                      >
-                        #{dexEntry.dexNumber} {dexEntry.name}
+                      <span className="dex-grid-status-chip">
+                        {getDexEntryStatusLabel(status)}
                       </span>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="empty-copy">No caught entries found.</p>
-              )}
-            </div>
+                    </div>
 
-            <div className="result-card">
-              <h3>Living Preview</h3>
-              {parsedSummary.livingPreview.length > 0 ? (
-                <div className="dex-chip-list">
-                  {parsedSummary.livingPreview.map((dexEntry) => {
-                    return (
-                      <span
-                        key={`living-${dexEntry.dexNumber}`}
-                        className="dex-chip"
-                      >
-                        #{dexEntry.dexNumber} {dexEntry.name}
-                      </span>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="empty-copy">No living entries found.</p>
-              )}
-            </div>
+                    <div className="dex-grid-sprite">
+                      {status === "missing" ? "?" : dexEntry.name.slice(0, 1)}
+                    </div>
 
+                    <div className="dex-grid-name">
+                      {dexEntry.name}
+                    </div>
+                  </button>
+                );
+              })}
+            </section>
+          ) : (
+            <section className="empty-dashboard-state">
+              <h3>Upload a save file</h3>
+              <p>
+                Choose a Gen 3 save file to load your living dex progress, missing Pokémon,
+                and caught status.
+              </p>
+            </section>
+          )}
+
+          {uploadResponse ? (
             <details className="debug-details">
               <summary>Raw Debug Response</summary>
               <pre className="debug-block">{prettyResponse}</pre>
             </details>
+          ) : null}
+        </main>
+
+        <aside className="inspector">
+          <div className="inspector-hero">
+            <div className="inspector-avatar">
+              {selectedDexEntry ? selectedDexEntry.name.slice(0, 1) : "?"}
+            </div>
           </div>
-        ) : null}
-      </section>
-    </main>
+
+          <div className="inspector-body">
+            <p className="inspector-kicker">
+              {selectedDexEntry
+                ? `Dex No. ${selectedDexEntry.dexNumber.toString().padStart(3, "0")}`
+                : "No Selection"}
+            </p>
+
+            <h3 className="inspector-title">
+              {selectedDexEntry ? selectedDexEntry.name : "Choose a Pokémon"}
+            </h3>
+
+            <div className="inspector-status-list">
+              <div className="inspector-status-row">
+                <span>Living Dex</span>
+                <strong>{selectedDexEntry?.hasLivingEntry ? "Yes" : "No"}</strong>
+              </div>
+              <div className="inspector-status-row">
+                <span>Caught</span>
+                <strong>{selectedDexEntry?.caught ? "Yes" : "No"}</strong>
+              </div>
+              <div className="inspector-status-row">
+                <span>Seen</span>
+                <strong>{selectedDexEntry?.seen ? "Yes" : "No"}</strong>
+              </div>
+            </div>
+
+            <div className="inspector-analysis-card">
+              <p className="inspector-analysis-label">Collection Analysis</p>
+              <div className="inspector-progress-row">
+                <span>Total Completion</span>
+                <span>
+                  {dexEntries.length > 0
+                    ? `${Math.round((dashboardSummary.livingCount / dexEntries.length) * 100)}%`
+                    : "0%"}
+                </span>
+              </div>
+              <div className="inspector-progress-bar">
+                <div
+                  className="inspector-progress-fill"
+                  style={{
+                    width: dexEntries.length > 0
+                      ? `${Math.round((dashboardSummary.livingCount / dexEntries.length) * 100)}%`
+                      : "0%"
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
   );
 };
 
