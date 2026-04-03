@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { DashboardTopbar } from "../dashboard/DashboardTopbar";
+import { DashboardSummary } from "../dashboard/DashboardSummary";
 import type {
     DexDisplayStatus,
     DexEntry,
@@ -203,27 +205,13 @@ export const LoadedDashboardView = ({
 
     return (
         <>
-            <header className="topbar">
-                <div className="topbar-brand">
-                    <h1 className="topbar-title">LiveDex Tracker</h1>
-                    <span className="topbar-game">
-                        {uploadResponse.upload.detectedGame || "Gen 3 Save"}
-                    </span>
-                </div>
+            <DashboardTopbar
+                gameLabel={uploadResponse.upload.detectedGame || "Gen 3 Save"}
+                isUploading={isUploading}
+                onReset={onResetToEmptyState}
+            />
 
-                <div className="topbar-actions">
-                    <button
-                        className="upload-button"
-                        type="button"
-                        onClick={onResetToEmptyState}
-                        disabled={isUploading}
-                    >
-                        {isUploading ? "Loading..." : "Upload Another Save"}
-                    </button>
-                </div>
-            </header>
-
-            <div className="dashboard-body">
+            <div className="grid grid-cols-[260px_1fr_320px] gap-6 px-6 py-6">
                 <aside className="sidebar">
                     <div className="sidebar-card">
                         <div className="sidebar-trainer-name">{trainerName}</div>
@@ -292,47 +280,14 @@ export const LoadedDashboardView = ({
                         <div className="message error-message">{errorMessage}</div>
                     ) : null}
 
-                    <section className="summary-strip">
-                        <div className="summary-card summary-card-trainer">
-                            <span className="summary-kicker">Trainer</span>
-                            <strong className="summary-big">{trainerName}</strong>
-                            <span className="summary-meta">
-                                {uploadResponse.upload.detectedGame || "Unknown Game"}
-                            </span>
-                        </div>
-
-                        <div className="summary-card">
-                            <span className="summary-kicker">Caught</span>
-                            <strong className="summary-big">{dashboardSummary.caughtCount}</strong>
-                            <span className="summary-meta" aria-hidden="true">
-                                Placeholder
-                            </span>
-                        </div>
-
-                        <div className="summary-card">
-                            <span className="summary-kicker">Living Dex</span>
-                            <strong className="summary-big">{dashboardSummary.livingCount}</strong>
-                            <span className="summary-meta" aria-hidden="true">
-                                Placeholder
-                            </span>
-                        </div>
-
-                        <div className="summary-card">
-                            <span className="summary-kicker">Missing</span>
-                            <strong className="summary-big">{dashboardSummary.missingCount}</strong>
-                            <span className="summary-meta" aria-hidden="true">
-                                Placeholder
-                            </span>
-                        </div>
-
-                        <div className="summary-card">
-                            <span className="summary-kicker">Seen Only</span>
-                            <strong className="summary-big">{dashboardSummary.seenOnlyCount}</strong>
-                            <span className="summary-meta" aria-hidden="true">
-                                Placeholder
-                            </span>
-                        </div>
-                    </section>
+                    <DashboardSummary
+                        trainerName={trainerName}
+                        gameLabel={uploadResponse.upload.detectedGame || "Unknown Game"}
+                        caughtCount={dashboardSummary.caughtCount}
+                        livingCount={dashboardSummary.livingCount}
+                        missingCount={dashboardSummary.missingCount}
+                        seenOnlyCount={dashboardSummary.seenOnlyCount}
+                    />
 
                     <section className="dex-header">
                         <div>

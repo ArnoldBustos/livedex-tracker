@@ -57,7 +57,7 @@ const App = () => {
 
   if (!uploadResponse || !dexResponse) {
     return (
-      <div className="dashboard-shell">
+      <div className="min-h-screen bg-[#f6f5dc] text-[#38392a]">
         <EmptyStateView
           isUploading={isUploading}
           errorMessage={errorMessage}
@@ -70,7 +70,7 @@ const App = () => {
   }
 
   return (
-    <div className="dashboard-shell">
+    <div className="min-h-screen bg-[#f6f5dc] text-[#38392a]">
       <LoadedDashboardView
         uploadResponse={uploadResponse}
         dexResponse={dexResponse}
