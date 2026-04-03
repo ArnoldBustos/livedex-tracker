@@ -4,6 +4,14 @@ import { createUpload } from "./uploads.service";
 
 export const uploadSaveFile = async (request: Request, response: Response) => {
     const uploadedFile = request.file;
+    const saveProfileName =
+        typeof request.body.saveProfileName === "string"
+            ? request.body.saveProfileName.trim()
+            : "";
+    const saveProfileId =
+        typeof request.body.saveProfileId === "string"
+            ? request.body.saveProfileId.trim()
+            : "";
 
     if (!uploadedFile) {
         response.status(400).json({
@@ -30,7 +38,9 @@ export const uploadSaveFile = async (request: Request, response: Response) => {
 
     const uploadResult = await createUpload({
         userId: devUser.id,
-        file: uploadedFile
+        file: uploadedFile,
+        saveProfileName: saveProfileName || undefined,
+        saveProfileId: saveProfileId || undefined
     });
 
     response.status(201).json(uploadResult);

@@ -29,18 +29,34 @@ enum SupportedGame {
 }
 
 model User {
-  id          String       @id @default(cuid())
-  email       String       @unique
-  username    String       @unique
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id           String        @id @default(cuid())
+  email        String        @unique
+  username     String        @unique
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  saveProfiles SaveProfile[]
+  saveUploads  SaveUpload[]
+}
+
+model SaveProfile {
+  id          String                @id @default(cuid())
+  userId      String
+  name        String
+  game        SupportedGame?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   saveUploads SaveUpload[]
-  dexEntries  UserDexEntry[]
+  dexEntries  SaveProfileDexEntry[]
+
+  @@unique([userId, name])
 }
 
 model SaveUpload {
   id               String          @id @default(cuid())
   userId           String
+  saveProfileId    String
   originalFilename String
   storageProvider  StorageProvider
   storageKey       String
@@ -52,29 +68,30 @@ model SaveUpload {
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  saveProfile SaveProfile @relation(fields: [saveProfileId], references: [id], onDelete: Cascade)
 }
 
 model PokemonSpecies {
-  id          Int            @id
-  dexNumber   Int            @unique
+  id          Int                   @id
+  dexNumber   Int                   @unique
   name        String
   generation  Int
-  isAvailable Boolean        @default(true)
-  dexEntries  UserDexEntry[]
+  isAvailable Boolean               @default(true)
+  dexEntries  SaveProfileDexEntry[]
 }
 
-model UserDexEntry {
+model SaveProfileDexEntry {
   id               String   @id @default(cuid())
-  userId           String
+  saveProfileId    String
   pokemonSpeciesId Int
   seen             Boolean  @default(false)
   caught           Boolean  @default(false)
   hasLivingEntry   Boolean  @default(false)
   updatedAt        DateTime @updatedAt
 
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  saveProfile    SaveProfile    @relation(fields: [saveProfileId], references: [id], onDelete: Cascade)
   pokemonSpecies PokemonSpecies @relation(fields: [pokemonSpeciesId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, pokemonSpeciesId])
+  @@unique([saveProfileId, pokemonSpeciesId])
 }

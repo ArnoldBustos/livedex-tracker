@@ -1,20 +1,20 @@
 import prismaClient from "../../lib/prisma";
 
-type SyncUserDexFromParseParams = {
-    userId: string;
+type SyncSaveProfileDexFromParseParams = {
+    saveProfileId: string;
     seenNationalDexNumbers: number[];
     caughtNationalDexNumbers: number[];
     livingNationalDexNumbers: number[];
 };
 
-export const syncUserDexFromParse = async ({
-    userId,
+export const syncSaveProfileDexFromParse = async ({
+    saveProfileId,
     seenNationalDexNumbers,
     caughtNationalDexNumbers,
     livingNationalDexNumbers
-}: SyncUserDexFromParseParams) => {
-    console.log("syncUserDexFromParse input", {
-        userId,
+}: SyncSaveProfileDexFromParseParams) => {
+    console.log("syncSaveProfileDexFromParse input", {
+        saveProfileId,
         seenNationalDexNumbers,
         caughtNationalDexNumbers,
         livingNationalDexNumbers
@@ -28,18 +28,14 @@ export const syncUserDexFromParse = async ({
         ])
     );
 
-    console.log("syncUserDexFromParse allDexNumbers", allDexNumbers);
-
     const seenDexNumberSet = new Set(seenNationalDexNumbers);
     const caughtDexNumberSet = new Set(caughtNationalDexNumbers);
     const livingDexNumberSet = new Set(livingNationalDexNumbers);
 
     if (allDexNumbers.length === 0) {
-        console.log("syncUserDexFromParse skipped because allDexNumbers is empty");
-
-        await prismaClient.userDexEntry.updateMany({
+        await prismaClient.saveProfileDexEntry.updateMany({
             where: {
-                userId,
+                saveProfileId,
                 hasLivingEntry: true
             },
             data: {
@@ -64,17 +60,15 @@ export const syncUserDexFromParse = async ({
         }
     });
 
-    console.log("syncUserDexFromParse matchingSpecies", matchingSpecies);
-
     for (const pokemonSpecies of matchingSpecies) {
         const isSeen = seenDexNumberSet.has(pokemonSpecies.dexNumber);
         const isCaught = caughtDexNumberSet.has(pokemonSpecies.dexNumber);
         const hasLivingEntry = livingDexNumberSet.has(pokemonSpecies.dexNumber);
 
-        await prismaClient.userDexEntry.upsert({
+        await prismaClient.saveProfileDexEntry.upsert({
             where: {
-                userId_pokemonSpeciesId: {
-                    userId,
+                saveProfileId_pokemonSpeciesId: {
+                    saveProfileId,
                     pokemonSpeciesId: pokemonSpecies.id
                 }
             },
@@ -84,7 +78,7 @@ export const syncUserDexFromParse = async ({
                 hasLivingEntry
             },
             create: {
-                userId,
+                saveProfileId,
                 pokemonSpeciesId: pokemonSpecies.id,
                 seen: isSeen,
                 caught: isCaught,
@@ -101,9 +95,9 @@ export const syncUserDexFromParse = async ({
             return pokemonSpecies.id;
         });
 
-    await prismaClient.userDexEntry.updateMany({
+    await prismaClient.saveProfileDexEntry.updateMany({
         where: {
-            userId,
+            saveProfileId,
             hasLivingEntry: true,
             pokemonSpeciesId: {
                 notIn: livingPokemonSpeciesIds
@@ -119,10 +113,10 @@ export const syncUserDexFromParse = async ({
     };
 };
 
-export const getUserDex = async (userId: string) => {
-    const dexEntries = await prismaClient.userDexEntry.findMany({
+export const getSaveProfileDex = async (saveProfileId: string) => {
+    const dexEntries = await prismaClient.saveProfileDexEntry.findMany({
         where: {
-            userId
+            saveProfileId
         },
         include: {
             pokemonSpecies: {

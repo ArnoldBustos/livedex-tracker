@@ -1,16 +1,95 @@
 import prismaClient from "../../lib/prisma";
-import { syncUserDexFromParse } from "../dex/dex.service";
+import { syncSaveProfileDexFromParse } from "../dex/dex.service";
 import { parseUploadedSave } from "../parser/parser.service";
 import { getStorageProvider } from "../storage/storage.service";
 
 type CreateUploadParams = {
     userId: string;
     file: Express.Multer.File;
+    saveProfileName?: string;
+    saveProfileId?: string;
+};
+
+const resolveSaveProfile = async ({
+    userId,
+    saveProfileId,
+    saveProfileName,
+    detectedGame
+}: {
+    userId: string;
+    saveProfileId?: string;
+    saveProfileName?: string;
+    detectedGame?: "RUBY" | "SAPPHIRE" | "EMERALD" | "FIRERED" | "LEAFGREEN";
+}) => {
+    if (saveProfileId) {
+        const existingProfile = await prismaClient.saveProfile.findFirst({
+            where: {
+                id: saveProfileId,
+                userId
+            }
+        });
+
+        if (!existingProfile) {
+            throw new Error("Save profile not found");
+        }
+
+        if (!existingProfile.game && detectedGame) {
+            return prismaClient.saveProfile.update({
+                where: {
+                    id: existingProfile.id
+                },
+                data: {
+                    game: detectedGame
+                }
+            });
+        }
+
+        return existingProfile;
+    }
+
+    const nextProfileName =
+        saveProfileName && saveProfileName.trim().length > 0
+            ? saveProfileName.trim()
+            : detectedGame
+                ? `${detectedGame} Playthrough`
+                : "Untitled Save Profile";
+
+    const existingNamedProfile = await prismaClient.saveProfile.findFirst({
+        where: {
+            userId,
+            name: nextProfileName
+        }
+    });
+
+    if (existingNamedProfile) {
+        if (!existingNamedProfile.game && detectedGame) {
+            return prismaClient.saveProfile.update({
+                where: {
+                    id: existingNamedProfile.id
+                },
+                data: {
+                    game: detectedGame
+                }
+            });
+        }
+
+        return existingNamedProfile;
+    }
+
+    return prismaClient.saveProfile.create({
+        data: {
+            userId,
+            name: nextProfileName,
+            game: detectedGame
+        }
+    });
 };
 
 export const createUpload = async ({
     userId,
-    file
+    file,
+    saveProfileName,
+    saveProfileId
 }: CreateUploadParams) => {
     const storageProvider = getStorageProvider();
 
@@ -24,24 +103,36 @@ export const createUpload = async ({
         console.log("createUpload input", {
             userId,
             originalFilename: file.originalname,
-            fileSizeBytes: file.size
+            fileSizeBytes: file.size,
+            saveProfileId,
+            saveProfileName
+        });
+
+        const parseResult = await parseUploadedSave(file.buffer);
+
+        const saveProfile = await resolveSaveProfile({
+            userId,
+            saveProfileId,
+            saveProfileName,
+            detectedGame: parseResult.detectedGame
         });
 
         const createdUpload = await prismaClient.saveUpload.create({
             data: {
                 userId,
+                saveProfileId: saveProfile.id,
                 originalFilename: file.originalname,
                 storageProvider: "LOCAL",
                 storageKey: storedFile.storageKey,
                 fileUrl: storedFile.fileUrl,
-                fileSizeBytes: file.size
+                fileSizeBytes: file.size,
+                detectedGame: parseResult.detectedGame,
+                parseStatus: "PROCESSING"
             }
         });
 
-        const parseResult = await parseUploadedSave(file.buffer);
-
-        await syncUserDexFromParse({
-            userId,
+        await syncSaveProfileDexFromParse({
+            saveProfileId: saveProfile.id,
             seenNationalDexNumbers: parseResult.pokedexFlags.seenNationalDexNumbers,
             caughtNationalDexNumbers: parseResult.pokedexFlags.ownedNationalDexNumbers,
             livingNationalDexNumbers: parseResult.debug.livingNationalDexNumbers
@@ -60,6 +151,7 @@ export const createUpload = async ({
 
         return {
             upload: updatedUpload,
+            saveProfile,
             trainerInfo: parseResult.trainerInfo,
             debug: parseResult.debug
         };

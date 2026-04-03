@@ -1,21 +1,21 @@
 import type { Request, Response, NextFunction } from "express";
-import { getUserDex } from "./dex.service";
+import { getSaveProfileDex } from "./dex.service";
 
-export const getDexByUserId = async (
+export const getDexBySaveProfileId = async (
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
     try {
-        const { userId } = req.params;
+        const { saveProfileId } = req.params;
 
-        if (typeof userId !== "string") {
+        if (typeof saveProfileId !== "string") {
             return res.status(400).json({
-                error: "Invalid userId"
+                error: "Invalid saveProfileId"
             });
         }
 
-        const dexData = await getUserDex(userId);
+        const dexData = await getSaveProfileDex(saveProfileId);
 
         return res.status(200).json(dexData);
     } catch (error) {

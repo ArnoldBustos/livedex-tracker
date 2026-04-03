@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { getDexByUserId } from "./dex.controller";
+import { getDexBySaveProfileId } from "./dex.controller";
 
 const dexRouter = Router();
 
-dexRouter.get("/:userId", getDexByUserId);
+dexRouter.get("/profile/:saveProfileId", getDexBySaveProfileId);
 
 export default dexRouter;

@@ -1,14 +1,17 @@
 import prismaClient from "../lib/prisma";
 
 const checkDex = async () => {
-    const dexEntries = await prismaClient.userDexEntry.findMany({
+    const dexEntries = await prismaClient.saveProfileDexEntry.findMany({
         where: {
-            user: {
-                email: "dev@example.com"
+            saveProfile: {
+                user: {
+                    email: "dev@example.com"
+                }
             }
         },
         include: {
-            pokemonSpecies: true
+            pokemonSpecies: true,
+            saveProfile: true
         },
         orderBy: {
             pokemonSpecies: {
@@ -17,8 +20,9 @@ const checkDex = async () => {
         }
     });
 
-    const formattedEntries = dexEntries.map((dexEntry) => {
+    const formattedEntries = dexEntries.map((dexEntry: typeof dexEntries[number]) => {
         return {
+            saveProfileName: dexEntry.saveProfile.name,
             dexNumber: dexEntry.pokemonSpecies.dexNumber,
             name: dexEntry.pokemonSpecies.name,
             seen: dexEntry.seen,
@@ -32,7 +36,7 @@ const checkDex = async () => {
     console.log("total entries:", formattedEntries.length);
     console.log(
         "living entries:",
-        formattedEntries.filter((dexEntry) => dexEntry.hasLivingEntry).length
+        formattedEntries.filter((dexEntry: typeof formattedEntries[number]) => dexEntry.hasLivingEntry).length
     );
 };
 

@@ -1,10 +1,12 @@
 import prismaClient from "../lib/prisma";
 
 const clearDex = async () => {
-    const deletedEntries = await prismaClient.userDexEntry.deleteMany({
+    const deletedEntries = await prismaClient.saveProfileDexEntry.deleteMany({
         where: {
-            user: {
-                email: "dev@example.com"
+            saveProfile: {
+                user: {
+                    email: "dev@example.com"
+                }
             }
         }
     });
