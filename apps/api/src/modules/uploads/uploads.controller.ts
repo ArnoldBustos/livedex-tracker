@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import prismaClient from "../../lib/prisma";
 import {
     createUpload,
+    deleteSaveProfile,
     getSaveProfileDetails,
     listSaveProfiles
 } from "./uploads.service";
@@ -34,6 +35,42 @@ export const getSaveProfiles = async (_request: Request, response: Response) => 
     });
 
     response.status(200).json(saveProfiles);
+};
+
+export const deleteSaveProfileById = async (request: Request, response: Response) => {
+    const devUserId = await getDevUserId();
+
+    if (!devUserId) {
+        response.status(500).json({
+            error: "Dev user not found. Run the seed script first."
+        });
+        return;
+    }
+
+    const saveProfileId =
+        typeof request.params.saveProfileId === "string"
+            ? request.params.saveProfileId.trim()
+            : "";
+
+    if (!saveProfileId) {
+        response.status(400).json({
+            error: "Save profile id is required"
+        });
+        return;
+    }
+
+    try {
+        const deleteResult = await deleteSaveProfile({
+            userId: devUserId,
+            saveProfileId
+        });
+
+        response.status(200).json(deleteResult);
+    } catch (error) {
+        response.status(404).json({
+            error: error instanceof Error ? error.message : "Save profile not found"
+        });
+    }
 };
 
 export const getSaveProfileById = async (request: Request, response: Response) => {

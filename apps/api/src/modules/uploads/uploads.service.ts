@@ -19,6 +19,11 @@ type GetSaveProfileDetailsParams = {
     saveProfileId: string;
 };
 
+type DeleteSaveProfileParams = {
+    userId: string;
+    saveProfileId: string;
+};
+
 const resolveSaveProfile = async ({
     userId,
     saveProfileId,
@@ -140,8 +145,68 @@ export const getSaveProfileDetails = async ({
     return {
         upload: latestUpload,
         saveProfile,
-        trainerInfo: undefined,
+        trainerInfo:
+            latestUpload.trainerName || latestUpload.trainerGender
+                ? {
+                    name: latestUpload.trainerName || "Unknown Trainer",
+                    gender: latestUpload.trainerGender || "Unknown"
+                }
+                : undefined,
         debug: undefined
+    };
+};
+
+export const deleteSaveProfile = async ({
+    userId,
+    saveProfileId
+}: DeleteSaveProfileParams) => {
+    const saveProfile = await prismaClient.saveProfile.findFirst({
+        where: {
+            id: saveProfileId,
+            userId
+        }
+    });
+
+    if (!saveProfile) {
+        throw new Error("Save profile not found");
+    }
+
+    const uploads = await prismaClient.saveUpload.findMany({
+        where: {
+            saveProfileId: saveProfile.id,
+            userId
+        },
+        select: {
+            id: true,
+            storageKey: true
+        }
+    });
+
+    const storageProvider = getStorageProvider();
+
+    await Promise.all(
+        uploads.map(async (upload) => {
+            try {
+                await storageProvider.deleteFile(upload.storageKey);
+            } catch (error) {
+                console.error("Failed to delete stored upload file", {
+                    saveProfileId,
+                    uploadId: upload.id,
+                    storageKey: upload.storageKey,
+                    error
+                });
+            }
+        })
+    );
+
+    await prismaClient.saveProfile.delete({
+        where: {
+            id: saveProfile.id
+        }
+    });
+
+    return {
+        deletedSaveProfileId: saveProfile.id
     };
 };
 
@@ -205,7 +270,9 @@ export const createUpload = async ({
             data: {
                 parseStatus: "COMPLETED",
                 detectedGame: parseResult.detectedGame,
-                parseError: null
+                parseError: null,
+                trainerName: parseResult.trainerInfo.name,
+                trainerGender: parseResult.trainerInfo.gender
             }
         });
 
