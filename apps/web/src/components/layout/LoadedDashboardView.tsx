@@ -59,22 +59,6 @@ const getDexEntryStatusLabel = (status: DexDisplayStatus) => {
     return "Missing";
 };
 
-const getDexEntryCardClassName = (status: DexDisplayStatus) => {
-    if (status === "living") {
-        return "dex-grid-card dex-grid-card-living";
-    }
-
-    if (status === "caught") {
-        return "dex-grid-card dex-grid-card-caught";
-    }
-
-    if (status === "seen") {
-        return "dex-grid-card dex-grid-card-seen";
-    }
-
-    return "dex-grid-card dex-grid-card-missing";
-};
-
 const getPokemonSpriteUrl = (dexNumber: number) => {
     return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${dexNumber}.png`;
 };
@@ -216,9 +200,9 @@ export const LoadedDashboardView = ({
                 onReset={onResetToEmptyState}
             />
 
-            <div className="grid grid-cols-[260px_1fr_320px] gap-6 px-6 py-6">
-                <aside className="sidebar">
-                    <div className="sidebar-card">
+            <div className="grid min-h-[calc(100vh-84px)] grid-cols-[260px_minmax(0,1fr)_320px] gap-6 bg-[#f3f4f6] px-6 py-6">
+                <aside className="flex flex-col gap-4 rounded-2xl bg-white p-4 shadow-sm">
+                    <div className="rounded-xl bg-gray-50 p-4">
                         <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#656554]">
                             Profiles
                         </div>
@@ -258,14 +242,18 @@ export const LoadedDashboardView = ({
                         </div>
                     </div>
 
-                    <div className="sidebar-card">
+                    <div className="rounded-xl bg-gray-50 p-4">
                         <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#656554]">
                             Filters
                         </div>
 
-                        <nav className="mt-3 sidebar-nav">
+                        <nav className="mt-3 flex flex-col gap-2">
                             <button
-                                className={selectedFilter === "all" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+                                className={
+                                    selectedFilter === "all"
+                                        ? "flex w-full items-center rounded-lg bg-green-100 px-4 py-3 text-left text-sm font-semibold text-green-800"
+                                        : "flex w-full items-center rounded-lg px-4 py-3 text-left text-sm font-semibold text-gray-600 hover:bg-gray-100"
+                                }
                                 type="button"
                                 onClick={() => {
                                     onChangeFilter("all");
@@ -274,7 +262,11 @@ export const LoadedDashboardView = ({
                                 All
                             </button>
                             <button
-                                className={selectedFilter === "living" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+                                className={
+                                    selectedFilter === "living"
+                                        ? "flex w-full items-center rounded-lg bg-green-100 px-4 py-3 text-left text-sm font-semibold text-green-800"
+                                        : "flex w-full items-center rounded-lg px-4 py-3 text-left text-sm font-semibold text-gray-600 hover:bg-gray-100"
+                                }
                                 type="button"
                                 onClick={() => {
                                     onChangeFilter("living");
@@ -283,7 +275,11 @@ export const LoadedDashboardView = ({
                                 Living
                             </button>
                             <button
-                                className={selectedFilter === "missing" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+                                className={
+                                    selectedFilter === "missing"
+                                        ? "flex w-full items-center rounded-lg bg-green-100 px-4 py-3 text-left text-sm font-semibold text-green-800"
+                                        : "flex w-full items-center rounded-lg px-4 py-3 text-left text-sm font-semibold text-gray-600 hover:bg-gray-100"
+                                }
                                 type="button"
                                 onClick={() => {
                                     onChangeFilter("missing");
@@ -292,7 +288,11 @@ export const LoadedDashboardView = ({
                                 Missing
                             </button>
                             <button
-                                className={selectedFilter === "seenOnly" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+                                className={
+                                    selectedFilter === "seenOnly"
+                                        ? "flex w-full items-center rounded-lg bg-green-100 px-4 py-3 text-left text-sm font-semibold text-green-800"
+                                        : "flex w-full items-center rounded-lg px-4 py-3 text-left text-sm font-semibold text-gray-600 hover:bg-gray-100"
+                                }
                                 type="button"
                                 onClick={() => {
                                     onChangeFilter("seenOnly");
@@ -301,7 +301,11 @@ export const LoadedDashboardView = ({
                                 Seen Only
                             </button>
                             <button
-                                className={selectedFilter === "caughtNotLiving" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+                                className={
+                                    selectedFilter === "caughtNotLiving"
+                                        ? "flex w-full items-center rounded-lg bg-green-100 px-4 py-3 text-left text-sm font-semibold text-green-800"
+                                        : "flex w-full items-center rounded-lg px-4 py-3 text-left text-sm font-semibold text-gray-600 hover:bg-gray-100"
+                                }
                                 type="button"
                                 onClick={() => {
                                     onChangeFilter("caughtNotLiving");
@@ -312,14 +316,17 @@ export const LoadedDashboardView = ({
                         </nav>
                     </div>
 
-                    <div className="sidebar-footer">
-                        <button className="sidebar-report-button" type="button">
+                    <div className="mt-auto">
+                        <button
+                            className="w-full rounded-xl bg-green-700 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-green-800"
+                            type="button"
+                        >
                             Generate Report
                         </button>
                     </div>
                 </aside>
 
-                <main className="dashboard-main">
+                <main className="flex flex-col gap-6">
                     {errorMessage ? (
                         <div className="message error-message">{errorMessage}</div>
                     ) : null}
@@ -334,17 +341,23 @@ export const LoadedDashboardView = ({
                         seenOnlyCount={dashboardSummary.seenOnlyCount}
                     />
 
-                    <section className="dex-header">
+                    <section className="flex items-end justify-between gap-4">
                         <div>
-                            <p className="dex-header-kicker">Database View</p>
-                            <h2 className="dex-header-title">
+                            <p className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
+                                Database View
+                            </p>
+                            <h2 className="text-4xl font-extrabold tracking-tight text-gray-900">
                                 {selectedScope === "national" ? "National Dex" : "Regional Dex"}
                             </h2>
                         </div>
 
-                        <div className="scope-toggle">
+                        <div className="flex gap-2 rounded-xl bg-gray-100 p-1">
                             <button
-                                className={selectedScope === "national" ? "scope-toggle-button active" : "scope-toggle-button"}
+                                className={
+                                    selectedScope === "national"
+                                        ? "rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow"
+                                        : "rounded-lg px-4 py-2 text-sm font-semibold text-gray-600"
+                                }
                                 type="button"
                                 onClick={() => {
                                     onChangeScope("national");
@@ -353,7 +366,11 @@ export const LoadedDashboardView = ({
                                 National
                             </button>
                             <button
-                                className={selectedScope === "regional" ? "scope-toggle-button active" : "scope-toggle-button"}
+                                className={
+                                    selectedScope === "regional"
+                                        ? "rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow"
+                                        : "rounded-lg px-4 py-2 text-sm font-semibold text-gray-600"
+                                }
                                 type="button"
                                 onClick={() => {
                                     onChangeScope("regional");
@@ -364,7 +381,7 @@ export const LoadedDashboardView = ({
                         </div>
                     </section>
 
-                    <section className="dex-grid">
+                    <section className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-4">
                         {filteredDexEntries.map((dexEntry) => {
                             const status = getDexEntryStatus(dexEntry);
                             const isSelected = selectedDexEntry
@@ -374,34 +391,49 @@ export const LoadedDashboardView = ({
                             return (
                                 <button
                                     key={dexEntry.dexNumber}
-                                    className={isSelected ? `${getDexEntryCardClassName(status)} selected` : getDexEntryCardClassName(status)}
+                                    className={
+                                        isSelected
+                                            ? "flex flex-col rounded-xl border-2 border-green-500 bg-white p-3 shadow-sm"
+                                            : "flex flex-col rounded-xl bg-white p-3 shadow-sm hover:shadow-md"
+                                    }
                                     type="button"
                                     onClick={() => {
                                         onSelectDexNumber(dexEntry.dexNumber);
                                     }}
                                 >
-                                    <div className="dex-grid-card-top">
-                                        <span className="dex-grid-number">
+                                    <div className="mb-2 flex items-start justify-between gap-2">
+                                        <span className="text-[10px] font-extrabold tracking-[0.04em] text-gray-400">
                                             #{dexEntry.dexNumber.toString().padStart(3, "0")}
                                         </span>
-                                        <span className="dex-grid-status-chip">
+
+                                        <span
+                                            className={
+                                                status === "living"
+                                                    ? "rounded-full bg-green-100 px-2 py-1 text-[10px] font-bold uppercase text-green-700"
+                                                    : status === "caught"
+                                                        ? "rounded-full bg-yellow-100 px-2 py-1 text-[10px] font-bold uppercase text-yellow-700"
+                                                        : status === "seen"
+                                                            ? "rounded-full bg-purple-100 px-2 py-1 text-[10px] font-bold uppercase text-purple-700"
+                                                            : "rounded-full bg-gray-100 px-2 py-1 text-[10px] font-bold uppercase text-gray-500"
+                                            }
+                                        >
                                             {getDexEntryStatusLabel(status)}
                                         </span>
                                     </div>
 
-                                    <div className="dex-grid-sprite">
+                                    <div className="flex h-[88px] items-center justify-center overflow-hidden">
                                         {status === "missing" ? (
-                                            "?"
+                                            <span className="text-2xl font-bold text-gray-300">?</span>
                                         ) : (
                                             <img
                                                 src={getPokemonSpriteUrl(dexEntry.dexNumber)}
                                                 alt={dexEntry.name}
-                                                className="dex-grid-sprite-image"
+                                                className="max-h-[72px] max-w-[72px] object-contain"
                                             />
                                         )}
                                     </div>
 
-                                    <div className="dex-grid-name">
+                                    <div className="mt-2 text-sm font-extrabold tracking-[0.01em] text-gray-900">
                                         {dexEntry.name}
                                     </div>
                                 </button>
@@ -415,56 +447,74 @@ export const LoadedDashboardView = ({
                     </details>
                 </main>
 
-                <aside className="inspector">
-                    <div className="inspector-hero">
-                        <div className="inspector-avatar">
+                <aside className="flex flex-col gap-4 rounded-2xl bg-white p-4 shadow-sm">
+                    <div className="flex items-center justify-center rounded-xl bg-gray-100 p-4">
+                        <div className="flex h-32 w-32 items-center justify-center rounded-full bg-white shadow">
                             {selectedDexEntry ? (
                                 <img
                                     src={getPokemonArtworkUrl(selectedDexEntry.dexNumber)}
                                     alt={selectedDexEntry.name}
-                                    className="inspector-avatar-image"
+                                    className="max-h-full max-w-full object-contain"
                                 />
                             ) : (
-                                "?"
+                                <span className="text-2xl font-bold text-gray-300">?</span>
                             )}
                         </div>
                     </div>
 
-                    <div className="inspector-body">
-                        <p className="inspector-kicker">
+                    <div className="grid gap-4">
+                        <p className="text-center text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
                             {selectedDexEntry
                                 ? `Dex No. ${selectedDexEntry.dexNumber.toString().padStart(3, "0")}`
                                 : "No Selection"}
                         </p>
 
-                        <h3 className="inspector-title">
+                        <h3 className="text-center text-3xl font-extrabold tracking-tight text-gray-900">
                             {selectedDexEntry ? selectedDexEntry.name : "Choose a Pokémon"}
                         </h3>
 
-                        <div className="inspector-status-list">
-                            <div className="inspector-status-row">
-                                <span>Living Dex</span>
-                                <strong>{selectedDexEntry && selectedDexEntry.hasLivingEntry ? "Yes" : "No"}</strong>
+                        <div className="grid gap-3">
+                            <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+                                <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
+                                    Living Dex
+                                </span>
+                                <strong className="text-sm font-extrabold uppercase text-gray-900">
+                                    {selectedDexEntry && selectedDexEntry.hasLivingEntry ? "Yes" : "No"}
+                                </strong>
                             </div>
-                            <div className="inspector-status-row">
-                                <span>Caught</span>
-                                <strong>{selectedDexEntry && selectedDexEntry.caught ? "Yes" : "No"}</strong>
+
+                            <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+                                <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
+                                    Caught
+                                </span>
+                                <strong className="text-sm font-extrabold uppercase text-gray-900">
+                                    {selectedDexEntry && selectedDexEntry.caught ? "Yes" : "No"}
+                                </strong>
                             </div>
-                            <div className="inspector-status-row">
-                                <span>Seen</span>
-                                <strong>{selectedDexEntry && selectedDexEntry.seen ? "Yes" : "No"}</strong>
+
+                            <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+                                <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
+                                    Seen
+                                </span>
+                                <strong className="text-sm font-extrabold uppercase text-gray-900">
+                                    {selectedDexEntry && selectedDexEntry.seen ? "Yes" : "No"}
+                                </strong>
                             </div>
                         </div>
 
-                        <div className="inspector-analysis-card">
-                            <p className="inspector-analysis-label">Collection Analysis</p>
-                            <div className="inspector-progress-row">
+                        <div className="rounded-xl bg-gray-50 p-4">
+                            <p className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.12em] text-gray-500">
+                                Collection Analysis
+                            </p>
+
+                            <div className="mb-2 flex items-center justify-between text-sm font-semibold text-gray-700">
                                 <span>Total Completion</span>
                                 <span>{completionPercentage}%</span>
                             </div>
-                            <div className="inspector-progress-bar">
+
+                            <div className="h-2 overflow-hidden rounded-full bg-gray-200">
                                 <div
-                                    className="inspector-progress-fill"
+                                    className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-400"
                                     style={{
                                         width: `${completionPercentage}%`
                                     }}
@@ -473,7 +523,7 @@ export const LoadedDashboardView = ({
                         </div>
                     </div>
                 </aside>
-            </div>
+            </div >
         </>
     );
 };
