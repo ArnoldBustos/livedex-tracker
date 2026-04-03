@@ -26,6 +26,7 @@ type LoadedDashboardViewProps = {
     onSelectDexNumber: (nextDexNumber: number) => void;
     onSelectSaveProfile: (saveProfileId: string) => void;
     onResetToEmptyState: () => void;
+    onUpdateSave: (file: File) => void;
 };
 
 const getDexEntryStatus = (dexEntry: DexEntry): DexDisplayStatus => {
@@ -82,7 +83,8 @@ export const LoadedDashboardView = ({
     onChangeScope,
     onSelectDexNumber,
     onSelectSaveProfile,
-    onResetToEmptyState
+    onResetToEmptyState,
+    onUpdateSave
 }: LoadedDashboardViewProps) => {
     const trainerName =
         uploadResponse.trainerInfo && uploadResponse.trainerInfo.name
@@ -200,6 +202,7 @@ export const LoadedDashboardView = ({
                 gameLabel={uploadResponse.upload.detectedGame || "Gen 3 Save"}
                 isUploading={isUploading}
                 onReset={onResetToEmptyState}
+                onUpdateSave={onUpdateSave}
             />
 
             <div className="grid min-h-[calc(100vh-84px)] grid-cols-[260px_minmax(0,1fr)_320px] gap-6 bg-[#f3f4f6] px-6 py-6">

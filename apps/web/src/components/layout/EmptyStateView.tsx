@@ -20,9 +20,8 @@ export const EmptyStateView = ({
     onUploadError
 }: EmptyStateViewProps) => {
     return (
-        <main className="relative min-h-screen overflow-hidden bg-[#ffffd3] px-6 py-10">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(255,152,0,0.08),transparent_24%),radial-gradient(circle_at_80%_20%,rgba(249,229,52,0.10),transparent_24%),radial-gradient(circle_at_50%_80%,rgba(255,147,133,0.10),transparent_24%)]" />
-            <div className="relative flex min-h-[calc(100vh-80px)] items-center justify-center">
+        <main className="min-h-screen bg-[#f3f4f6] px-6 py-8">
+            <div className="mx-auto flex min-h-[calc(100vh-64px)] max-w-[1400px] items-center justify-center">
                 <UploadHero
                     isUploading={isUploading}
                     errorMessage={errorMessage}

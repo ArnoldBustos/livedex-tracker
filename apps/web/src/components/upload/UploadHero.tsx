@@ -14,6 +14,20 @@ type UploadHeroProps = {
 
 const API_BASE_URL = "http://localhost:4000";
 
+const getIsSupportedSaveFile = (file: File) => {
+    const lowercaseFileName = file.name.toLowerCase();
+
+    if (lowercaseFileName.endsWith(".sav")) {
+        return true;
+    }
+
+    if (lowercaseFileName.endsWith(".srm")) {
+        return true;
+    }
+
+    return false;
+};
+
 export const UploadHero = ({
     isUploading,
     errorMessage,
@@ -23,29 +37,20 @@ export const UploadHero = ({
 }: UploadHeroProps) => {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [saveProfileName, setSaveProfileName] = useState("");
+    const [isDragging, setIsDragging] = useState(false);
 
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const nextFiles = event.target.files;
-
-        if (!nextFiles || nextFiles.length === 0) {
-            setSelectedFile(null);
+    const uploadFile = async (file: File) => {
+        if (!getIsSupportedSaveFile(file)) {
+            onUploadError("Only .sav and .srm files are supported.");
             return;
         }
 
-        setSelectedFile(nextFiles[0]);
-    };
-
-    const handleUpload = async () => {
-        if (!selectedFile) {
-            onUploadError("Choose a .sav or .srm file first.");
-            return;
-        }
-
+        setSelectedFile(file);
         onUploadStart();
 
         try {
             const formData = new FormData();
-            formData.append("saveFile", selectedFile);
+            formData.append("saveFile", file);
 
             if (saveProfileName.trim()) {
                 formData.append("saveProfileName", saveProfileName.trim());
@@ -84,92 +89,179 @@ export const UploadHero = ({
         }
     };
 
-    return (
-        <section className="relative z-10 flex w-full max-w-[760px] justify-center">
-            <div className="flex w-full max-w-[680px] flex-col gap-6 rounded-[28px] border border-[rgba(130,129,111,0.18)] bg-[#f6f5dc] p-8 shadow-[0_16px_40px_rgba(56,57,42,0.08)]">
-                <div className="flex flex-col gap-2.5">
-                    <p className="m-0 text-[12px] font-extrabold uppercase tracking-[0.14em] text-[#935600]">
-                        Gen 3 Save Parser
-                    </p>
-                    <h1 className="m-0 text-[clamp(34px,6vw,56px)] leading-[0.95] font-extrabold tracking-[-0.04em] text-[#38392a]">
-                        LiveDex Tracker
-                    </h1>
-                    <p className="m-0 max-w-[560px] text-[16px] leading-[1.6] text-[#656554]">
-                        Upload a Pokémon Gen 3 save file to view trainer info, Pokédex progress,
-                        and your current living dex state.
-                    </p>
-                </div>
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const nextFiles = event.target.files;
 
-                <div className="flex flex-col gap-2">
-                    <label
-                        htmlFor="save-profile-name"
-                        className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-[#82816f]"
-                    >
-                        Save profile name
-                    </label>
+        if (!nextFiles || nextFiles.length === 0) {
+            setSelectedFile(null);
+            return;
+        }
+
+        const nextFile = nextFiles[0];
+        await uploadFile(nextFile);
+
+        event.target.value = "";
+    };
+
+    const handleDragOver = (event: React.DragEvent<HTMLLabelElement>) => {
+        event.preventDefault();
+
+        if (isUploading) {
+            return;
+        }
+
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (event: React.DragEvent<HTMLLabelElement>) => {
+        event.preventDefault();
+        setIsDragging(false);
+    };
+
+    const handleDrop = async (event: React.DragEvent<HTMLLabelElement>) => {
+        event.preventDefault();
+        setIsDragging(false);
+
+        if (isUploading) {
+            return;
+        }
+
+        const droppedFiles = event.dataTransfer.files;
+
+        if (!droppedFiles || droppedFiles.length === 0) {
+            return;
+        }
+
+        const droppedFile = droppedFiles[0];
+        await uploadFile(droppedFile);
+    };
+
+    return (
+        <section className="flex w-full max-w-[1120px] justify-center">
+            <div className="grid w-full max-w-[1080px] grid-cols-[280px_minmax(0,1fr)] gap-6">
+                <aside className="rounded-2xl bg-white p-5 shadow-sm">
+                    <div className="text-[12px] font-extrabold uppercase tracking-[0.12em] text-gray-500">
+                        Guest Mode
+                    </div>
+
+                    <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-gray-900">
+                        LiveDex Tracker
+                    </h2>
+
+                    <p className="mt-2 text-sm leading-6 text-gray-600">
+                        Upload a Gen 3 save to preview your Pokédex progress before signing in.
+                    </p>
+
+                    <div className="mt-6 rounded-xl bg-gray-50 p-4">
+                        <div className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-gray-500">
+                            Signed-in later
+                        </div>
+
+                        <p className="mt-2 text-sm leading-6 text-gray-600">
+                            Save multiple named profiles to your account and access them across devices.
+                        </p>
+                    </div>
+                </aside>
+
+                <div className="flex flex-col gap-6 rounded-2xl bg-white p-6 shadow-sm">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <p className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
+                                Upload Save
+                            </p>
+
+                            <h1 className="text-4xl font-extrabold tracking-tight text-gray-900">
+                                Start with a save file
+                            </h1>
+
+                            <p className="mt-2 max-w-[560px] text-[15px] leading-6 text-gray-600">
+                                Drag in a Pokémon Gen 3 save or choose a file to build a temporary guest profile.
+                            </p>
+                        </div>
+
+                        <div className="hidden rounded-full bg-green-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-green-800 md:block">
+                            Guest
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                        <label
+                            htmlFor="save-profile-name"
+                            className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-gray-500"
+                        >
+                            Save profile name
+                        </label>
+                        <input
+                            id="save-profile-name"
+                            className="min-h-[48px] rounded-xl border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 outline-none transition focus:border-green-500 focus:bg-white"
+                            type="text"
+                            placeholder="LeafGreen - Chey playthrough"
+                            value={saveProfileName}
+                            onChange={(event) => {
+                                setSaveProfileName(event.target.value);
+                            }}
+                            disabled={isUploading}
+                        />
+                    </div>
+
                     <input
-                        id="save-profile-name"
-                        className="min-h-[48px] rounded-[16px] border border-[rgba(130,129,111,0.18)] bg-[rgba(255,255,255,0.7)] px-4 text-[14px] text-[#38392a] outline-none transition focus:border-[rgba(147,86,0,0.38)]"
-                        type="text"
-                        placeholder="LeafGreen - Chey playthrough"
-                        value={saveProfileName}
-                        onChange={(event) => {
-                            setSaveProfileName(event.target.value);
-                        }}
+                        id="save-file-input"
+                        className="pointer-events-none absolute h-px w-px opacity-0"
+                        type="file"
+                        accept=".sav,.srm"
+                        onChange={handleFileChange}
                         disabled={isUploading}
                     />
-                </div>
 
-                <input
-                    id="save-file-input"
-                    className="pointer-events-none absolute h-px w-px opacity-0"
-                    type="file"
-                    accept=".sav,.srm"
-                    onChange={handleFileChange}
-                />
-
-                <label
-                    htmlFor="save-file-input"
-                    className="flex cursor-pointer items-center gap-[18px] rounded-[22px] border-2 border-dashed border-[rgba(130,129,111,0.28)] bg-[rgba(255,255,255,0.48)] px-6 py-7 transition duration-150 hover:-translate-y-px hover:border-[rgba(147,86,0,0.38)] hover:bg-[rgba(255,255,255,0.72)] max-[640px]:flex-col max-[640px]:items-start max-[640px]:px-[18px] max-[640px]:py-[22px]"
-                >
-                    <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[16px] border border-[rgba(147,86,0,0.14)] bg-[rgba(255,152,0,0.14)] text-[24px] font-extrabold text-[#935600]">
-                        ↑
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                        <div className="text-[17px] font-extrabold text-[#38392a]">
-                            {selectedFile ? "Replace selected save file" : "Choose a save file"}
-                        </div>
-                        <div className="text-[14px] text-[#656554]">
-                            Supports .sav and .srm files
-                        </div>
-                    </div>
-                </label>
-
-                <div className="flex flex-col gap-1.5 rounded-[18px] border border-[rgba(130,129,111,0.12)] bg-[#ebeace] px-[18px] py-4">
-                    <span className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-[#82816f]">
-                        Selected file
-                    </span>
-                    <span className="break-words text-[14px] text-[#38392a]">
-                        {selectedFile ? selectedFile.name : "No file selected"}
-                    </span>
-                </div>
-
-                {errorMessage ? (
-                    <div className="rounded-[14px] border border-[rgba(190,45,6,0.2)] bg-[rgba(249,86,48,0.16)] px-4 py-[14px] text-[#7a0003]">
-                        {errorMessage}
-                    </div>
-                ) : null}
-
-                <div className="flex justify-start max-[640px]:w-full">
-                    <button
-                        className="inline-flex min-h-[48px] min-w-[180px] items-center justify-center rounded-[16px] bg-[#ff9800] px-[18px] py-3 text-[14px] font-extrabold text-[#4a2800] transition duration-120 hover:enabled:-translate-y-px hover:enabled:opacity-95 disabled:cursor-not-allowed disabled:opacity-55 max-[640px]:w-full"
-                        type="button"
-                        onClick={handleUpload}
-                        disabled={isUploading}
+                    <label
+                        htmlFor="save-file-input"
+                        className={
+                            isDragging
+                                ? "flex cursor-pointer items-center gap-4 rounded-2xl border-2 border-dashed border-green-500 bg-green-50 px-6 py-8 transition max-[640px]:flex-col max-[640px]:items-start"
+                                : "flex cursor-pointer items-center gap-4 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 px-6 py-8 transition hover:border-green-400 hover:bg-white max-[640px]:flex-col max-[640px]:items-start"
+                        }
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
                     >
-                        {isUploading ? "Uploading..." : "Upload Save"}
-                    </button>
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white text-[24px] font-extrabold text-green-700 shadow-sm">
+                            ↑
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                            <div className="text-[18px] font-extrabold text-gray-900">
+                                {isDragging
+                                    ? "Drop your save file here"
+                                    : selectedFile
+                                        ? "Replace selected save file"
+                                        : "Choose or drag a save file"}
+                            </div>
+                            <div className="text-[14px] text-gray-600">
+                                Supports .sav and .srm files. Valid files upload automatically.
+                            </div>
+                        </div>
+                    </label>
+
+                    <div className="flex flex-col gap-1.5 rounded-xl bg-gray-50 px-4 py-4">
+                        <span className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-gray-500">
+                            Selected file
+                        </span>
+                        <span className="break-words text-[14px] text-gray-900">
+                            {selectedFile ? selectedFile.name : "No file selected"}
+                        </span>
+                    </div>
+
+                    {errorMessage ? (
+                        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            {errorMessage}
+                        </div>
+                    ) : null}
+
+                    <div className="text-[13px] text-gray-500">
+                        {isUploading
+                            ? "Uploading save file..."
+                            : "Guest profiles are temporary until account support is added."}
+                    </div>
                 </div>
             </div>
         </section>

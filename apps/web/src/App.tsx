@@ -93,6 +93,52 @@ const App = () => {
     setErrorMessage(nextErrorMessage);
   };
 
+  const handleUpdateActiveProfileSave = async (file: File) => {
+    if (!activeSaveProfileId) {
+      setErrorMessage("No active save profile selected.");
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      setErrorMessage("");
+
+      const formData = new FormData();
+      formData.append("saveFile", file);
+      formData.append("saveProfileId", activeSaveProfileId);
+
+      const uploadRequest = await fetch(`${API_BASE_URL}/uploads`, {
+        method: "POST",
+        body: formData
+      });
+
+      const uploadResponseText = await uploadRequest.text();
+
+      if (!uploadRequest.ok) {
+        throw new Error(uploadResponseText || "Upload failed");
+      }
+
+      const nextUploadResponse = JSON.parse(uploadResponseText) as UploadResponse;
+      const saveProfileId = nextUploadResponse.saveProfile.id;
+
+      const dexRequest = await fetch(`${API_BASE_URL}/dex/profile/${saveProfileId}`);
+
+      if (!dexRequest.ok) {
+        throw new Error("Dex fetch failed after upload");
+      }
+
+      const nextDexResponse = await dexRequest.json() as DexResponse;
+
+      handleUploadSuccess(nextUploadResponse, nextDexResponse);
+    } catch (error) {
+      console.error("Failed to update active save profile", error);
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to update save"
+      );
+      setIsUploading(false);
+    }
+  };
+
   const handleSelectSaveProfile = async (saveProfileId: string) => {
     if (saveProfileId === activeSaveProfileId) {
       return;
@@ -182,6 +228,7 @@ const App = () => {
         onChangeScope={setSelectedScope}
         onSelectDexNumber={setSelectedDexNumber}
         onSelectSaveProfile={handleSelectSaveProfile}
+        onUpdateSave={handleUpdateActiveProfileSave}
         onResetToEmptyState={handleResetToEmptyState}
       />
     </div>

@@ -2,13 +2,47 @@ type DashboardTopbarProps = {
     gameLabel: string;
     isUploading: boolean;
     onReset: () => void;
+    onUpdateSave: (file: File) => void;
+};
+
+const getIsSupportedSaveFile = (file: File) => {
+    const lowercaseFileName = file.name.toLowerCase();
+
+    if (lowercaseFileName.endsWith(".sav")) {
+        return true;
+    }
+
+    if (lowercaseFileName.endsWith(".srm")) {
+        return true;
+    }
+
+    return false;
 };
 
 export const DashboardTopbar = ({
     gameLabel,
     isUploading,
-    onReset
+    onReset,
+    onUpdateSave
 }: DashboardTopbarProps) => {
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const nextFiles = event.target.files;
+
+        if (!nextFiles || nextFiles.length === 0) {
+            return;
+        }
+
+        const nextFile = nextFiles[0];
+
+        if (!getIsSupportedSaveFile(nextFile)) {
+            event.target.value = "";
+            return;
+        }
+
+        onUpdateSave(nextFile);
+        event.target.value = "";
+    };
+
     return (
         <header className="border-b border-gray-200 bg-[#f3f4f6] px-6 py-4">
             <div className="flex min-h-[72px] items-center justify-between gap-4">
@@ -24,14 +58,30 @@ export const DashboardTopbar = ({
                     </div>
                 </div>
 
-                <div className="flex shrink-0 items-center">
+                <div className="flex shrink-0 items-center gap-3">
+                    <input
+                        id="update-save-file-input"
+                        className="pointer-events-none absolute h-px w-px opacity-0"
+                        type="file"
+                        accept=".sav,.srm"
+                        onChange={handleFileChange}
+                        disabled={isUploading}
+                    />
+
+                    <label
+                        htmlFor="update-save-file-input"
+                        className="inline-flex min-h-[48px] cursor-pointer items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800"
+                    >
+                        {isUploading ? "Loading..." : "Update Save"}
+                    </label>
+
                     <button
-                        className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:enabled:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-55"
+                        className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-55"
                         type="button"
                         onClick={onReset}
                         disabled={isUploading}
                     >
-                        {isUploading ? "Loading..." : "Upload Another Save"}
+                        Upload Another Save
                     </button>
                 </div>
             </div>
