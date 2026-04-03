@@ -1,3 +1,12 @@
+export type SaveProfileRecord = {
+    id: string;
+    userId: string;
+    name: string;
+    game: string | null;
+    createdAt: string;
+    updatedAt: string;
+};
+
 export type UploadRecord = {
     id: string;
     userId: string;
@@ -31,6 +40,7 @@ export type DebugPayload = {
 
 export type UploadResponse = {
     upload: UploadRecord;
+    saveProfile: SaveProfileRecord;
     trainerInfo?: TrainerInfo;
     debug?: DebugPayload;
 };

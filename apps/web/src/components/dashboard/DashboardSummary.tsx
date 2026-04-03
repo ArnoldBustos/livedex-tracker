@@ -1,4 +1,5 @@
 type DashboardSummaryProps = {
+    saveProfileName: string;
     trainerName: string;
     gameLabel: string;
     caughtCount: number;
@@ -34,6 +35,7 @@ const SummaryStatCard = ({
 };
 
 export const DashboardSummary = ({
+    saveProfileName,
     trainerName,
     gameLabel,
     caughtCount,
@@ -52,14 +54,18 @@ export const DashboardSummary = ({
         >
             <div className="flex min-h-[108px] flex-col justify-center rounded-[18px] border border-[rgba(130,129,111,0.12)] bg-[rgba(255,255,255,0.72)] px-5 py-4 text-center">
                 <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#656554]">
-                    Trainer
+                    Save Profile
                 </span>
 
                 <strong className="mt-1 text-[26px] leading-[0.94] font-extrabold tracking-[-0.05em] text-[#38392a]">
-                    {trainerName}
+                    {saveProfileName}
                 </strong>
 
-                <span className="mt-2 text-[12px] font-bold text-[#935600]">
+                <span className="mt-2 text-[13px] font-bold text-[#656554]">
+                    {trainerName}
+                </span>
+
+                <span className="mt-1 text-[12px] font-bold text-[#935600]">
                     {gameLabel}
                 </span>
             </div>

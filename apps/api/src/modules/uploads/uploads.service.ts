@@ -10,6 +10,10 @@ type CreateUploadParams = {
     saveProfileId?: string;
 };
 
+type ListSaveProfilesParams = {
+    userId: string;
+};
+
 const resolveSaveProfile = async ({
     userId,
     saveProfileId,
@@ -81,6 +85,19 @@ const resolveSaveProfile = async ({
             userId,
             name: nextProfileName,
             game: detectedGame
+        }
+    });
+};
+
+export const listSaveProfiles = async ({
+    userId
+}: ListSaveProfilesParams) => {
+    return prismaClient.saveProfile.findMany({
+        where: {
+            userId
+        },
+        orderBy: {
+            updatedAt: "desc"
         }
     });
 };

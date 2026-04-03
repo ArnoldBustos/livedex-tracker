@@ -22,6 +22,7 @@ export const UploadHero = ({
     onUploadError
 }: UploadHeroProps) => {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [saveProfileName, setSaveProfileName] = useState("");
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const nextFiles = event.target.files;
@@ -46,6 +47,10 @@ export const UploadHero = ({
             const formData = new FormData();
             formData.append("saveFile", selectedFile);
 
+            if (saveProfileName.trim()) {
+                formData.append("saveProfileName", saveProfileName.trim());
+            }
+
             const uploadRequest = await fetch(`${API_BASE_URL}/uploads`, {
                 method: "POST",
                 body: formData
@@ -58,9 +63,9 @@ export const UploadHero = ({
             }
 
             const parsedUploadResponse = JSON.parse(uploadResponseText) as UploadResponse;
-            const uploadedUserId = parsedUploadResponse.upload.userId;
+            const saveProfileId = parsedUploadResponse.saveProfile.id;
 
-            const dexRequest = await fetch(`${API_BASE_URL}/dex/${uploadedUserId}`);
+            const dexRequest = await fetch(`${API_BASE_URL}/dex/profile/${saveProfileId}`);
 
             if (!dexRequest.ok) {
                 throw new Error("Dex fetch failed after upload");
@@ -95,9 +100,29 @@ export const UploadHero = ({
                     </p>
                 </div>
 
+                <div className="flex flex-col gap-2">
+                    <label
+                        htmlFor="save-profile-name"
+                        className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-[#82816f]"
+                    >
+                        Save profile name
+                    </label>
+                    <input
+                        id="save-profile-name"
+                        className="min-h-[48px] rounded-[16px] border border-[rgba(130,129,111,0.18)] bg-[rgba(255,255,255,0.7)] px-4 text-[14px] text-[#38392a] outline-none transition focus:border-[rgba(147,86,0,0.38)]"
+                        type="text"
+                        placeholder="LeafGreen - Chey playthrough"
+                        value={saveProfileName}
+                        onChange={(event) => {
+                            setSaveProfileName(event.target.value);
+                        }}
+                        disabled={isUploading}
+                    />
+                </div>
+
                 <input
                     id="save-file-input"
-                    className="absolute h-px w-px opacity-0 pointer-events-none"
+                    className="pointer-events-none absolute h-px w-px opacity-0"
                     type="file"
                     accept=".sav,.srm"
                     onChange={handleFileChange}

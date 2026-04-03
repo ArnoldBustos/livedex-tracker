@@ -7,12 +7,15 @@ import type {
     DexFilter,
     DexResponse,
     DexScope,
+    SaveProfileRecord,
     UploadResponse
 } from "../../types/save";
 
 type LoadedDashboardViewProps = {
     uploadResponse: UploadResponse;
     dexResponse: DexResponse;
+    saveProfiles: SaveProfileRecord[];
+    activeSaveProfileId: string | null;
     selectedFilter: DexFilter;
     selectedScope: DexScope;
     selectedDexNumber: number | null;
@@ -83,6 +86,8 @@ const getPokemonArtworkUrl = (dexNumber: number) => {
 export const LoadedDashboardView = ({
     uploadResponse,
     dexResponse,
+    saveProfiles,
+    activeSaveProfileId,
     selectedFilter,
     selectedScope,
     selectedDexNumber,
@@ -214,59 +219,98 @@ export const LoadedDashboardView = ({
             <div className="grid grid-cols-[260px_1fr_320px] gap-6 px-6 py-6">
                 <aside className="sidebar">
                     <div className="sidebar-card">
-                        <div className="sidebar-trainer-name">{trainerName}</div>
-                        <div className="sidebar-trainer-meta">
-                            {trainerGender === "Unknown" ? "Active Trainer" : `${trainerGender} trainer`}
+                        <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#656554]">
+                            Profiles
+                        </div>
+
+                        <div className="mt-3 flex flex-col gap-2">
+                            {saveProfiles.map((saveProfile) => {
+                                const isActiveProfile = saveProfile.id === activeSaveProfileId;
+
+                                return (
+                                    <button
+                                        key={saveProfile.id}
+                                        className={
+                                            isActiveProfile
+                                                ? "flex w-full flex-col items-start rounded-[14px] border border-[rgba(147,86,0,0.38)] bg-[rgba(255,255,255,0.82)] px-4 py-3 text-left transition"
+                                                : "flex w-full flex-col items-start rounded-[14px] border border-[rgba(130,129,111,0.18)] bg-[rgba(255,255,255,0.72)] px-4 py-3 text-left transition hover:border-[rgba(147,86,0,0.38)]"
+                                        }
+                                        type="button"
+                                    >
+                                        <div className="w-full truncate text-[16px] font-extrabold text-[#38392a]">
+                                            {saveProfile.name}
+                                        </div>
+
+                                        <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#935600]">
+                                            {isActiveProfile
+                                                ? uploadResponse.upload.detectedGame || "Unknown Game"
+                                                : saveProfile.game || "Unknown Game"}
+                                        </div>
+
+                                        <div className="mt-1 text-[12px] text-[#656554]">
+                                            {isActiveProfile
+                                                ? `${trainerName}${trainerGender === "Unknown" ? "" : ` · ${trainerGender} trainer`}`
+                                                : "Saved profile"}
+                                        </div>
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
 
-                    <nav className="sidebar-nav">
-                        <button
-                            className={selectedFilter === "all" ? "sidebar-nav-item active" : "sidebar-nav-item"}
-                            type="button"
-                            onClick={() => {
-                                onChangeFilter("all");
-                            }}
-                        >
-                            All
-                        </button>
-                        <button
-                            className={selectedFilter === "living" ? "sidebar-nav-item active" : "sidebar-nav-item"}
-                            type="button"
-                            onClick={() => {
-                                onChangeFilter("living");
-                            }}
-                        >
-                            Living
-                        </button>
-                        <button
-                            className={selectedFilter === "missing" ? "sidebar-nav-item active" : "sidebar-nav-item"}
-                            type="button"
-                            onClick={() => {
-                                onChangeFilter("missing");
-                            }}
-                        >
-                            Missing
-                        </button>
-                        <button
-                            className={selectedFilter === "seenOnly" ? "sidebar-nav-item active" : "sidebar-nav-item"}
-                            type="button"
-                            onClick={() => {
-                                onChangeFilter("seenOnly");
-                            }}
-                        >
-                            Seen Only
-                        </button>
-                        <button
-                            className={selectedFilter === "caughtNotLiving" ? "sidebar-nav-item active" : "sidebar-nav-item"}
-                            type="button"
-                            onClick={() => {
-                                onChangeFilter("caughtNotLiving");
-                            }}
-                        >
-                            Caught Not Living
-                        </button>
-                    </nav>
+                    <div className="sidebar-card">
+                        <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#656554]">
+                            Filters
+                        </div>
+
+                        <nav className="mt-3 sidebar-nav">
+                            <button
+                                className={selectedFilter === "all" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+                                type="button"
+                                onClick={() => {
+                                    onChangeFilter("all");
+                                }}
+                            >
+                                All
+                            </button>
+                            <button
+                                className={selectedFilter === "living" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+                                type="button"
+                                onClick={() => {
+                                    onChangeFilter("living");
+                                }}
+                            >
+                                Living
+                            </button>
+                            <button
+                                className={selectedFilter === "missing" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+                                type="button"
+                                onClick={() => {
+                                    onChangeFilter("missing");
+                                }}
+                            >
+                                Missing
+                            </button>
+                            <button
+                                className={selectedFilter === "seenOnly" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+                                type="button"
+                                onClick={() => {
+                                    onChangeFilter("seenOnly");
+                                }}
+                            >
+                                Seen Only
+                            </button>
+                            <button
+                                className={selectedFilter === "caughtNotLiving" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+                                type="button"
+                                onClick={() => {
+                                    onChangeFilter("caughtNotLiving");
+                                }}
+                            >
+                                Caught Not Living
+                            </button>
+                        </nav>
+                    </div>
 
                     <div className="sidebar-footer">
                         <button className="sidebar-report-button" type="button">
@@ -281,6 +325,7 @@ export const LoadedDashboardView = ({
                     ) : null}
 
                     <DashboardSummary
+                        saveProfileName={uploadResponse.saveProfile.name}
                         trainerName={trainerName}
                         gameLabel={uploadResponse.upload.detectedGame || "Unknown Game"}
                         caughtCount={dashboardSummary.caughtCount}
