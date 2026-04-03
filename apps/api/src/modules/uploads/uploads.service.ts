@@ -14,6 +14,11 @@ type ListSaveProfilesParams = {
     userId: string;
 };
 
+type GetSaveProfileDetailsParams = {
+    userId: string;
+    saveProfileId: string;
+};
+
 const resolveSaveProfile = async ({
     userId,
     saveProfileId,
@@ -100,6 +105,44 @@ export const listSaveProfiles = async ({
             updatedAt: "desc"
         }
     });
+};
+
+export const getSaveProfileDetails = async ({
+    userId,
+    saveProfileId
+}: GetSaveProfileDetailsParams) => {
+    const saveProfile = await prismaClient.saveProfile.findFirst({
+        where: {
+            id: saveProfileId,
+            userId
+        }
+    });
+
+    if (!saveProfile) {
+        throw new Error("Save profile not found");
+    }
+
+    const latestUpload = await prismaClient.saveUpload.findFirst({
+        where: {
+            saveProfileId: saveProfile.id,
+            userId,
+            parseStatus: "COMPLETED"
+        },
+        orderBy: {
+            createdAt: "desc"
+        }
+    });
+
+    if (!latestUpload) {
+        throw new Error("No completed upload found for this save profile");
+    }
+
+    return {
+        upload: latestUpload,
+        saveProfile,
+        trainerInfo: undefined,
+        debug: undefined
+    };
 };
 
 export const createUpload = async ({

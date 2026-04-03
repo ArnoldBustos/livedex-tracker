@@ -24,6 +24,7 @@ type LoadedDashboardViewProps = {
     onChangeFilter: (nextFilter: DexFilter) => void;
     onChangeScope: (nextScope: DexScope) => void;
     onSelectDexNumber: (nextDexNumber: number) => void;
+    onSelectSaveProfile: (saveProfileId: string) => void;
     onResetToEmptyState: () => void;
 };
 
@@ -80,6 +81,7 @@ export const LoadedDashboardView = ({
     onChangeFilter,
     onChangeScope,
     onSelectDexNumber,
+    onSelectSaveProfile,
     onResetToEmptyState
 }: LoadedDashboardViewProps) => {
     const trainerName =
@@ -220,6 +222,9 @@ export const LoadedDashboardView = ({
                                                 : "flex w-full flex-col items-start rounded-[14px] border border-[rgba(130,129,111,0.18)] bg-[rgba(255,255,255,0.72)] px-4 py-3 text-left transition hover:border-[rgba(147,86,0,0.38)]"
                                         }
                                         type="button"
+                                        onClick={() => {
+                                            onSelectSaveProfile(saveProfile.id);
+                                        }}
                                     >
                                         <div className="w-full truncate text-[16px] font-extrabold text-[#38392a]">
                                             {saveProfile.name}

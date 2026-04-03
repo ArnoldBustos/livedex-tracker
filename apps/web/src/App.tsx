@@ -93,6 +93,55 @@ const App = () => {
     setErrorMessage(nextErrorMessage);
   };
 
+  const handleSelectSaveProfile = async (saveProfileId: string) => {
+    if (saveProfileId === activeSaveProfileId) {
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      setErrorMessage("");
+
+      const saveProfileRequest = await fetch(
+        `${API_BASE_URL}/uploads/profiles/${saveProfileId}`
+      );
+      const dexRequest = await fetch(
+        `${API_BASE_URL}/dex/profile/${saveProfileId}`
+      );
+
+      if (!saveProfileRequest.ok) {
+        const errorPayload = await saveProfileRequest.json() as { error?: string };
+        throw new Error(errorPayload.error || "Failed to load save profile");
+      }
+
+      if (!dexRequest.ok) {
+        throw new Error("Failed to load dex data");
+      }
+
+      const nextUploadResponse = await saveProfileRequest.json() as UploadResponse;
+      const nextDexResponse = await dexRequest.json() as DexResponse;
+
+      setUploadResponse(nextUploadResponse);
+      setDexResponse(nextDexResponse);
+      setActiveSaveProfileId(saveProfileId);
+      setSelectedFilter("all");
+      setSelectedScope("national");
+
+      if (nextDexResponse.entries.length > 0) {
+        setSelectedDexNumber(nextDexResponse.entries[0].dexNumber);
+      } else {
+        setSelectedDexNumber(null);
+      }
+    } catch (error) {
+      console.error("Failed to switch save profile", error);
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to switch save profile"
+      );
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleResetToEmptyState = () => {
     setUploadResponse(null);
     setDexResponse(null);
@@ -132,6 +181,7 @@ const App = () => {
         onChangeFilter={setSelectedFilter}
         onChangeScope={setSelectedScope}
         onSelectDexNumber={setSelectedDexNumber}
+        onSelectSaveProfile={handleSelectSaveProfile}
         onResetToEmptyState={handleResetToEmptyState}
       />
     </div>
