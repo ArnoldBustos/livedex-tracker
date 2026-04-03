@@ -16,6 +16,11 @@ type UploadRecord = {
   updatedAt: string;
 };
 
+type TrainerInfo = {
+  name: string;
+  gender: string;
+};
+
 type DebugPayload = {
   activeSaveIndex?: number;
   sectionIds?: number[];
@@ -23,10 +28,13 @@ type DebugPayload = {
   ownedNationalDexNumbers?: number[];
   seenCount?: number;
   ownedCount?: number;
+  trainerName?: string;
+  trainerGender?: string;
 };
 
 type UploadResponse = {
   upload: UploadRecord;
+  trainerInfo?: TrainerInfo;
   debug?: DebugPayload;
 };
 
@@ -114,6 +122,19 @@ const App = () => {
   const [selectedFilter, setSelectedFilter] = useState<DexFilter>("all");
   const [selectedScope, setSelectedScope] = useState<DexScope>("national");
   const [selectedDexNumber, setSelectedDexNumber] = useState<number | null>(null);
+  const trainerName =
+    uploadResponse && uploadResponse.trainerInfo && uploadResponse.trainerInfo.name
+      ? uploadResponse.trainerInfo.name
+      : uploadResponse && uploadResponse.debug && uploadResponse.debug.trainerName
+        ? uploadResponse.debug.trainerName
+        : "Unknown Trainer";
+
+  const trainerGender =
+    uploadResponse && uploadResponse.trainerInfo && uploadResponse.trainerInfo.gender
+      ? uploadResponse.trainerInfo.gender
+      : uploadResponse && uploadResponse.debug && uploadResponse.debug.trainerGender
+        ? uploadResponse.debug.trainerGender
+        : "Unknown";
 
   const prettyResponse = useMemo(() => {
     if (!uploadResponse) {
@@ -277,6 +298,14 @@ const App = () => {
     }
   };
 
+  const getPokemonSpriteUrl = (dexNumber: number) => {
+    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${dexNumber}.png`;
+  };
+
+  const getPokemonArtworkUrl = (dexNumber: number) => {
+    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dexNumber}.png`;
+  };
+
   return (
     <div className="dashboard-shell">
       <header className="topbar">
@@ -312,8 +341,10 @@ const App = () => {
       <div className="dashboard-body">
         <aside className="sidebar">
           <div className="sidebar-card">
-            <div className="sidebar-trainer-name">Red</div>
-            <div className="sidebar-trainer-meta">Active Trainer</div>
+            <div className="sidebar-trainer-name">{trainerName}</div>
+            <div className="sidebar-trainer-meta">
+              {trainerGender === "Unknown" ? "Active Trainer" : `${trainerGender} trainer`}
+            </div>
           </div>
 
           <nav className="sidebar-nav">
@@ -376,35 +407,57 @@ const App = () => {
             <div className="message error-message">{errorMessage}</div>
           ) : null}
 
-          <section className="summary-strip">
-            <div className="summary-card summary-card-trainer">
-              <span className="summary-kicker">Trainer</span>
-              <strong className="summary-big">Red</strong>
-              <span className="summary-meta">
-                {uploadResponse?.upload.detectedGame || "Unknown Game"}
-              </span>
-            </div>
+          {uploadResponse && dexResponse ? (
+            <section className="summary-strip">
+              <div className="summary-card summary-card-trainer">
+                <span className="summary-kicker">Trainer</span>
+                <strong className="summary-big">{trainerName}</strong>
+                <span className="summary-meta">
+                  {uploadResponse.upload.detectedGame || "Unknown Game"}
+                </span>
+              </div>
 
-            <div className="summary-card">
-              <span className="summary-kicker">Caught</span>
-              <strong className="summary-big">{dashboardSummary.caughtCount}</strong>
-            </div>
+              <div className="summary-card">
+                <span className="summary-kicker">Caught</span>
+                <strong className="summary-big">{dashboardSummary.caughtCount}</strong>
+                <span className="summary-meta" aria-hidden="true">
+                  Placeholder
+                </span>
+              </div>
 
-            <div className="summary-card">
-              <span className="summary-kicker">Living Dex</span>
-              <strong className="summary-big">{dashboardSummary.livingCount}</strong>
-            </div>
+              <div className="summary-card">
+                <span className="summary-kicker">Living Dex</span>
+                <strong className="summary-big">{dashboardSummary.livingCount}</strong>
+                <span className="summary-meta" aria-hidden="true">
+                  Placeholder
+                </span>
+              </div>
 
-            <div className="summary-card">
-              <span className="summary-kicker">Missing</span>
-              <strong className="summary-big">{dashboardSummary.missingCount}</strong>
-            </div>
+              <div className="summary-card">
+                <span className="summary-kicker">Missing</span>
+                <strong className="summary-big">{dashboardSummary.missingCount}</strong>
+                <span className="summary-meta" aria-hidden="true">
+                  Placeholder
+                </span>
+              </div>
 
-            <div className="summary-card">
-              <span className="summary-kicker">Seen Only</span>
-              <strong className="summary-big">{dashboardSummary.seenOnlyCount}</strong>
-            </div>
-          </section>
+              <div className="summary-card">
+                <span className="summary-kicker">Seen Only</span>
+                <strong className="summary-big">{dashboardSummary.seenOnlyCount}</strong>
+                <span className="summary-meta" aria-hidden="true">
+                  Placeholder
+                </span>
+              </div>
+            </section>
+          ) : (
+            <section className="summary-strip summary-strip-empty">
+              <div className="summary-empty-card">
+                <span className="summary-kicker">LiveDex Tracker</span>
+                <strong className="summary-big">Upload a save file</strong>
+                <span className="summary-meta">Load a Gen 3 save to view trainer info and dex progress</span>
+              </div>
+            </section>
+          )}
 
           <section className="dex-header">
             <div>
@@ -461,7 +514,15 @@ const App = () => {
                     </div>
 
                     <div className="dex-grid-sprite">
-                      {status === "missing" ? "?" : dexEntry.name.slice(0, 1)}
+                      {status === "missing" ? (
+                        "?"
+                      ) : (
+                        <img
+                          src={getPokemonSpriteUrl(dexEntry.dexNumber)}
+                          alt={dexEntry.name}
+                          className="dex-grid-sprite-image"
+                        />
+                      )}
                     </div>
 
                     <div className="dex-grid-name">
@@ -492,7 +553,15 @@ const App = () => {
         <aside className="inspector">
           <div className="inspector-hero">
             <div className="inspector-avatar">
-              {selectedDexEntry ? selectedDexEntry.name.slice(0, 1) : "?"}
+              {selectedDexEntry ? (
+                <img
+                  src={getPokemonArtworkUrl(selectedDexEntry.dexNumber)}
+                  alt={selectedDexEntry.name}
+                  className="inspector-avatar-image"
+                />
+              ) : (
+                "?"
+              )}
             </div>
           </div>
 

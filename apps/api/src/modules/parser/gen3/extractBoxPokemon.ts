@@ -10,6 +10,7 @@ const BOX_COUNT = 14;
 const SLOTS_PER_BOX = 30;
 const STORED_SLOT_SIZE_BYTES = 80;
 const STORAGE_HEADER_SIZE_BYTES = 4;
+const MAX_GEN3_NATIONAL_DEX_NUMBER = 386;
 
 const getStorageBlock = (
     sectionsById: Map<number, Gen3SaveSection>
@@ -49,13 +50,21 @@ export const extractBoxPokemon = ({
             );
 
             const speciesId = readGen3SpeciesId(decryptedStoredPokemon);
+            const absoluteSlotIndex = (boxIndex * SLOTS_PER_BOX) + slotIndex;
+            const isValidSpeciesId = speciesId > 0 && speciesId <= MAX_GEN3_NATIONAL_DEX_NUMBER;
 
-            if (speciesId <= 0) {
+            if (!isValidSpeciesId) {
+                console.log("Skipping invalid box Pokémon slot", {
+                    boxIndex,
+                    slotIndex,
+                    absoluteSlotIndex,
+                    speciesId
+                });
                 continue;
             }
 
             parsedBoxPokemon.push({
-                slotIndex: (boxIndex * SLOTS_PER_BOX) + slotIndex,
+                slotIndex: absoluteSlotIndex,
                 speciesId,
                 level: 0,
                 nickname: "",

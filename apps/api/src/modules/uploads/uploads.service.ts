@@ -60,6 +60,7 @@ export const createUpload = async ({
 
         return {
             upload: updatedUpload,
+            trainerInfo: parseResult.trainerInfo,
             debug: parseResult.debug
         };
     } catch (error) {
