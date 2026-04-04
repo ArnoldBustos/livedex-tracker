@@ -32,6 +32,14 @@ type LoadedDashboardViewProps = {
     onDeleteProfile: (saveProfileId: string) => Promise<void>;
     onResetToEmptyState: () => void;
     onUpdateSave: (file: File) => void;
+    onUpdateDexEntry: (params: {
+        pokemonSpeciesId: number;
+        patch: {
+            seen?: boolean | null;
+            caught?: boolean | null;
+            hasLivingEntry?: boolean | null;
+        };
+    }) => Promise<void> | void;
     onLogout: () => void;
     onGoToLogin: () => void;
     onGoToRegister: () => void;
@@ -111,6 +119,38 @@ const getSerebiiUrl = (dexNumber: number) => {
     return `https://www.serebii.net/pokedex-rs/${dexNumber.toString().padStart(3, "0")}.shtml`;
 };
 
+// SidebarToggleButton renders one yes/no action button for a selected dex flag.
+// LoadedDashboardView uses this in the right sidebar for seen, caught, and living manual edits.
+const SidebarToggleButton = ({
+    label,
+    value,
+    onToggle
+}: {
+    label: string;
+    value: boolean;
+    onToggle: () => void;
+}) => {
+    return (
+        <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+            <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
+                {label}
+            </span>
+
+            <button
+                className={
+                    value
+                        ? "rounded-lg bg-green-100 px-3 py-1 text-sm font-extrabold uppercase text-green-700 hover:bg-green-200"
+                        : "rounded-lg bg-gray-200 px-3 py-1 text-sm font-extrabold uppercase text-gray-600 hover:bg-gray-300"
+                }
+                type="button"
+                onClick={onToggle}
+            >
+                {value ? "Yes" : "No"}
+            </button>
+        </div>
+    );
+};
+
 export const LoadedDashboardView = ({
     uploadResponse,
     dexResponse,
@@ -130,6 +170,7 @@ export const LoadedDashboardView = ({
     onResetToEmptyState,
     onUpdateSave,
     onDeleteProfile,
+    onUpdateDexEntry,
     onLogout,
     onGoToLogin,
     onGoToRegister
@@ -644,32 +685,77 @@ export const LoadedDashboardView = ({
                         ) : null}
 
                         <div className="grid gap-3">
-                            <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
-                                <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
-                                    Living Dex
-                                </span>
-                                <strong className="text-sm font-extrabold uppercase text-gray-900">
-                                    {selectedDexEntry && selectedDexEntry.hasLivingEntry ? "Yes" : "No"}
-                                </strong>
-                            </div>
+                            {selectedDexEntry ? (
+                                <>
+                                    <SidebarToggleButton
+                                        label="Living Dex"
+                                        value={selectedDexEntry.hasLivingEntry}
+                                        onToggle={() => {
+                                            onUpdateDexEntry({
+                                                pokemonSpeciesId: selectedDexEntry.pokemonSpeciesId,
+                                                patch: {
+                                                    hasLivingEntry: !selectedDexEntry.hasLivingEntry
+                                                }
+                                            });
+                                        }}
+                                    />
 
-                            <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
-                                <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
-                                    Caught
-                                </span>
-                                <strong className="text-sm font-extrabold uppercase text-gray-900">
-                                    {selectedDexEntry && selectedDexEntry.caught ? "Yes" : "No"}
-                                </strong>
-                            </div>
+                                    <SidebarToggleButton
+                                        label="Caught"
+                                        value={selectedDexEntry.caught}
+                                        onToggle={() => {
+                                            onUpdateDexEntry({
+                                                pokemonSpeciesId: selectedDexEntry.pokemonSpeciesId,
+                                                patch: {
+                                                    caught: !selectedDexEntry.caught
+                                                }
+                                            });
+                                        }}
+                                    />
 
-                            <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
-                                <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
-                                    Seen
-                                </span>
-                                <strong className="text-sm font-extrabold uppercase text-gray-900">
-                                    {selectedDexEntry && selectedDexEntry.seen ? "Yes" : "No"}
-                                </strong>
-                            </div>
+                                    <SidebarToggleButton
+                                        label="Seen"
+                                        value={selectedDexEntry.seen}
+                                        onToggle={() => {
+                                            onUpdateDexEntry({
+                                                pokemonSpeciesId: selectedDexEntry.pokemonSpeciesId,
+                                                patch: {
+                                                    seen: !selectedDexEntry.seen
+                                                }
+                                            });
+                                        }}
+                                    />
+                                </>
+                            ) : (
+                                <>
+                                    <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+                                        <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
+                                            Living Dex
+                                        </span>
+                                        <strong className="text-sm font-extrabold uppercase text-gray-400">
+                                            No
+                                        </strong>
+                                    </div>
+
+                                    <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+                                        <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
+                                            Caught
+                                        </span>
+                                        <strong className="text-sm font-extrabold uppercase text-gray-400">
+                                            No
+                                        </strong>
+                                    </div>
+
+                                    <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+                                        <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
+                                            Seen
+                                        </span>
+                                        <strong className="text-sm font-extrabold uppercase text-gray-400">
+                                            No
+                                        </strong>
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         <div className="rounded-xl bg-gray-50 p-4">

@@ -10,9 +10,12 @@ import type {
   DexFilter,
   DexResponse,
   DexScope,
+  GuestDexOverrideMap,
   SaveProfileRecord,
+  UpdateDexEntryRequest,
   UploadResponse
 } from "./types/save"; // shared frontend types for dex + uploads
+import { patchDexEntryOverride } from "./lib/api/dex";
 
 import {
   deleteSaveProfile,
@@ -38,6 +41,7 @@ const App = () => {
 
   const [uploadResponse, setUploadResponse] = useState<UploadResponse | null>(null);
   const [dexResponse, setDexResponse] = useState<DexResponse | null>(null);
+  const [guestDexOverrides, setGuestDexOverrides] = useState<GuestDexOverrideMap>({});
   const [saveProfiles, setSaveProfiles] = useState<SaveProfileRecord[]>([]);
   const [activeSaveProfileId, setActiveSaveProfileId] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<DexFilter>("all");
@@ -51,6 +55,66 @@ const App = () => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const isGuestMode = sessionMode === "guest";
+
+  // buildDexSummary recalculates summary totals from a dex entry list.
+  // guest merged dex state uses this so frontend-only overrides stay consistent with the sidebar and cards.
+  const buildDexSummary = (entries: DexResponse["entries"]) => {
+    return {
+      totalEntries: entries.length,
+      seenCount: entries.filter((entry) => {
+        return entry.seen;
+      }).length,
+      caughtCount: entries.filter((entry) => {
+        return entry.caught;
+      }).length,
+      livingCount: entries.filter((entry) => {
+        return entry.hasLivingEntry;
+      }).length
+    };
+  };
+
+  // getMergedGuestDexResponse overlays guest local manual edits on top of imported guest dex data.
+  // App.tsx uses this so guest mode can edit dex state without calling the backend.
+  const getMergedGuestDexResponse = (
+    baseDexResponse: DexResponse,
+    overrides: GuestDexOverrideMap
+  ): DexResponse => {
+    const mergedEntries = baseDexResponse.entries.map((entry) => {
+      const override = overrides[entry.pokemonSpeciesId];
+
+      if (!override) {
+        return entry;
+      }
+
+      const nextEntry = Object.assign({}, entry);
+
+      if (typeof override.seen === "boolean") {
+        nextEntry.seen = override.seen;
+      }
+
+      if (typeof override.caught === "boolean") {
+        nextEntry.caught = override.caught;
+      }
+
+      if (typeof override.hasLivingEntry === "boolean") {
+        nextEntry.hasLivingEntry = override.hasLivingEntry;
+      }
+
+      return nextEntry;
+    });
+
+    return {
+      summary: buildDexSummary(mergedEntries),
+      entries: mergedEntries
+    };
+  };
+
+  // displayedDexResponse chooses the backend dex for signed-in users and the locally merged dex for guests.
+  // App.tsx passes this into LoadedDashboardView so both modes render through one dashboard path.
+  const displayedDexResponse =
+    dexResponse && isGuestMode
+      ? getMergedGuestDexResponse(dexResponse, guestDexOverrides)
+      : dexResponse;
 
   // handleLogin submits the email to the backend and enters signed-in account mode on success
   // LoginView calls this when the user presses Sign In
@@ -120,6 +184,7 @@ const App = () => {
     setErrorMessage("");
     setUploadResponse(null);
     setDexResponse(null);
+    setGuestDexOverrides({});
     setSelectedDexNumber(null);
     setSelectedFilter("all");
     setSelectedScope("national");
@@ -131,6 +196,7 @@ const App = () => {
   ) => {
     setUploadResponse(nextUploadResponse);
     setDexResponse(nextDexResponse);
+    setGuestDexOverrides({});
     setActiveSaveProfileId(nextUploadResponse.saveProfile.id);
 
     setSaveProfiles((currentSaveProfiles) => {
@@ -240,6 +306,7 @@ const App = () => {
 
       setUploadResponse(nextUploadResponse);
       setDexResponse(nextDexResponse);
+      setGuestDexOverrides({});
       setActiveSaveProfileId(saveProfileId);
       setSelectedFilter("all");
       setSelectedScope("national");
@@ -286,6 +353,7 @@ const App = () => {
         if (activeSaveProfileId === saveProfileId && nextSaveProfiles.length === 0) {
           setUploadResponse(null);
           setDexResponse(null);
+          setGuestDexOverrides({});
           setSelectedDexNumber(null);
           setSelectedFilter("all");
           setSelectedScope("national");
@@ -303,11 +371,97 @@ const App = () => {
     }
   };
 
+  // handleUpdateDexEntry applies one manual dex edit for the selected pokemon.
+  // signed-in mode persists through the backend, while guest mode stores a frontend-only override.
+  const handleUpdateDexEntry = async ({
+    pokemonSpeciesId,
+    patch
+  }: {
+    pokemonSpeciesId: number;
+    patch: UpdateDexEntryRequest;
+  }) => {
+    if (!dexResponse) {
+      setErrorMessage("No dex data is currently loaded.");
+      return;
+    }
+
+    if (isGuestMode) {
+      setGuestDexOverrides((currentOverrides) => {
+        const currentOverride = currentOverrides[pokemonSpeciesId];
+        const nextOverride = currentOverride ? Object.assign({}, currentOverride) : {};
+
+        if (Object.prototype.hasOwnProperty.call(patch, "seen")) {
+          if (patch.seen === null) {
+            delete nextOverride.seen;
+          } else {
+            nextOverride.seen = patch.seen;
+          }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(patch, "caught")) {
+          if (patch.caught === null) {
+            delete nextOverride.caught;
+          } else {
+            nextOverride.caught = patch.caught;
+          }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(patch, "hasLivingEntry")) {
+          if (patch.hasLivingEntry === null) {
+            delete nextOverride.hasLivingEntry;
+          } else {
+            nextOverride.hasLivingEntry = patch.hasLivingEntry;
+          }
+        }
+
+        const nextOverrides = Object.assign({}, currentOverrides);
+
+        if (
+          typeof nextOverride.seen !== "boolean" &&
+          typeof nextOverride.caught !== "boolean" &&
+          typeof nextOverride.hasLivingEntry !== "boolean"
+        ) {
+          delete nextOverrides[pokemonSpeciesId];
+          return nextOverrides;
+        }
+
+        nextOverrides[pokemonSpeciesId] = nextOverride;
+        return nextOverrides;
+      });
+
+      setErrorMessage("");
+      return;
+    }
+
+    if (!currentUser || !activeSaveProfileId) {
+      setErrorMessage("No signed-in save profile is selected.");
+      return;
+    }
+
+    try {
+      setErrorMessage("");
+
+      const nextDexResponse = await patchDexEntryOverride({
+        saveProfileId: activeSaveProfileId,
+        pokemonSpeciesId,
+        patch,
+        currentUser
+      });
+
+      setDexResponse(nextDexResponse);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to update dex entry"
+      );
+    }
+  };
+
   // resetDashboardState clears loaded profile and dex state without removing auth
   // logout and empty-state transitions both call this so reset logic stays centralized
   const resetDashboardState = () => {
     setUploadResponse(null);
     setDexResponse(null);
+    setGuestDexOverrides({});
     setSaveProfiles([]);
     setActiveSaveProfileId(null);
     setSelectedDexNumber(null);
@@ -377,7 +531,7 @@ const App = () => {
     );
   }
 
-  if (!uploadResponse || !dexResponse) {
+  if (!uploadResponse || !displayedDexResponse) {
     return (
       <div className="min-h-screen bg-[#f6f5dc] text-[#38392a]">
         <EmptyStateView
@@ -399,7 +553,7 @@ const App = () => {
     <div className="min-h-screen bg-[#f6f5dc] text-[#38392a]">
       <LoadedDashboardView
         uploadResponse={uploadResponse}
-        dexResponse={dexResponse}
+        dexResponse={displayedDexResponse}
         saveProfiles={saveProfiles}
         activeSaveProfileId={activeSaveProfileId}
         selectedFilter={selectedFilter}
@@ -414,6 +568,7 @@ const App = () => {
         onSelectDexNumber={setSelectedDexNumber}
         onSelectSaveProfile={handleSelectSaveProfile}
         onUpdateSave={handleUpdateActiveProfileSave}
+        onUpdateDexEntry={handleUpdateDexEntry}
         onResetToEmptyState={handleResetToEmptyState}
         onDeleteProfile={handleDeleteProfile}
         onLogout={handleLogout}

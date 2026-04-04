@@ -87,6 +87,26 @@ export type DexResponse = {
     entries: DexEntry[];
 };
 
+// UpdateDexEntryRequest is the backend PATCH payload for one dex entry override.
+// lib/api/dex.ts uses this for signed-in manual dex edits.
+export type UpdateDexEntryRequest = {
+    seen?: boolean | null;
+    caught?: boolean | null;
+    hasLivingEntry?: boolean | null;
+};
+
+// GuestDexOverrideValue stores one guest-only dex override for a single species.
+// App.tsx uses this value shape inside GuestDexOverrideMap for local manual edits.
+export type GuestDexOverrideValue = {
+    seen?: boolean;
+    caught?: boolean;
+    hasLivingEntry?: boolean;
+};
+
+// GuestDexOverrideMap stores temporary guest-only dex edits keyed by species id.
+// App.tsx uses this so guest manual edits never hit the backend.
+export type GuestDexOverrideMap = Record<number, GuestDexOverrideValue>;
+
 export type DexFilter =
     | "all"
     | "living"
