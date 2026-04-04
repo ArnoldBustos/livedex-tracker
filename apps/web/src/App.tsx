@@ -19,7 +19,13 @@ import {
   uploadSaveAndFetchDex,
   uploadSaveFile
 } from "./lib/api/uploads";
-import { clearStoredUser, loadStoredUser, saveStoredUser } from "./lib/auth/session";
+import {
+  clearStoredUser,
+  getIsGuestUser,
+  loadStoredUser,
+  saveStoredUser
+} from "./lib/auth/session";
+import type { StoredUser } from "./lib/auth/session";
 
 const App = () => {
   const [uploadResponse, setUploadResponse] = useState<UploadResponse | null>(null);
@@ -31,15 +37,12 @@ const App = () => {
   const [selectedDexNumber, setSelectedDexNumber] = useState<number | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [currentUser, setCurrentUser] = useState<{
-    id: string;
-    email: string;
-    username: string;
-  } | null>(() => {
+  const [currentUser, setCurrentUser] = useState<StoredUser | null>(() => {
     return loadStoredUser();
   });
   const [loginEmail, setLoginEmail] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const isGuestMode = getIsGuestUser(currentUser);
 
   // handleLogin submits the email to the backend and sets currentUser on success
   // LoginView calls this when the user presses Sign In
@@ -83,6 +86,12 @@ const App = () => {
       return;
     }
 
+    if (isGuestMode) {
+      setSaveProfiles([]);
+      setActiveSaveProfileId(null);
+      return;
+    }
+
     const loadSaveProfiles = async () => {
       try {
         const parsedSaveProfiles = await fetchSaveProfiles(currentUser);
@@ -93,7 +102,7 @@ const App = () => {
     };
 
     loadSaveProfiles();
-  }, [currentUser]);
+  }, [currentUser, isGuestMode]);
 
   const handleUploadStart = () => {
     setIsUploading(true);
@@ -340,7 +349,11 @@ const App = () => {
     );
   }
 
-  return (
+  const sessionLabel = isGuestMode
+    ? "Temporary local session"
+    : currentUser.email;
+
+    return (
     <div className="min-h-screen bg-[#f6f5dc] text-[#38392a]">
       <LoadedDashboardView
         uploadResponse={uploadResponse}
@@ -352,6 +365,8 @@ const App = () => {
         selectedDexNumber={selectedDexNumber}
         errorMessage={errorMessage}
         isUploading={isUploading}
+        isGuestMode={isGuestMode}
+        sessionLabel={sessionLabel}
         onChangeFilter={setSelectedFilter}
         onChangeScope={setSelectedScope}
         onSelectDexNumber={setSelectedDexNumber}

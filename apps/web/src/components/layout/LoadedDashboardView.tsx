@@ -22,6 +22,8 @@ type LoadedDashboardViewProps = {
     selectedDexNumber: number | null;
     errorMessage: string;
     isUploading: boolean;
+    isGuestMode: boolean;
+    sessionLabel: string;
     onChangeFilter: (nextFilter: DexFilter) => void;
     onChangeScope: (nextScope: DexScope) => void;
     onSelectDexNumber: (nextDexNumber: number) => void;
@@ -116,6 +118,8 @@ export const LoadedDashboardView = ({
     selectedDexNumber,
     errorMessage,
     isUploading,
+    isGuestMode,
+    sessionLabel,
     onChangeFilter,
     onChangeScope,
     onSelectDexNumber,
@@ -244,17 +248,26 @@ export const LoadedDashboardView = ({
             <DashboardTopbar
                 gameLabel={uploadResponse.upload.detectedGame || "Gen 3 Save"}
                 isUploading={isUploading}
+                isGuestMode={isGuestMode}
+                sessionLabel={sessionLabel}
                 onReset={onResetToEmptyState}
                 onUpdateSave={onUpdateSave}
                 onLogout={onLogout}
             />
 
-            <div className="grid min-h-[calc(100vh-84px)] grid-cols-[280px_minmax(0,1fr)_320px] gap-6 bg-[#f3f4f6] px-6 py-6">
-                <aside className="flex flex-col gap-4 rounded-2xl bg-white p-4 shadow-sm">
-                    <div className="rounded-xl bg-gray-50 p-4">
-                        <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#656554]">
-                            Profiles
-                        </div>
+            <div
+                className={
+                    isGuestMode
+                        ? "grid min-h-[calc(100vh-84px)] grid-cols-[minmax(0,1fr)_320px] gap-6 bg-[#f3f4f6] px-6 py-6"
+                        : "grid min-h-[calc(100vh-84px)] grid-cols-[280px_minmax(0,1fr)_320px] gap-6 bg-[#f3f4f6] px-6 py-6"
+                }
+            >
+                {!isGuestMode ? (
+                    <aside className="flex flex-col gap-4 rounded-2xl bg-white p-4 shadow-sm">
+                        <div className="rounded-xl bg-gray-50 p-4">
+                            <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#656554]">
+                                Profiles
+                            </div>
 
                         <div className="mt-3 flex flex-col gap-4">
                             {saveProfiles.map((saveProfile) => {
@@ -431,6 +444,7 @@ export const LoadedDashboardView = ({
                         </button>
                     </div>
                 </aside>
+                ) : null}
 
                 <main className="flex flex-col gap-6">
                     {errorMessage ? (

@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import prismaClient from "../../lib/prisma";
 import {
+    createGuestUpload,
     createUpload,
     deleteSaveProfile,
     getSaveProfileDetails,
@@ -147,21 +148,39 @@ export const uploadSaveFile = async (request: Request, response: Response) => {
         return;
     }
 
-    const userId = await resolveRequestUserId(request);
+    const isGuestRequest = request.user?.id === "guest";
 
-    if (!userId) {
-        response.status(500).json({
-            error: "No request user found. Run the seed script first."
+    try {
+        if (isGuestRequest) {
+            const guestUploadResult = await createGuestUpload({
+                file: uploadedFile,
+                saveProfileName: saveProfileName || undefined
+            });
+
+            response.status(201).json(guestUploadResult);
+            return;
+        }
+
+        const userId = await resolveRequestUserId(request);
+
+        if (!userId) {
+            response.status(500).json({
+                error: "No request user found. Run the seed script first."
+            });
+            return;
+        }
+
+        const uploadResult = await createUpload({
+            userId,
+            file: uploadedFile,
+            saveProfileName: saveProfileName || undefined,
+            saveProfileId: saveProfileId || undefined
         });
-        return;
+
+        response.status(201).json(uploadResult);
+    } catch (error) {
+        response.status(500).json({
+            error: error instanceof Error ? error.message : "Upload failed"
+        });
     }
-
-    const uploadResult = await createUpload({
-        userId,
-        file: uploadedFile,
-        saveProfileName: saveProfileName || undefined,
-        saveProfileId: saveProfileId || undefined
-    });
-
-    response.status(201).json(uploadResult);
 };

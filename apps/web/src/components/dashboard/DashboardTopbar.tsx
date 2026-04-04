@@ -1,6 +1,8 @@
 type DashboardTopbarProps = {
     gameLabel: string;
     isUploading: boolean;
+    isGuestMode: boolean;
+    sessionLabel: string;
     onReset: () => void;
     onUpdateSave: (file: File) => void;
     onLogout: () => void;
@@ -25,6 +27,8 @@ const getIsSupportedSaveFile = (file: File) => {
 export const DashboardTopbar = ({
     gameLabel,
     isUploading,
+    isGuestMode,
+    sessionLabel,
     onReset,
     onUpdateSave,
     onLogout
@@ -65,6 +69,24 @@ export const DashboardTopbar = ({
                 </div>
 
                 <div className="flex shrink-0 items-center gap-3">
+                    <div className="hidden min-w-[220px] rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm md:block">
+                        <div className="flex items-center gap-2">
+                            <span
+                                className={
+                                    isGuestMode
+                                        ? "inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-amber-700"
+                                        : "inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-emerald-700"
+                                }
+                            >
+                                {isGuestMode ? "Guest Mode" : "Signed In"}
+                            </span>
+                        </div>
+
+                        <div className="mt-2 text-[13px] font-medium text-gray-700">
+                            {sessionLabel}
+                        </div>
+                    </div>
+
                     <input
                         id="update-save-file-input"
                         className="pointer-events-none absolute h-px w-px opacity-0"

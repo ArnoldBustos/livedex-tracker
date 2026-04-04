@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import prismaClient from "../../lib/prisma";
 import { syncSaveProfileDexFromParse } from "../dex/dex.service";
 import { parseUploadedSave } from "../parser/parser.service";
@@ -8,6 +9,11 @@ type CreateUploadParams = {
     file: Express.Multer.File;
     saveProfileName?: string;
     saveProfileId?: string;
+};
+
+type CreateGuestUploadParams = {
+    file: Express.Multer.File;
+    saveProfileName?: string;
 };
 
 type ListSaveProfilesParams = {
@@ -207,6 +213,53 @@ export const deleteSaveProfile = async ({
 
     return {
         deletedSaveProfileId: saveProfile.id
+    };
+};
+
+// createGuestUpload parses a guest save without creating persistent save profile or upload records
+// uploads.controller.ts calls this for guest mode so guest uploads stay temporary and isolated
+export const createGuestUpload = async ({
+    file,
+    saveProfileName
+}: CreateGuestUploadParams) => {
+    const parseResult = await parseUploadedSave(file.buffer);
+    const now = new Date().toISOString();
+
+    const nextProfileName =
+        saveProfileName && saveProfileName.trim().length > 0
+            ? saveProfileName.trim()
+            : parseResult.detectedGame
+                ? `${parseResult.detectedGame} Guest Session`
+                : "Guest Session";
+
+    return {
+        upload: {
+            id: `guest-upload-${randomUUID()}`,
+            userId: "guest",
+            saveProfileId: "guest-session",
+            originalFilename: file.originalname,
+            storageProvider: "LOCAL",
+            storageKey: `guest/${file.originalname}`,
+            fileUrl: null,
+            fileSizeBytes: file.size,
+            parseStatus: "COMPLETED",
+            detectedGame: parseResult.detectedGame,
+            parseError: null,
+            trainerName: parseResult.trainerInfo.name,
+            trainerGender: parseResult.trainerInfo.gender,
+            createdAt: now,
+            updatedAt: now
+        },
+        saveProfile: {
+            id: "guest-session",
+            userId: "guest",
+            name: nextProfileName,
+            game: parseResult.detectedGame,
+            createdAt: now,
+            updatedAt: now
+        },
+        trainerInfo: parseResult.trainerInfo,
+        debug: parseResult.debug
     };
 };
 
