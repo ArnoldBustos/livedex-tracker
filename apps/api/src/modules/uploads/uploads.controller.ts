@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import prismaClient from "../../lib/prisma";
+import { resolveRequestUserId } from "../auth/requestUser.service";
 import {
     createGuestUpload,
     createUpload,
@@ -7,31 +7,6 @@ import {
     getSaveProfileDetails,
     listSaveProfiles
 } from "./uploads.service";
-
-// getDevUserId returns the seeded development user id for local development fallback
-// resolveRequestUserId calls this only when no authenticated user is attached to the request yet
-const getDevUserId = async () => {
-    const devUser = await prismaClient.user.findUnique({
-        where: {
-            email: "dev@example.com"
-        },
-        select: {
-            id: true
-        }
-    });
-
-    return devUser ? devUser.id : null;
-};
-
-// resolveRequestUserId returns the authenticated request user when present
-// local development still falls back to the seeded dev user until full auth is wired in
-const resolveRequestUserId = async (request: Request) => {
-    if (request.user && request.user.id) {
-        return request.user.id;
-    }
-
-    return await getDevUserId();
-};
 
 // getSaveProfiles returns all save profiles for the current request user
 // the uploads routes call this to populate the profile list in the frontend
@@ -148,7 +123,7 @@ export const uploadSaveFile = async (request: Request, response: Response) => {
         return;
     }
 
-    const isGuestRequest = request.user?.id === "guest";
+    const isGuestRequest = request.user ? request.user.id === "guest" : false;
 
     try {
         if (isGuestRequest) {

@@ -68,7 +68,8 @@ model SaveProfile {
 
   user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   saveUploads SaveUpload[]
-  dexEntries  SaveProfileDexEntry[]
+  dexEntries  SaveProfileDexEntry[]    @relation("SaveProfileDexEntries")
+  dexOverrides SaveProfileDexOverride[] @relation("SaveProfileDexOverrides")
 
   @@unique([userId, name])
 }
@@ -102,7 +103,8 @@ model PokemonSpecies {
   primaryType PokemonType
   secondaryType PokemonType?
   isAvailable Boolean               @default(true)
-  dexEntries  SaveProfileDexEntry[]
+  dexEntries  SaveProfileDexEntry[]    @relation("SaveProfileDexEntries")
+  dexOverrides SaveProfileDexOverride[] @relation("SaveProfileDexOverrides")
 }
 
 model SaveProfileDexEntry {
@@ -114,8 +116,24 @@ model SaveProfileDexEntry {
   hasLivingEntry   Boolean  @default(false)
   updatedAt        DateTime @updatedAt
 
-  saveProfile    SaveProfile    @relation(fields: [saveProfileId], references: [id], onDelete: Cascade)
-  pokemonSpecies PokemonSpecies @relation(fields: [pokemonSpeciesId], references: [id], onDelete: Cascade)
+  saveProfile    SaveProfile    @relation("SaveProfileDexEntries", fields: [saveProfileId], references: [id], onDelete: Cascade)
+  pokemonSpecies PokemonSpecies @relation("SaveProfileDexEntries", fields: [pokemonSpeciesId], references: [id], onDelete: Cascade)
+
+  @@unique([saveProfileId, pokemonSpeciesId])
+}
+
+model SaveProfileDexOverride {
+  id               String   @id @default(cuid())
+  saveProfileId    String
+  pokemonSpeciesId Int
+  seen             Boolean?
+  caught           Boolean?
+  hasLivingEntry   Boolean?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  saveProfile    SaveProfile    @relation("SaveProfileDexOverrides", fields: [saveProfileId], references: [id], onDelete: Cascade)
+  pokemonSpecies PokemonSpecies @relation("SaveProfileDexOverrides", fields: [pokemonSpeciesId], references: [id], onDelete: Cascade)
 
   @@unique([saveProfileId, pokemonSpeciesId])
 }
