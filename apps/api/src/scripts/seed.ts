@@ -30,6 +30,8 @@ const seed = async () => {
                 dexNumber: pokemonSpecies.dexNumber,
                 name: pokemonSpecies.name,
                 generation: pokemonSpecies.generation,
+                primaryType: pokemonSpecies.primaryType,
+                secondaryType: pokemonSpecies.secondaryType,
                 isAvailable: true
             },
             create: {
@@ -37,6 +39,8 @@ const seed = async () => {
                 dexNumber: pokemonSpecies.dexNumber,
                 name: pokemonSpecies.name,
                 generation: pokemonSpecies.generation,
+                primaryType: pokemonSpecies.primaryType,
+                secondaryType: pokemonSpecies.secondaryType,
                 isAvailable: true
             }
         });

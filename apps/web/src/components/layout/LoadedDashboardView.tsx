@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { DashboardTopbar } from "../dashboard/DashboardTopbar";
 import { DashboardSummary } from "../dashboard/DashboardSummary";
 import type {
@@ -25,6 +25,7 @@ type LoadedDashboardViewProps = {
     onChangeScope: (nextScope: DexScope) => void;
     onSelectDexNumber: (nextDexNumber: number) => void;
     onSelectSaveProfile: (saveProfileId: string) => void;
+    onDeleteProfile: (saveProfileId: string) => Promise<void>;
     onResetToEmptyState: () => void;
     onUpdateSave: (file: File) => void;
 };
@@ -69,6 +70,36 @@ const getPokemonArtworkUrl = (dexNumber: number) => {
     return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dexNumber}.png`;
 };
 
+// slugifyPokemonDbName builds a Pokemon DB friendly slug from a species name
+// the right sidebar external link buttons use this for pokemondb.net URLs
+const slugifyPokemonDbName = (pokemonName: string) => {
+    return pokemonName
+        .toLowerCase()
+        .replace("♀", "-f")
+        .replace("♂", "-m")
+        .replace(/\./g, "")
+        .replace(/'/g, "")
+        .replace(/\s+/g, "-");
+};
+
+// getBulbapediaUrl builds a Bulbapedia page URL for the selected pokemon
+// the right sidebar uses this to open Bulbapedia in a new tab
+const getBulbapediaUrl = (pokemonName: string) => {
+    return `https://bulbapedia.bulbagarden.net/wiki/${encodeURIComponent(`${pokemonName}_(Pokémon)`)}`;
+};
+
+// getPokemonDbUrl builds a Pokemon DB page URL for the selected pokemon
+// the right sidebar uses this to open pokemondb.net in a new tab
+const getPokemonDbUrl = (pokemonName: string) => {
+    return `https://pokemondb.net/pokedex/${slugifyPokemonDbName(pokemonName)}`;
+};
+
+// getSerebiiUrl builds a Serebii dex URL using the national dex number
+// the right sidebar uses this to open the Gen 3 era style Pokedex page in a new tab
+const getSerebiiUrl = (dexNumber: number) => {
+    return `https://www.serebii.net/pokedex-rs/${dexNumber.toString().padStart(3, "0")}.shtml`;
+};
+
 export const LoadedDashboardView = ({
     uploadResponse,
     dexResponse,
@@ -84,8 +115,13 @@ export const LoadedDashboardView = ({
     onSelectDexNumber,
     onSelectSaveProfile,
     onResetToEmptyState,
-    onUpdateSave
+    onUpdateSave,
+    onDeleteProfile
 }: LoadedDashboardViewProps) => {
+    // pendingDeleteProfileId tracks which profile is showing inline delete confirmation
+    // the profile list uses this to swap the Delete button into confirm/cancel actions
+    const [pendingDeleteProfileId, setPendingDeleteProfileId] = useState<string | null>(null);
+
     const trainerName =
         uploadResponse.trainerInfo && uploadResponse.trainerInfo.name
             ? uploadResponse.trainerInfo.name
@@ -205,46 +241,100 @@ export const LoadedDashboardView = ({
                 onUpdateSave={onUpdateSave}
             />
 
-            <div className="grid min-h-[calc(100vh-84px)] grid-cols-[260px_minmax(0,1fr)_320px] gap-6 bg-[#f3f4f6] px-6 py-6">
+            <div className="grid min-h-[calc(100vh-84px)] grid-cols-[280px_minmax(0,1fr)_320px] gap-6 bg-[#f3f4f6] px-6 py-6">
                 <aside className="flex flex-col gap-4 rounded-2xl bg-white p-4 shadow-sm">
                     <div className="rounded-xl bg-gray-50 p-4">
                         <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#656554]">
                             Profiles
                         </div>
 
-                        <div className="mt-3 flex flex-col gap-2">
+                        <div className="mt-3 flex flex-col gap-4">
                             {saveProfiles.map((saveProfile) => {
                                 const isActiveProfile = saveProfile.id === activeSaveProfileId;
+                                const isPendingDelete = pendingDeleteProfileId === saveProfile.id;
 
                                 return (
-                                    <button
+                                    <div
                                         key={saveProfile.id}
-                                        className={
-                                            isActiveProfile
-                                                ? "flex w-full flex-col items-start rounded-[14px] border border-[rgba(147,86,0,0.38)] bg-[rgba(255,255,255,0.82)] px-4 py-3 text-left transition"
-                                                : "flex w-full flex-col items-start rounded-[14px] border border-[rgba(130,129,111,0.18)] bg-[rgba(255,255,255,0.72)] px-4 py-3 text-left transition hover:border-[rgba(147,86,0,0.38)]"
-                                        }
-                                        type="button"
-                                        onClick={() => {
-                                            onSelectSaveProfile(saveProfile.id);
-                                        }}
+                                        className="rounded-[16px] bg-white/60 p-2"
                                     >
-                                        <div className="w-full truncate text-[16px] font-extrabold text-[#38392a]">
-                                            {saveProfile.name}
-                                        </div>
+                                        <button
+                                            className={
+                                                isActiveProfile
+                                                    ? "flex w-full flex-col items-start rounded-[14px] border border-[rgba(147,86,0,0.38)] bg-[rgba(255,255,255,0.82)] px-4 py-3 text-left transition"
+                                                    : "flex w-full flex-col items-start rounded-[14px] border border-[rgba(130,129,111,0.18)] bg-[rgba(255,255,255,0.72)] px-4 py-3 text-left transition hover:border-[rgba(147,86,0,0.38)]"
+                                            }
+                                            type="button"
+                                            onClick={() => {
+                                                onSelectSaveProfile(saveProfile.id);
+                                            }}
+                                        >
+                                            <div className="w-full truncate text-[15px] font-extrabold text-[#38392a]">
+                                                {saveProfile.name}
+                                            </div>
 
-                                        <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#935600]">
-                                            {isActiveProfile
-                                                ? uploadResponse.upload.detectedGame || "Unknown Game"
-                                                : saveProfile.game || "Unknown Game"}
-                                        </div>
+                                            <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#935600]">
+                                                {isActiveProfile
+                                                    ? uploadResponse.upload.detectedGame || "Unknown Game"
+                                                    : saveProfile.game || "Unknown Game"}
+                                            </div>
 
-                                        <div className="mt-1 text-[12px] text-[#656554]">
-                                            {isActiveProfile
-                                                ? `${trainerName}${trainerGender === "Unknown" ? "" : ` · ${trainerGender} trainer`}`
-                                                : "Saved profile"}
-                                        </div>
-                                    </button>
+                                            <div className="mt-1 text-[11px] text-[#656554]">
+                                                {isActiveProfile
+                                                    ? `${trainerName}${trainerGender === "Unknown" ? "" : ` · ${trainerGender} trainer`}`
+                                                    : "Saved profile"}
+                                            </div>
+                                        </button>
+
+                                        {!isPendingDelete ? (
+                                            <div className="flex justify-end pt-1">
+                                                <button
+                                                    className="rounded-md px-2 py-1 text-[11px] font-medium text-[#b42318] hover:bg-red-50 hover:text-[#912018]"
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setPendingDeleteProfileId(saveProfile.id);
+                                                    }}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="pt-2">
+                                                <div className="rounded-xl border border-red-100 bg-[rgba(255,244,244,0.9)] p-3">
+                                                    <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#b42318]">
+                                                        Delete profile
+                                                    </div>
+
+                                                    <div className="mt-1 text-[11px] text-[#7a271a]">
+                                                        Remove this saved profile?
+                                                    </div>
+
+                                                    <div className="mt-2 grid grid-cols-2 gap-2">
+                                                        <button
+                                                            className="rounded-lg border border-[rgba(130,129,111,0.18)] bg-white px-3 py-2 text-[11px] font-medium text-[#656554] hover:bg-gray-50"
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setPendingDeleteProfileId(null);
+                                                            }}
+                                                        >
+                                                            Cancel
+                                                        </button>
+
+                                                        <button
+                                                            className="rounded-lg bg-[#d92d20] px-3 py-2 text-[11px] font-medium text-white hover:bg-[#b42318]"
+                                                            type="button"
+                                                            onClick={async () => {
+                                                                await onDeleteProfile(saveProfile.id);
+                                                                setPendingDeleteProfileId(null);
+                                                            }}
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 );
                             })}
                         </div>
@@ -444,6 +534,18 @@ export const LoadedDashboardView = ({
                                     <div className="mt-2 text-sm font-extrabold tracking-[0.01em] text-gray-900">
                                         {dexEntry.name}
                                     </div>
+
+                                    <div className="mt-2 flex flex-wrap gap-1">
+                                        <span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-bold uppercase text-gray-700">
+                                            {dexEntry.primaryType}
+                                        </span>
+
+                                        {dexEntry.secondaryType ? (
+                                            <span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-bold uppercase text-gray-700">
+                                                {dexEntry.secondaryType}
+                                            </span>
+                                        ) : null}
+                                    </div>
                                 </button>
                             );
                         })}
@@ -480,6 +582,37 @@ export const LoadedDashboardView = ({
                         <h3 className="text-center text-3xl font-extrabold tracking-tight text-gray-900">
                             {selectedDexEntry ? selectedDexEntry.name : "Choose a Pokémon"}
                         </h3>
+
+                        {selectedDexEntry ? (
+                            <div className="grid gap-2">
+                                <a
+                                    className="rounded-xl border border-[rgba(130,129,111,0.18)] bg-gray-50 px-4 py-3 text-center text-xs font-semibold text-[#38392a] hover:bg-gray-100"
+                                    href={getBulbapediaUrl(selectedDexEntry.name)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    Open in Bulbapedia
+                                </a>
+
+                                <a
+                                    className="rounded-xl border border-[rgba(130,129,111,0.18)] bg-gray-50 px-4 py-3 text-center text-xs font-semibold text-[#38392a] hover:bg-gray-100"
+                                    href={getPokemonDbUrl(selectedDexEntry.name)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    Open in Pokémon DB
+                                </a>
+
+                                <a
+                                    className="rounded-xl border border-[rgba(130,129,111,0.18)] bg-gray-50 px-4 py-3 text-center text-xs font-semibold text-[#38392a] hover:bg-gray-100"
+                                    href={getSerebiiUrl(selectedDexEntry.dexNumber)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    Open in Serebii
+                                </a>
+                            </div>
+                        ) : null}
 
                         <div className="grid gap-3">
                             <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">

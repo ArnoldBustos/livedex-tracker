@@ -9,6 +9,7 @@ import type {
   SaveProfileRecord,
   UploadResponse
 } from "./types/save";
+import { deleteSaveProfile } from "./lib/api/uploads";
 
 const API_BASE_URL = "http://localhost:4000";
 
@@ -188,6 +189,45 @@ const App = () => {
     }
   };
 
+  // handleDeleteProfile removes a profile and updates global state
+  // LoadedDashboardView calls this after the user confirms profile deletion
+  const handleDeleteProfile = async (saveProfileId: string) => {
+    try {
+      await deleteSaveProfile(saveProfileId);
+
+      setSaveProfiles((currentSaveProfiles) => {
+        const nextSaveProfiles = currentSaveProfiles.filter((saveProfile) => {
+          return saveProfile.id !== saveProfileId;
+        });
+
+        setActiveSaveProfileId((currentActiveSaveProfileId) => {
+          if (currentActiveSaveProfileId !== saveProfileId) {
+            return currentActiveSaveProfileId;
+          }
+
+          return nextSaveProfiles.length > 0 ? nextSaveProfiles[0].id : null;
+        });
+
+        if (activeSaveProfileId === saveProfileId && nextSaveProfiles.length === 0) {
+          setUploadResponse(null);
+          setDexResponse(null);
+          setSelectedDexNumber(null);
+          setSelectedFilter("all");
+          setSelectedScope("national");
+        }
+
+        return nextSaveProfiles;
+      });
+
+      setErrorMessage("");
+    } catch (error) {
+      console.error("Failed to delete save profile", error);
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to delete save profile"
+      );
+    }
+  };
+
   const handleResetToEmptyState = () => {
     setUploadResponse(null);
     setDexResponse(null);
@@ -230,6 +270,7 @@ const App = () => {
         onSelectSaveProfile={handleSelectSaveProfile}
         onUpdateSave={handleUpdateActiveProfileSave}
         onResetToEmptyState={handleResetToEmptyState}
+        onDeleteProfile={handleDeleteProfile}
       />
     </div>
   );

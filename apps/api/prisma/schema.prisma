@@ -28,6 +28,26 @@ enum SupportedGame {
   LEAFGREEN
 }
 
+enum PokemonType {
+  NORMAL
+  FIRE
+  WATER
+  ELECTRIC
+  GRASS
+  ICE
+  FIGHTING
+  POISON
+  GROUND
+  FLYING
+  PSYCHIC
+  BUG
+  ROCK
+  GHOST
+  DRAGON
+  DARK
+  STEEL
+}
+
 model User {
   id           String        @id @default(cuid())
   email        String        @unique
@@ -79,6 +99,8 @@ model PokemonSpecies {
   dexNumber   Int                   @unique
   name        String
   generation  Int
+  primaryType PokemonType
+  secondaryType PokemonType?
   isAvailable Boolean               @default(true)
   dexEntries  SaveProfileDexEntry[]
 }

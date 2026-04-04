@@ -50,6 +50,8 @@ export type DexEntry = {
     dexNumber: number;
     name: string;
     generation: number;
+    primaryType: string;
+    secondaryType: string | null;
     seen: boolean;
     caught: boolean;
     hasLivingEntry: boolean;

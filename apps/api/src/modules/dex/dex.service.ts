@@ -124,7 +124,9 @@ export const getSaveProfileDex = async (saveProfileId: string) => {
                     id: true,
                     dexNumber: true,
                     name: true,
-                    generation: true
+                    generation: true,
+                    primaryType: true,
+                    secondaryType: true
                 }
             }
         },
@@ -141,6 +143,8 @@ export const getSaveProfileDex = async (saveProfileId: string) => {
             dexNumber: dexEntry.pokemonSpecies.dexNumber,
             name: dexEntry.pokemonSpecies.name,
             generation: dexEntry.pokemonSpecies.generation,
+            primaryType: dexEntry.pokemonSpecies.primaryType,
+            secondaryType: dexEntry.pokemonSpecies.secondaryType,
             seen: dexEntry.seen,
             caught: dexEntry.caught,
             hasLivingEntry: dexEntry.hasLivingEntry
