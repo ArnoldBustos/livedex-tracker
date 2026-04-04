@@ -72,7 +72,7 @@ export const uploadSaveAndFetchDex = async (
         dex?: DexResponse;
     };
 
-    if (currentUser.id === "guest") {
+    if (uploadResponse.dex) {
         if (!uploadResponse.dex) {
             throw new Error("Guest upload did not return dex data.");
         }

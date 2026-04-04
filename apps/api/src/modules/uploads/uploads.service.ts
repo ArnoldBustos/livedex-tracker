@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import prismaClient from "../../lib/prisma";
-import { syncSaveProfileDexFromParse } from "../dex/dex.service";
+import { getSaveProfileDex, syncSaveProfileDexFromParse } from "../dex/dex.service";
 import { parseUploadedSave } from "../parser/parser.service";
 import { getStorageProvider } from "../storage/storage.service";
 
@@ -197,6 +197,7 @@ export const getSaveProfileDetails = async ({
     return {
         upload: latestUpload,
         saveProfile,
+        dex: await getSaveProfileDex(saveProfile.id),
         trainerInfo:
             latestUpload.trainerName || latestUpload.trainerGender
                 ? {
@@ -385,6 +386,7 @@ export const createUpload = async ({
         return {
             upload: updatedUpload,
             saveProfile,
+            dex: await getSaveProfileDex(saveProfile.id),
             trainerInfo: parseResult.trainerInfo,
             debug: parseResult.debug
         };

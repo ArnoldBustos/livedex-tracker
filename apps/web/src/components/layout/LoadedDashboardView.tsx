@@ -366,80 +366,6 @@ export const LoadedDashboardView = ({
                         </div>
                     </div>
 
-                    <div className="rounded-xl bg-gray-50 p-4">
-                        <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#656554]">
-                            Filters
-                        </div>
-
-                        <nav className="mt-3 flex flex-col gap-2">
-                            <button
-                                className={
-                                    selectedFilter === "all"
-                                        ? "flex w-full items-center rounded-lg bg-green-100 px-4 py-3 text-left text-sm font-semibold text-green-800"
-                                        : "flex w-full items-center rounded-lg px-4 py-3 text-left text-sm font-semibold text-gray-600 hover:bg-gray-100"
-                                }
-                                type="button"
-                                onClick={() => {
-                                    onChangeFilter("all");
-                                }}
-                            >
-                                All
-                            </button>
-                            <button
-                                className={
-                                    selectedFilter === "living"
-                                        ? "flex w-full items-center rounded-lg bg-green-100 px-4 py-3 text-left text-sm font-semibold text-green-800"
-                                        : "flex w-full items-center rounded-lg px-4 py-3 text-left text-sm font-semibold text-gray-600 hover:bg-gray-100"
-                                }
-                                type="button"
-                                onClick={() => {
-                                    onChangeFilter("living");
-                                }}
-                            >
-                                Living
-                            </button>
-                            <button
-                                className={
-                                    selectedFilter === "missing"
-                                        ? "flex w-full items-center rounded-lg bg-green-100 px-4 py-3 text-left text-sm font-semibold text-green-800"
-                                        : "flex w-full items-center rounded-lg px-4 py-3 text-left text-sm font-semibold text-gray-600 hover:bg-gray-100"
-                                }
-                                type="button"
-                                onClick={() => {
-                                    onChangeFilter("missing");
-                                }}
-                            >
-                                Missing
-                            </button>
-                            <button
-                                className={
-                                    selectedFilter === "seenOnly"
-                                        ? "flex w-full items-center rounded-lg bg-green-100 px-4 py-3 text-left text-sm font-semibold text-green-800"
-                                        : "flex w-full items-center rounded-lg px-4 py-3 text-left text-sm font-semibold text-gray-600 hover:bg-gray-100"
-                                }
-                                type="button"
-                                onClick={() => {
-                                    onChangeFilter("seenOnly");
-                                }}
-                            >
-                                Seen Only
-                            </button>
-                            <button
-                                className={
-                                    selectedFilter === "caughtNotLiving"
-                                        ? "flex w-full items-center rounded-lg bg-green-100 px-4 py-3 text-left text-sm font-semibold text-green-800"
-                                        : "flex w-full items-center rounded-lg px-4 py-3 text-left text-sm font-semibold text-gray-600 hover:bg-gray-100"
-                                }
-                                type="button"
-                                onClick={() => {
-                                    onChangeFilter("caughtNotLiving");
-                                }}
-                            >
-                                Caught Not Living
-                            </button>
-                        </nav>
-                    </div>
-
                     <div className="mt-auto">
                         <button
                             className="w-full rounded-xl bg-green-700 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-green-800"
@@ -466,8 +392,8 @@ export const LoadedDashboardView = ({
                         seenOnlyCount={dashboardSummary.seenOnlyCount}
                     />
 
-                    <section className="flex items-end justify-between gap-4">
-                        <div>
+                    <section className="flex flex-wrap items-end justify-between gap-4">
+                        <div className="min-w-0">
                             <p className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
                                 Database View
                             </p>
@@ -476,33 +402,105 @@ export const LoadedDashboardView = ({
                             </h2>
                         </div>
 
-                        <div className="flex gap-2 rounded-xl bg-gray-100 p-1">
-                            <button
-                                className={
-                                    selectedScope === "national"
-                                        ? "rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow"
-                                        : "rounded-lg px-4 py-2 text-sm font-semibold text-gray-600"
-                                }
-                                type="button"
-                                onClick={() => {
-                                    onChangeScope("national");
-                                }}
-                            >
-                                National
-                            </button>
-                            <button
-                                className={
-                                    selectedScope === "regional"
-                                        ? "rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow"
-                                        : "rounded-lg px-4 py-2 text-sm font-semibold text-gray-600"
-                                }
-                                type="button"
-                                onClick={() => {
-                                    onChangeScope("regional");
-                                }}
-                            >
-                                Regional
-                            </button>
+                        <div className="flex flex-wrap items-center justify-end gap-3">
+                            {!isGuestMode ? (
+                                <div className="flex flex-wrap gap-2 rounded-xl bg-gray-100 p-1">
+                                    <button
+                                        className={
+                                            selectedFilter === "all"
+                                                ? "rounded-lg bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow"
+                                                : "rounded-lg px-3 py-2 text-sm font-semibold text-gray-600"
+                                        }
+                                        type="button"
+                                        onClick={() => {
+                                            onChangeFilter("all");
+                                        }}
+                                    >
+                                        All
+                                    </button>
+                                    <button
+                                        className={
+                                            selectedFilter === "living"
+                                                ? "rounded-lg bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow"
+                                                : "rounded-lg px-3 py-2 text-sm font-semibold text-gray-600"
+                                        }
+                                        type="button"
+                                        onClick={() => {
+                                            onChangeFilter("living");
+                                        }}
+                                    >
+                                        Living
+                                    </button>
+                                    <button
+                                        className={
+                                            selectedFilter === "missing"
+                                                ? "rounded-lg bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow"
+                                                : "rounded-lg px-3 py-2 text-sm font-semibold text-gray-600"
+                                        }
+                                        type="button"
+                                        onClick={() => {
+                                            onChangeFilter("missing");
+                                        }}
+                                    >
+                                        Missing
+                                    </button>
+                                    <button
+                                        className={
+                                            selectedFilter === "seenOnly"
+                                                ? "rounded-lg bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow"
+                                                : "rounded-lg px-3 py-2 text-sm font-semibold text-gray-600"
+                                        }
+                                        type="button"
+                                        onClick={() => {
+                                            onChangeFilter("seenOnly");
+                                        }}
+                                    >
+                                        Seen Only
+                                    </button>
+                                    <button
+                                        className={
+                                            selectedFilter === "caughtNotLiving"
+                                                ? "rounded-lg bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow"
+                                                : "rounded-lg px-3 py-2 text-sm font-semibold text-gray-600"
+                                        }
+                                        type="button"
+                                        onClick={() => {
+                                            onChangeFilter("caughtNotLiving");
+                                        }}
+                                    >
+                                        Caught Not Living
+                                    </button>
+                                </div>
+                            ) : null}
+
+                            <div className="flex gap-2 rounded-xl bg-gray-100 p-1">
+                                <button
+                                    className={
+                                        selectedScope === "national"
+                                            ? "rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow"
+                                            : "rounded-lg px-4 py-2 text-sm font-semibold text-gray-600"
+                                    }
+                                    type="button"
+                                    onClick={() => {
+                                        onChangeScope("national");
+                                    }}
+                                >
+                                    National
+                                </button>
+                                <button
+                                    className={
+                                        selectedScope === "regional"
+                                            ? "rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow"
+                                            : "rounded-lg px-4 py-2 text-sm font-semibold text-gray-600"
+                                    }
+                                    type="button"
+                                    onClick={() => {
+                                        onChangeScope("regional");
+                                    }}
+                                >
+                                    Regional
+                                </button>
+                            </div>
                         </div>
                     </section>
 

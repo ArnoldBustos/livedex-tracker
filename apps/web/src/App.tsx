@@ -236,7 +236,7 @@ const App = () => {
       setErrorMessage("");
 
       const nextUploadResponse = await fetchSaveProfileById(saveProfileId, currentUser);
-      const nextDexResponse = await fetchDexBySaveProfileId(saveProfileId, currentUser);
+      const nextDexResponse = nextUploadResponse.dex ?? await fetchDexBySaveProfileId(saveProfileId, currentUser);
 
       setUploadResponse(nextUploadResponse);
       setDexResponse(nextDexResponse);
