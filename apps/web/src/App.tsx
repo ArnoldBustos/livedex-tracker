@@ -1,15 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from "react"; // React hooks used throughout App
+
 import "./App.css";
-import { EmptyStateView } from "./components/layout/EmptyStateView";
-import { LoadedDashboardView } from "./components/layout/LoadedDashboardView";
-import { LoginView } from "./components/auth/LoginView";
+
+import { EmptyStateView } from "./components/layout/EmptyStateView"; // empty upload screen
+import { LoadedDashboardView } from "./components/layout/LoadedDashboardView"; // main dashboard
+import { LoginView } from "./components/auth/LoginView"; // login / guest entry screen
+
 import type {
   DexFilter,
   DexResponse,
   DexScope,
   SaveProfileRecord,
   UploadResponse
-} from "./types/save";
+} from "./types/save"; // shared frontend types for dex + uploads
+
 import {
   deleteSaveProfile,
   fetchDexBySaveProfileId,
@@ -18,16 +22,21 @@ import {
   loginWithEmail,
   uploadSaveAndFetchDex,
   uploadSaveFile
-} from "./lib/api/uploads";
+} from "./lib/api/uploads"; // API layer for backend requests
+
 import {
   clearStoredUser,
-  getIsGuestUser,
-  loadStoredUser,
+  restoreSession,
   saveStoredUser
-} from "./lib/auth/session";
-import type { StoredUser } from "./lib/auth/session";
+} from "./lib/auth/session"; // session persistence helpers for auth and guest mode
+import type { StoredUser } from "./lib/auth/session"; // persisted frontend user shape
+
+type SessionMode = "auth" | "user" | "guest";
+type AuthMode = "login" | "register";
 
 const App = () => {
+  const restoredSession = restoreSession();
+
   const [uploadResponse, setUploadResponse] = useState<UploadResponse | null>(null);
   const [dexResponse, setDexResponse] = useState<DexResponse | null>(null);
   const [saveProfiles, setSaveProfiles] = useState<SaveProfileRecord[]>([]);
@@ -37,15 +46,17 @@ const App = () => {
   const [selectedDexNumber, setSelectedDexNumber] = useState<number | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [currentUser, setCurrentUser] = useState<StoredUser | null>(() => {
-    return loadStoredUser();
-  });
+  const [currentUser, setCurrentUser] = useState<StoredUser | null>(restoredSession.user);
+  const [sessionMode, setSessionMode] = useState<SessionMode>(restoredSession.mode);
   const [loginEmail, setLoginEmail] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const isGuestMode = getIsGuestUser(currentUser);
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const isGuestMode = sessionMode === "guest";
 
-  // handleLogin submits the email to the backend and sets currentUser on success
+  // handleLogin submits the email to the backend and enters signed-in account mode on success
   // LoginView calls this when the user presses Sign In
+  // handleLogin submits the email to the backend and enters signed-in account mode on success
+  // LoginView calls this when the user presses Sign In or the current auth action button
   const handleLogin = async () => {
     try {
       setIsLoggingIn(true);
@@ -53,6 +64,8 @@ const App = () => {
 
       const loginResponse = await loginWithEmail(loginEmail.trim());
       setCurrentUser(loginResponse.user);
+      setSessionMode("user");
+      setAuthMode("login");
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Login failed"
@@ -62,31 +75,30 @@ const App = () => {
     }
   };
 
-  // handleContinueAsGuest bypasses login and allows normal app usage
-  // LoginView calls this to enter guest mode
+  // handleContinueAsGuest creates a guest session and switches the app into guest mode
+  // LoginView calls this to enter guest mode without account-backed persistence
   const handleContinueAsGuest = () => {
     setCurrentUser({
       id: "guest",
       email: "guest",
       username: "Guest"
     });
+    setSessionMode("guest");
   };
 
+  // Persists the current user session only when the app is in user or guest mode
+  // App startup, login, guest entry, and logout all flow through this so storage stays in sync with sessionMode
   useEffect(() => {
-    if (!currentUser) {
+    if (sessionMode === "auth" || !currentUser) {
       clearStoredUser();
       return;
     }
 
     saveStoredUser(currentUser);
-  }, [currentUser]);
+  }, [currentUser, sessionMode]);
 
   useEffect(() => {
-    if (!currentUser) {
-      return;
-    }
-
-    if (isGuestMode) {
+    if (!currentUser || sessionMode !== "user") {
       setSaveProfiles([]);
       setActiveSaveProfileId(null);
       return;
@@ -102,7 +114,7 @@ const App = () => {
     };
 
     loadSaveProfiles();
-  }, [currentUser, isGuestMode]);
+  }, [currentUser, sessionMode]);
 
   const handleUploadStart = () => {
     setIsUploading(true);
@@ -313,24 +325,56 @@ const App = () => {
     resetDashboardState();
   };
 
-  // handleLogout clears persisted auth and all loaded app state
-  // dashboard-level UI will call this when the user chooses to sign out
+  // handleGoToLogin clears any temporary session and returns the app to login mode
+  // Guest CTA buttons call this so guest sessions can transition into the auth flow
+  const handleGoToLogin = () => {
+    clearStoredUser();
+    resetDashboardState();
+    setCurrentUser(null);
+    setSessionMode("auth");
+    setAuthMode("login");
+    setErrorMessage("");
+  };
+
+  // handleGoToRegister clears any temporary session and returns the app to register mode
+  // Guest CTA buttons call this so guest sessions can transition into account creation flow
+  const handleGoToRegister = () => {
+    clearStoredUser();
+    resetDashboardState();
+    setCurrentUser(null);
+    setSessionMode("auth");
+    setAuthMode("register");
+    setErrorMessage("");
+  };
+
+  // handleLogout clears persisted auth, guest state, and loaded dashboard state
+  // LoadedDashboardView calls this so the app always returns to the auth screen after logout
   const handleLogout = () => {
     clearStoredUser();
     setLoginEmail("");
     resetDashboardState();
     setCurrentUser(null);
+    setSessionMode("auth");
   };
 
-  if (!currentUser) {
+  if (sessionMode === "auth" || !currentUser) {
     return (
       <LoginView
+        authMode={authMode}
         email={loginEmail}
         isSubmitting={isLoggingIn}
         errorMessage={errorMessage}
         onChangeEmail={setLoginEmail}
         onSubmit={handleLogin}
         onContinueAsGuest={handleContinueAsGuest}
+        onSwitchToLogin={() => {
+          setAuthMode("login");
+          setErrorMessage("");
+        }}
+        onSwitchToRegister={() => {
+          setAuthMode("register");
+          setErrorMessage("");
+        }}
       />
     );
   }
@@ -353,7 +397,7 @@ const App = () => {
     ? "Temporary local session"
     : currentUser.email;
 
-    return (
+  return (
     <div className="min-h-screen bg-[#f6f5dc] text-[#38392a]">
       <LoadedDashboardView
         uploadResponse={uploadResponse}
@@ -375,9 +419,12 @@ const App = () => {
         onResetToEmptyState={handleResetToEmptyState}
         onDeleteProfile={handleDeleteProfile}
         onLogout={handleLogout}
+        onGoToLogin={handleGoToLogin}
+        onGoToRegister={handleGoToRegister}
       />
     </div>
   );
 };
+
 
 export default App;

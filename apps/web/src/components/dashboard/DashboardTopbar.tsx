@@ -6,6 +6,8 @@ type DashboardTopbarProps = {
     onReset: () => void;
     onUpdateSave: (file: File) => void;
     onLogout: () => void;
+    onGoToLogin: () => void;
+    onGoToRegister: () => void;
 };
 
 // getIsSupportedSaveFile validates accepted save file extensions for dashboard updates
@@ -31,7 +33,9 @@ export const DashboardTopbar = ({
     sessionLabel,
     onReset,
     onUpdateSave,
-    onLogout
+    onLogout,
+    onGoToLogin,
+    onGoToRegister
 }: DashboardTopbarProps) => {
     // handleFileChange reads the chosen file and forwards valid save files upward
     // DashboardTopbar uses this to support replacing the active save profile
@@ -112,13 +116,35 @@ export const DashboardTopbar = ({
                         Upload Another Save
                     </button>
 
+                    {isGuestMode ? (
+                        <>
+                            <button
+                                className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-55"
+                                type="button"
+                                onClick={onGoToLogin}
+                                disabled={isUploading}
+                            >
+                                Sign In
+                            </button>
+
+                            <button
+                                className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-55"
+                                type="button"
+                                onClick={onGoToRegister}
+                                disabled={isUploading}
+                            >
+                                Create Account
+                            </button>
+                        </>
+                    ) : null}
+
                     <button
                         className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-55"
                         type="button"
                         onClick={onLogout}
                         disabled={isUploading}
                     >
-                        Log Out
+                        {isGuestMode ? "Exit Guest Mode" : "Log Out"}
                     </button>
                 </div>
             </div>

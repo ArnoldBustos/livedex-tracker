@@ -31,17 +31,30 @@ export type DebugPayload = {
     activeSaveIndex?: number;
     sectionIds?: number[];
     seenNationalDexNumbers?: number[];
+    caughtNationalDexNumbers?: number[];
     ownedNationalDexNumbers?: number[];
+    livingNationalDexNumbers?: number[];
     seenCount?: number;
+    caughtCount?: number;
     ownedCount?: number;
+    livingCount?: number;
     trainerName?: string;
     trainerGender?: string;
+    partyCount?: number;
+    partySpeciesIds?: number[];
+    boxCount?: number;
+    boxSpeciesIds?: number[];
 };
 
 export type UploadResponse = {
-    upload: UploadRecord;
+    upload: UploadRecord & {
+        saveProfileId?: string;
+        trainerName?: string | null;
+        trainerGender?: string | null;
+    };
     saveProfile: SaveProfileRecord;
     trainerInfo?: TrainerInfo;
+    dex?: DexResponse;
     debug?: DebugPayload;
 };
 

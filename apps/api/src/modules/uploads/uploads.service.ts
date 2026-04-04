@@ -16,6 +16,52 @@ type CreateGuestUploadParams = {
     saveProfileName?: string;
 };
 
+// buildGuestDexResponse converts parser output into the frontend dex response shape
+// createGuestUpload uses this so guest mode can render dex data without persisting DB rows
+const buildGuestDexResponse = async ({
+    seenNationalDexNumbers,
+    caughtNationalDexNumbers,
+    livingNationalDexNumbers
+}: {
+    seenNationalDexNumbers: number[];
+    caughtNationalDexNumbers: number[];
+    livingNationalDexNumbers: number[];
+}) => {
+    const pokemonSpecies = await prismaClient.pokemonSpecies.findMany({
+        orderBy: {
+            dexNumber: "asc"
+        }
+    });
+
+    const seenDexNumberSet = new Set(seenNationalDexNumbers);
+    const caughtDexNumberSet = new Set(caughtNationalDexNumbers);
+    const livingDexNumberSet = new Set(livingNationalDexNumbers);
+
+    const entries = pokemonSpecies.map((species) => {
+        return {
+            pokemonSpeciesId: species.id,
+            dexNumber: species.dexNumber,
+            name: species.name,
+            generation: species.generation,
+            primaryType: species.primaryType,
+            secondaryType: species.secondaryType,
+            seen: seenDexNumberSet.has(species.dexNumber),
+            caught: caughtDexNumberSet.has(species.dexNumber),
+            hasLivingEntry: livingDexNumberSet.has(species.dexNumber)
+        };
+    });
+
+    return {
+        summary: {
+            totalEntries: entries.length,
+            seenCount: entries.filter((entry) => entry.seen).length,
+            caughtCount: entries.filter((entry) => entry.caught).length,
+            livingCount: entries.filter((entry) => entry.hasLivingEntry).length
+        },
+        entries
+    };
+};
+
 type ListSaveProfilesParams = {
     userId: string;
 };
@@ -232,6 +278,12 @@ export const createGuestUpload = async ({
                 ? `${parseResult.detectedGame} Guest Session`
                 : "Guest Session";
 
+    const dexResponse = await buildGuestDexResponse({
+        seenNationalDexNumbers: parseResult.pokedexFlags.seenNationalDexNumbers,
+        caughtNationalDexNumbers: parseResult.pokedexFlags.ownedNationalDexNumbers,
+        livingNationalDexNumbers: parseResult.debug.livingNationalDexNumbers
+    });
+
     return {
         upload: {
             id: `guest-upload-${randomUUID()}`,
@@ -259,6 +311,7 @@ export const createGuestUpload = async ({
             updatedAt: now
         },
         trainerInfo: parseResult.trainerInfo,
+        dex: dexResponse,
         debug: parseResult.debug
     };
 };

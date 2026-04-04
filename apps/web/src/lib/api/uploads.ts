@@ -62,13 +62,27 @@ export const uploadSaveFile = async (
     });
 };
 
-// uploadSaveAndFetchDex creates or updates a save upload and then loads its dex data
-// App.tsx calls this for the empty-state upload flow so UI components stay request-free
+// uploadSaveAndFetchDex creates or updates a save upload and then loads dex data
+// Signed-in users fetch persisted dex rows, while guest users use dex returned directly from upload response
 export const uploadSaveAndFetchDex = async (
     formData: FormData,
     currentUser: ApiClientUser
 ) => {
-    const uploadResponse = await uploadSaveFile(formData, currentUser);
+    const uploadResponse = await uploadSaveFile(formData, currentUser) as UploadResponse & {
+        dex?: DexResponse;
+    };
+
+    if (currentUser.id === "guest") {
+        if (!uploadResponse.dex) {
+            throw new Error("Guest upload did not return dex data.");
+        }
+
+        return {
+            uploadResponse,
+            dexResponse: uploadResponse.dex
+        };
+    }
+
     const dexResponse = await fetchDexBySaveProfileId(
         uploadResponse.saveProfile.id,
         currentUser

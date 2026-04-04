@@ -1,23 +1,31 @@
 import type { ChangeEvent } from "react";
 
+type AuthMode = "login" | "register";
+
 type LoginViewProps = {
+    authMode: AuthMode;
     email: string;
     isSubmitting: boolean;
     errorMessage: string;
     onChangeEmail: (nextEmail: string) => void;
     onSubmit: () => void;
     onContinueAsGuest: () => void;
+    onSwitchToLogin: () => void;
+    onSwitchToRegister: () => void;
 };
 
 // LoginView renders the first-entry auth screen for returning users and guests
 // App.tsx uses this as the top-level screen before the upload or dashboard flows
 export const LoginView = ({
+    authMode,
     email,
     isSubmitting,
     errorMessage,
     onChangeEmail,
     onSubmit,
-    onContinueAsGuest
+    onContinueAsGuest,
+    onSwitchToLogin,
+    onSwitchToRegister
 }: LoginViewProps) => {
     // handleEmailChange updates the parent-owned email state as the user types
     // this keeps the form controlled by App.tsx
@@ -60,16 +68,19 @@ export const LoginView = ({
                     <div className="flex items-start justify-between gap-4">
                         <div>
                             <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#656554]">
-                                Welcome Back
+                                {authMode === "login" ? "Welcome Back" : "Create Account"}
                             </div>
 
                             <h2 className="mt-2 text-[44px] font-extrabold tracking-tight text-[#0f172a]">
-                                Sign in to your tracker
+                                {authMode === "login"
+                                    ? "Sign in to your tracker"
+                                    : "Create your tracker account"}
                             </h2>
 
                             <p className="mt-3 max-w-[680px] text-[14px] leading-7 text-[#656554]">
-                                Enter your email to load your saved profiles. You can also continue
-                                as a guest and upload a save file without signing in.
+                                {authMode === "login"
+                                    ? "Enter your email to load your saved profiles. You can also continue as a guest and upload a save file without signing in."
+                                    : "Create an account to save multiple profiles, keep progress across devices, and move beyond a temporary guest session."}
                             </p>
                         </div>
 
@@ -81,7 +92,7 @@ export const LoginView = ({
                     <div className="mt-8 grid gap-6">
                         <section className="rounded-2xl border border-[rgba(130,129,111,0.18)] bg-gray-50 p-5">
                             <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#656554]">
-                                Returning User
+                                {authMode === "login" ? "Returning User" : "New Account"}
                             </div>
 
                             <label className="mt-4 block">
@@ -105,24 +116,54 @@ export const LoginView = ({
                                 </div>
                             ) : null}
 
-                            <div className="mt-4 flex gap-3">
+                            <div className="mt-4 flex flex-wrap gap-3">
                                 <button
                                     className="rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
                                     type="button"
                                     onClick={onSubmit}
                                     disabled={isSubmitting || !email.trim()}
                                 >
-                                    {isSubmitting ? "Signing in..." : "Sign In"}
+                                    {isSubmitting
+                                        ? authMode === "login"
+                                            ? "Signing in..."
+                                            : "Creating account..."
+                                        : authMode === "login"
+                                            ? "Sign In"
+                                            : "Create Account"}
                                 </button>
 
-                                <button
-                                    className="rounded-xl border border-[rgba(130,129,111,0.18)] bg-white px-5 py-3 text-sm font-semibold text-[#38392a] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-                                    type="button"
-                                    onClick={onContinueAsGuest}
-                                    disabled={isSubmitting}
-                                >
-                                    Continue as Guest
-                                </button>
+                                {authMode === "login" ? (
+                                    <button
+                                        className="rounded-xl border border-[rgba(130,129,111,0.18)] bg-white px-5 py-3 text-sm font-semibold text-[#38392a] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                        type="button"
+                                        onClick={onContinueAsGuest}
+                                        disabled={isSubmitting}
+                                    >
+                                        Continue as Guest
+                                    </button>
+                                ) : null}
+                            </div>
+
+                            <div className="mt-4 text-[13px] font-medium text-[#656554]">
+                                {authMode === "login" ? (
+                                    <button
+                                        className="text-green-700 transition hover:text-green-800"
+                                        type="button"
+                                        onClick={onSwitchToRegister}
+                                        disabled={isSubmitting}
+                                    >
+                                        Need an account? Create one
+                                    </button>
+                                ) : (
+                                    <button
+                                        className="text-green-700 transition hover:text-green-800"
+                                        type="button"
+                                        onClick={onSwitchToLogin}
+                                        disabled={isSubmitting}
+                                    >
+                                        Already have an account? Sign in
+                                    </button>
+                                )}
                             </div>
                         </section>
 
@@ -139,7 +180,7 @@ export const LoginView = ({
                             </div>
 
                             <div className="rounded-2xl border border-[rgba(130,129,111,0.18)] bg-white p-5">
-                                <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#656554]">
+                                <div className="text-[10px] font-extrafbold uppercase tracking-[0.12em] text-[#656554]">
                                     Manual Entry
                                 </div>
 

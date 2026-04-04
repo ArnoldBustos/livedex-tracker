@@ -32,6 +32,8 @@ type LoadedDashboardViewProps = {
     onResetToEmptyState: () => void;
     onUpdateSave: (file: File) => void;
     onLogout: () => void;
+    onGoToLogin: () => void;
+    onGoToRegister: () => void;
 };
 
 const getDexEntryStatus = (dexEntry: DexEntry): DexDisplayStatus => {
@@ -127,7 +129,9 @@ export const LoadedDashboardView = ({
     onResetToEmptyState,
     onUpdateSave,
     onDeleteProfile,
-    onLogout
+    onLogout,
+    onGoToLogin,
+    onGoToRegister
 }: LoadedDashboardViewProps) => {
     // pendingDeleteProfileId tracks which profile is showing inline delete confirmation
     // the profile list uses this to swap the Delete button into confirm/cancel actions
@@ -253,6 +257,8 @@ export const LoadedDashboardView = ({
                 onReset={onResetToEmptyState}
                 onUpdateSave={onUpdateSave}
                 onLogout={onLogout}
+                onGoToLogin={onGoToLogin}
+                onGoToRegister={onGoToRegister}
             />
 
             <div
