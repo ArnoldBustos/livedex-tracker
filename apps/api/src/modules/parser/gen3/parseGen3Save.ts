@@ -14,7 +14,7 @@ import {
 import { readGen3SaveSections } from "./readGen3SaveSections";
 
 export type ParsedGen3Save = {
-    detectedGame: "LEAFGREEN";
+    detectedGame: "FIRERED" | "LEAFGREEN";
     trainerInfo: ExtractedTrainerInfo;
     partyPokemon: ParsedGen3Pokemon[];
     boxPokemon: ParsedGen3Pokemon[];
@@ -88,7 +88,7 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
     });
 
     return {
-        detectedGame: "LEAFGREEN",
+        detectedGame: "FIRERED",
         trainerInfo,
         partyPokemon,
         boxPokemon,
