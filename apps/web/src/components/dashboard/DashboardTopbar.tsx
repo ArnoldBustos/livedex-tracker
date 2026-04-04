@@ -3,8 +3,11 @@ type DashboardTopbarProps = {
     isUploading: boolean;
     onReset: () => void;
     onUpdateSave: (file: File) => void;
+    onLogout: () => void;
 };
 
+// getIsSupportedSaveFile validates accepted save file extensions for dashboard updates
+// handleFileChange uses this before passing the file to the parent update handler
 const getIsSupportedSaveFile = (file: File) => {
     const lowercaseFileName = file.name.toLowerCase();
 
@@ -23,8 +26,11 @@ export const DashboardTopbar = ({
     gameLabel,
     isUploading,
     onReset,
-    onUpdateSave
+    onUpdateSave,
+    onLogout
 }: DashboardTopbarProps) => {
+    // handleFileChange reads the chosen file and forwards valid save files upward
+    // DashboardTopbar uses this to support replacing the active save profile
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const nextFiles = event.target.files;
 
@@ -82,6 +88,15 @@ export const DashboardTopbar = ({
                         disabled={isUploading}
                     >
                         Upload Another Save
+                    </button>
+
+                    <button
+                        className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-55"
+                        type="button"
+                        onClick={onLogout}
+                        disabled={isUploading}
+                    >
+                        Log Out
                     </button>
                 </div>
             </div>

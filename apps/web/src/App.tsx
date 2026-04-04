@@ -10,9 +10,15 @@ import type {
   SaveProfileRecord,
   UploadResponse
 } from "./types/save";
-import { deleteSaveProfile } from "./lib/api/uploads";
-
-const API_BASE_URL = "http://localhost:4000";
+import {
+  deleteSaveProfile,
+  fetchDexBySaveProfileId,
+  fetchSaveProfileById,
+  fetchSaveProfiles,
+  loginWithEmail,
+  uploadSaveFile
+} from "./lib/api/uploads";
+import { clearStoredUser, loadStoredUser, saveStoredUser } from "./lib/auth/session";
 
 const App = () => {
   const [uploadResponse, setUploadResponse] = useState<UploadResponse | null>(null);
@@ -28,7 +34,9 @@ const App = () => {
     id: string;
     email: string;
     username: string;
-  } | null>(null);
+  } | null>(() => {
+    return loadStoredUser();
+  });
   const [loginEmail, setLoginEmail] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -39,23 +47,8 @@ const App = () => {
       setIsLoggingIn(true);
       setErrorMessage("");
 
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          email: loginEmail.trim()
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Login failed");
-      }
-
-      setCurrentUser(data.user);
+      const loginResponse = await loginWithEmail(loginEmail.trim());
+      setCurrentUser(loginResponse.user);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Login failed"
@@ -77,30 +70,28 @@ const App = () => {
 
   useEffect(() => {
     if (!currentUser) {
+      clearStoredUser();
       return;
     }
 
-    const fetchSaveProfiles = async () => {
+    saveStoredUser(currentUser);
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) {
+      return;
+    }
+
+    const loadSaveProfiles = async () => {
       try {
-        const saveProfilesRequest = await fetch(`${API_BASE_URL}/uploads/profiles`, {
-          headers: {
-            "x-user-id": currentUser.id,
-            "x-user-email": currentUser.email
-          }
-        });
-
-        if (!saveProfilesRequest.ok) {
-          return;
-        }
-
-        const parsedSaveProfiles = await saveProfilesRequest.json() as SaveProfileRecord[];
+        const parsedSaveProfiles = await fetchSaveProfiles(currentUser);
         setSaveProfiles(parsedSaveProfiles);
       } catch (error) {
         console.error("Failed to fetch save profiles", error);
       }
     };
 
-    fetchSaveProfiles();
+    loadSaveProfiles();
   }, [currentUser]);
 
   const handleUploadStart = () => {
@@ -160,6 +151,11 @@ const App = () => {
       return;
     }
 
+    if (!currentUser) {
+      setErrorMessage("No user is currently signed in.");
+      return;
+    }
+
     try {
       setIsUploading(true);
       setErrorMessage("");
@@ -168,27 +164,9 @@ const App = () => {
       formData.append("saveFile", file);
       formData.append("saveProfileId", activeSaveProfileId);
 
-      const uploadRequest = await fetch(`${API_BASE_URL}/uploads`, {
-        method: "POST",
-        body: formData
-      });
-
-      const uploadResponseText = await uploadRequest.text();
-
-      if (!uploadRequest.ok) {
-        throw new Error(uploadResponseText || "Upload failed");
-      }
-
-      const nextUploadResponse = JSON.parse(uploadResponseText) as UploadResponse;
+      const nextUploadResponse = await uploadSaveFile(formData, currentUser);
       const saveProfileId = nextUploadResponse.saveProfile.id;
-
-      const dexRequest = await fetch(`${API_BASE_URL}/dex/profile/${saveProfileId}`);
-
-      if (!dexRequest.ok) {
-        throw new Error("Dex fetch failed after upload");
-      }
-
-      const nextDexResponse = await dexRequest.json() as DexResponse;
+      const nextDexResponse = await fetchDexBySaveProfileId(saveProfileId, currentUser);
 
       handleUploadSuccess(nextUploadResponse, nextDexResponse);
     } catch (error) {
@@ -205,28 +183,17 @@ const App = () => {
       return;
     }
 
+    if (!currentUser) {
+      setErrorMessage("No user is currently signed in.");
+      return;
+    }
+
     try {
       setIsUploading(true);
       setErrorMessage("");
 
-      const saveProfileRequest = await fetch(
-        `${API_BASE_URL}/uploads/profiles/${saveProfileId}`
-      );
-      const dexRequest = await fetch(
-        `${API_BASE_URL}/dex/profile/${saveProfileId}`
-      );
-
-      if (!saveProfileRequest.ok) {
-        const errorPayload = await saveProfileRequest.json() as { error?: string };
-        throw new Error(errorPayload.error || "Failed to load save profile");
-      }
-
-      if (!dexRequest.ok) {
-        throw new Error("Failed to load dex data");
-      }
-
-      const nextUploadResponse = await saveProfileRequest.json() as UploadResponse;
-      const nextDexResponse = await dexRequest.json() as DexResponse;
+      const nextUploadResponse = await fetchSaveProfileById(saveProfileId, currentUser);
+      const nextDexResponse = await fetchDexBySaveProfileId(saveProfileId, currentUser);
 
       setUploadResponse(nextUploadResponse);
       setDexResponse(nextDexResponse);
@@ -252,8 +219,13 @@ const App = () => {
   // handleDeleteProfile removes a profile and updates global state
   // LoadedDashboardView calls this after the user confirms profile deletion
   const handleDeleteProfile = async (saveProfileId: string) => {
+    if (!currentUser) {
+      setErrorMessage("No user is currently signed in.");
+      return;
+    }
+
     try {
-      await deleteSaveProfile(saveProfileId);
+      await deleteSaveProfile(saveProfileId, currentUser);
 
       setSaveProfiles((currentSaveProfiles) => {
         const nextSaveProfiles = currentSaveProfiles.filter((saveProfile) => {
@@ -288,14 +260,33 @@ const App = () => {
     }
   };
 
-  const handleResetToEmptyState = () => {
+  // resetDashboardState clears loaded profile and dex state without removing auth
+  // logout and empty-state transitions both call this so reset logic stays centralized
+  const resetDashboardState = () => {
     setUploadResponse(null);
     setDexResponse(null);
+    setSaveProfiles([]);
+    setActiveSaveProfileId(null);
     setSelectedDexNumber(null);
     setSelectedFilter("all");
     setSelectedScope("national");
     setIsUploading(false);
     setErrorMessage("");
+  };
+
+  // handleResetToEmptyState clears dashboard data but keeps the current signed-in user
+  // LoadedDashboardView calls this when returning to the empty upload state
+  const handleResetToEmptyState = () => {
+    resetDashboardState();
+  };
+
+  // handleLogout clears persisted auth and all loaded app state
+  // dashboard-level UI will call this when the user chooses to sign out
+  const handleLogout = () => {
+    clearStoredUser();
+    setLoginEmail("");
+    resetDashboardState();
+    setCurrentUser(null);
   };
 
   if (!currentUser) {
@@ -344,6 +335,7 @@ const App = () => {
         onUpdateSave={handleUpdateActiveProfileSave}
         onResetToEmptyState={handleResetToEmptyState}
         onDeleteProfile={handleDeleteProfile}
+        onLogout={handleLogout}
       />
     </div>
   );
