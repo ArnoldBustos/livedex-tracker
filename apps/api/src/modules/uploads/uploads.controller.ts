@@ -7,6 +7,8 @@ import {
     listSaveProfiles
 } from "./uploads.service";
 
+// getDevUserId returns the seeded development user id for local development fallback
+// resolveRequestUserId calls this only when no authenticated user is attached to the request yet
 const getDevUserId = async () => {
     const devUser = await prismaClient.user.findUnique({
         where: {
@@ -20,29 +22,43 @@ const getDevUserId = async () => {
     return devUser ? devUser.id : null;
 };
 
-export const getSaveProfiles = async (_request: Request, response: Response) => {
-    const devUserId = await getDevUserId();
+// resolveRequestUserId returns the authenticated request user when present
+// local development still falls back to the seeded dev user until full auth is wired in
+const resolveRequestUserId = async (request: Request) => {
+    if (request.user && request.user.id) {
+        return request.user.id;
+    }
 
-    if (!devUserId) {
+    return await getDevUserId();
+};
+
+// getSaveProfiles returns all save profiles for the current request user
+// the uploads routes call this to populate the profile list in the frontend
+export const getSaveProfiles = async (request: Request, response: Response) => {
+    const userId = await resolveRequestUserId(request);
+
+    if (!userId) {
         response.status(500).json({
-            error: "Dev user not found. Run the seed script first."
+            error: "No request user found. Run the seed script first."
         });
         return;
     }
 
     const saveProfiles = await listSaveProfiles({
-        userId: devUserId
+        userId
     });
 
     response.status(200).json(saveProfiles);
 };
 
+// deleteSaveProfileById deletes one save profile owned by the current request user
+// the profile delete action in the frontend calls this endpoint
 export const deleteSaveProfileById = async (request: Request, response: Response) => {
-    const devUserId = await getDevUserId();
+    const userId = await resolveRequestUserId(request);
 
-    if (!devUserId) {
+    if (!userId) {
         response.status(500).json({
-            error: "Dev user not found. Run the seed script first."
+            error: "No request user found. Run the seed script first."
         });
         return;
     }
@@ -61,7 +77,7 @@ export const deleteSaveProfileById = async (request: Request, response: Response
 
     try {
         const deleteResult = await deleteSaveProfile({
-            userId: devUserId,
+            userId,
             saveProfileId
         });
 
@@ -73,12 +89,14 @@ export const deleteSaveProfileById = async (request: Request, response: Response
     }
 };
 
+// getSaveProfileById returns one save profile owned by the current request user
+// the frontend uses this when switching between saved profiles
 export const getSaveProfileById = async (request: Request, response: Response) => {
-    const devUserId = await getDevUserId();
+    const userId = await resolveRequestUserId(request);
 
-    if (!devUserId) {
+    if (!userId) {
         response.status(500).json({
-            error: "Dev user not found. Run the seed script first."
+            error: "No request user found. Run the seed script first."
         });
         return;
     }
@@ -97,7 +115,7 @@ export const getSaveProfileById = async (request: Request, response: Response) =
 
     try {
         const saveProfileDetails = await getSaveProfileDetails({
-            userId: devUserId,
+            userId,
             saveProfileId
         });
 
@@ -109,6 +127,8 @@ export const getSaveProfileById = async (request: Request, response: Response) =
     }
 };
 
+// uploadSaveFile creates or updates a save upload for the current request user
+// the upload form in the frontend posts the save file to this controller
 export const uploadSaveFile = async (request: Request, response: Response) => {
     const uploadedFile = request.file;
     const saveProfileName =
@@ -127,17 +147,17 @@ export const uploadSaveFile = async (request: Request, response: Response) => {
         return;
     }
 
-    const devUserId = await getDevUserId();
+    const userId = await resolveRequestUserId(request);
 
-    if (!devUserId) {
+    if (!userId) {
         response.status(500).json({
-            error: "Dev user not found. Run the seed script first."
+            error: "No request user found. Run the seed script first."
         });
         return;
     }
 
     const uploadResult = await createUpload({
-        userId: devUserId,
+        userId,
         file: uploadedFile,
         saveProfileName: saveProfileName || undefined,
         saveProfileId: saveProfileId || undefined
