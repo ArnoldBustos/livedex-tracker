@@ -116,4 +116,8 @@ export type DexFilter =
 
 export type DexScope = "national" | "regional";
 
+// DexGridDensity defines the three dashboard card density options for the dex grid.
+// App.tsx stores this selection and LoadedDashboardView uses it to choose grid sizing.
+export type DexGridDensity = "comfortable" | "default" | "compact";
+
 export type DexDisplayStatus = "living" | "caught" | "seen" | "missing";

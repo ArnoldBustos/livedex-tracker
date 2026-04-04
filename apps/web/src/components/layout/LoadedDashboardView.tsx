@@ -5,6 +5,7 @@ import type {
     DexDisplayStatus,
     DexEntry,
     DexFilter,
+    DexGridDensity,
     DexResponse,
     DexScope,
     SaveProfileRecord,
@@ -20,6 +21,7 @@ type LoadedDashboardViewProps = {
     activeSaveProfileId: string | null;
     selectedFilter: DexFilter;
     selectedScope: DexScope;
+    selectedGridDensity: DexGridDensity;
     selectedDexNumber: number | null;
     errorMessage: string;
     isUploading: boolean;
@@ -27,6 +29,8 @@ type LoadedDashboardViewProps = {
     sessionLabel: string;
     onChangeFilter: (nextFilter: DexFilter) => void;
     onChangeScope: (nextScope: DexScope) => void;
+    onDecreaseGridDensity: () => void;
+    onIncreaseGridDensity: () => void;
     onSelectDexNumber: (nextDexNumber: number) => void;
     onSelectSaveProfile: (saveProfileId: string) => void;
     onDeleteProfile: (saveProfileId: string) => Promise<void>;
@@ -45,6 +49,56 @@ type LoadedDashboardViewProps = {
     onGoToRegister: () => void;
 };
 
+// filterControlOptions lists the available content filters for the dashboard controls.
+// LoadedDashboardView maps this so filter layout stays modular when options change.
+const filterControlOptions: Array<{
+    value: DexFilter;
+    label: string;
+}> = [
+    {
+        value: "all",
+        label: "All"
+    },
+    {
+        value: "living",
+        label: "Living"
+    },
+    {
+        value: "missing",
+        label: "Missing"
+    },
+    {
+        value: "seenOnly",
+        label: "Seen Only"
+    },
+    {
+        value: "caughtNotLiving",
+        label: "Caught Not Living"
+    }
+];
+
+// scopeControlOptions lists the available scope controls for the dashboard view group.
+// LoadedDashboardView maps this so view-specific controls stay isolated from filter controls.
+const scopeControlOptions: Array<{
+    value: DexScope;
+    label: string;
+}> = [
+    {
+        value: "national",
+        label: "National"
+    },
+    {
+        value: "regional",
+        label: "Regional"
+    }
+];
+
+// dexGridDensityOrder defines the density steps from fewest to most cards per row.
+// LoadedDashboardView uses this to disable the minus and plus controls at the bounds.
+const dexGridDensityOrder: DexGridDensity[] = ["comfortable", "default", "compact"];
+
+// getDexEntryStatus returns the strongest collection state for one dex entry.
+// cards, filters, and summary counts use this so UI status rules stay aligned.
 const getDexEntryStatus = (dexEntry: DexEntry): DexDisplayStatus => {
     if (dexEntry.hasLivingEntry) {
         return "living";
@@ -61,6 +115,8 @@ const getDexEntryStatus = (dexEntry: DexEntry): DexDisplayStatus => {
     return "missing";
 };
 
+// getDexEntryStatusLabel formats the card badge label for one collection state.
+// LoadedDashboardView uses this so the visible status copy matches getDexEntryStatus.
 const getDexEntryStatusLabel = (status: DexDisplayStatus) => {
     if (status === "living") {
         return "Living";
@@ -77,14 +133,48 @@ const getDexEntryStatusLabel = (status: DexDisplayStatus) => {
     return "Missing";
 };
 
+// getDexGridSectionClassName chooses the grid sizing classes for the active density option.
+// LoadedDashboardView uses this to keep density layout mapping out of the JSX tree.
+const getDexGridSectionClassName = (selectedGridDensity: DexGridDensity) => {
+    if (selectedGridDensity === "comfortable") {
+        return "grid grid-cols-[repeat(auto-fill,minmax(176px,1fr))] gap-4";
+    }
+
+    if (selectedGridDensity === "compact") {
+        return "grid grid-cols-[repeat(auto-fill,minmax(124px,1fr))] gap-4";
+    }
+
+    return "grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-4";
+};
+
+// getDexCardImageClassName chooses sprite sizing for the active density option.
+// LoadedDashboardView uses this so compact and comfortable cards scale consistently with the grid.
+const getDexCardImageClassName = (selectedGridDensity: DexGridDensity) => {
+    if (selectedGridDensity === "comfortable") {
+        return "max-h-[80px] max-w-[80px] object-contain";
+    }
+
+    if (selectedGridDensity === "compact") {
+        return "max-h-[64px] max-w-[64px] object-contain";
+    }
+
+    return "max-h-[72px] max-w-[72px] object-contain";
+};
+
+// getPokemonSpriteUrl builds the Home sprite URL for one dex card.
+// the card grid uses this so discovered pokemon render with consistent artwork.
 const getPokemonSpriteUrl = (dexNumber: number) => {
     return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${dexNumber}.png`;
 };
 
+// getPokemonArtworkUrl builds the official artwork URL for the selected pokemon.
+// the right sidebar uses this so the focused entry shows larger artwork than the grid cards.
 const getPokemonArtworkUrl = (dexNumber: number) => {
     return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dexNumber}.png`;
 };
 
+// formatPokemonTypeLabel converts API casing into the badge label casing shown on cards.
+// LoadedDashboardView uses this so type pills render consistent readable labels.
 const formatPokemonTypeLabel = (pokemonType: string) => {
     return `${pokemonType.charAt(0)}${pokemonType.slice(1).toLowerCase()}`;
 };
@@ -117,6 +207,32 @@ const getPokemonDbUrl = (pokemonName: string) => {
 // the right sidebar uses this to open the Gen 3 era style Pokedex page in a new tab
 const getSerebiiUrl = (dexNumber: number) => {
     return `https://www.serebii.net/pokedex-rs/${dexNumber.toString().padStart(3, "0")}.shtml`;
+};
+
+// ControlChipButton renders one selectable control chip for filter and view groups.
+// LoadedDashboardView uses this so both control sections share the same button treatment.
+const ControlChipButton = ({
+    label,
+    isSelected,
+    onClick
+}: {
+    label: string;
+    isSelected: boolean;
+    onClick: () => void;
+}) => {
+    return (
+        <button
+            className={
+                isSelected
+                    ? "rounded-lg bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow"
+                    : "rounded-lg px-3 py-2 text-sm font-semibold text-gray-600"
+            }
+            type="button"
+            onClick={onClick}
+        >
+            {label}
+        </button>
+    );
 };
 
 // SidebarToggleButton renders one yes/no action button for a selected dex flag.
@@ -158,6 +274,7 @@ export const LoadedDashboardView = ({
     activeSaveProfileId,
     selectedFilter,
     selectedScope,
+    selectedGridDensity,
     selectedDexNumber,
     errorMessage,
     isUploading,
@@ -165,6 +282,8 @@ export const LoadedDashboardView = ({
     sessionLabel,
     onChangeFilter,
     onChangeScope,
+    onDecreaseGridDensity,
+    onIncreaseGridDensity,
     onSelectDexNumber,
     onSelectSaveProfile,
     onResetToEmptyState,
@@ -178,6 +297,9 @@ export const LoadedDashboardView = ({
     // pendingDeleteProfileId tracks which profile is showing inline delete confirmation
     // the profile list uses this to swap the Delete button into confirm/cancel actions
     const [pendingDeleteProfileId, setPendingDeleteProfileId] = useState<string | null>(null);
+    const selectedGridDensityIndex = dexGridDensityOrder.indexOf(selectedGridDensity);
+    const isDecreaseGridDensityDisabled = selectedGridDensityIndex === 0;
+    const isIncreaseGridDensityDisabled = selectedGridDensityIndex === dexGridDensityOrder.length - 1;
 
     const trainerName =
         uploadResponse.trainerInfo && uploadResponse.trainerInfo.name
@@ -443,109 +565,82 @@ export const LoadedDashboardView = ({
                             </h2>
                         </div>
 
-                        <div className="flex flex-wrap items-center justify-end gap-3">
-                            {!isGuestMode ? (
-                                <div className="flex flex-wrap gap-2 rounded-xl bg-gray-100 p-1">
-                                    <button
-                                        className={
-                                            selectedFilter === "all"
-                                                ? "rounded-lg bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow"
-                                                : "rounded-lg px-3 py-2 text-sm font-semibold text-gray-600"
-                                        }
-                                        type="button"
-                                        onClick={() => {
-                                            onChangeFilter("all");
-                                        }}
-                                    >
-                                        All
-                                    </button>
-                                    <button
-                                        className={
-                                            selectedFilter === "living"
-                                                ? "rounded-lg bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow"
-                                                : "rounded-lg px-3 py-2 text-sm font-semibold text-gray-600"
-                                        }
-                                        type="button"
-                                        onClick={() => {
-                                            onChangeFilter("living");
-                                        }}
-                                    >
-                                        Living
-                                    </button>
-                                    <button
-                                        className={
-                                            selectedFilter === "missing"
-                                                ? "rounded-lg bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow"
-                                                : "rounded-lg px-3 py-2 text-sm font-semibold text-gray-600"
-                                        }
-                                        type="button"
-                                        onClick={() => {
-                                            onChangeFilter("missing");
-                                        }}
-                                    >
-                                        Missing
-                                    </button>
-                                    <button
-                                        className={
-                                            selectedFilter === "seenOnly"
-                                                ? "rounded-lg bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow"
-                                                : "rounded-lg px-3 py-2 text-sm font-semibold text-gray-600"
-                                        }
-                                        type="button"
-                                        onClick={() => {
-                                            onChangeFilter("seenOnly");
-                                        }}
-                                    >
-                                        Seen Only
-                                    </button>
-                                    <button
-                                        className={
-                                            selectedFilter === "caughtNotLiving"
-                                                ? "rounded-lg bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow"
-                                                : "rounded-lg px-3 py-2 text-sm font-semibold text-gray-600"
-                                        }
-                                        type="button"
-                                        onClick={() => {
-                                            onChangeFilter("caughtNotLiving");
-                                        }}
-                                    >
-                                        Caught Not Living
-                                    </button>
-                                </div>
-                            ) : null}
+                        <div className="flex w-full flex-wrap items-start justify-between gap-3 rounded-2xl border border-[rgba(130,129,111,0.18)] bg-white/80 px-4 py-4 shadow-sm">
+                            <div className="min-w-0">
+                                <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
+                                    Filter
+                                </p>
 
-                            <div className="flex gap-2 rounded-xl bg-gray-100 p-1">
-                                <button
-                                    className={
-                                        selectedScope === "national"
-                                            ? "rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow"
-                                            : "rounded-lg px-4 py-2 text-sm font-semibold text-gray-600"
-                                    }
-                                    type="button"
-                                    onClick={() => {
-                                        onChangeScope("national");
-                                    }}
-                                >
-                                    National
-                                </button>
-                                <button
-                                    className={
-                                        selectedScope === "regional"
-                                            ? "rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow"
-                                            : "rounded-lg px-4 py-2 text-sm font-semibold text-gray-600"
-                                    }
-                                    type="button"
-                                    onClick={() => {
-                                        onChangeScope("regional");
-                                    }}
-                                >
-                                    Regional
-                                </button>
+                                <div className="flex flex-wrap gap-2 rounded-xl bg-gray-100 p-1">
+                                    {filterControlOptions.map((filterOption) => {
+                                        return (
+                                            <ControlChipButton
+                                                key={filterOption.value}
+                                                label={filterOption.label}
+                                                isSelected={selectedFilter === filterOption.value}
+                                                onClick={() => {
+                                                    onChangeFilter(filterOption.value);
+                                                }}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="min-w-0">
+                                <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
+                                    View
+                                </p>
+
+                                <div className="flex flex-wrap items-center gap-2 rounded-xl bg-gray-100 p-1">
+                                    {scopeControlOptions.map((scopeOption) => {
+                                        return (
+                                            <ControlChipButton
+                                                key={scopeOption.value}
+                                                label={scopeOption.label}
+                                                isSelected={selectedScope === scopeOption.value}
+                                                onClick={() => {
+                                                    onChangeScope(scopeOption.value);
+                                                }}
+                                            />
+                                        );
+                                    })}
+
+                                    <div className="ml-1 flex items-center gap-1 rounded-lg border border-white/80 bg-white px-1 py-1 shadow-sm">
+                                        <button
+                                            className={
+                                                isDecreaseGridDensityDisabled
+                                                    ? "rounded-md px-2 py-1 text-sm font-extrabold text-gray-300"
+                                                    : "rounded-md px-2 py-1 text-sm font-extrabold text-gray-600 hover:bg-gray-100"
+                                            }
+                                            type="button"
+                                            onClick={onDecreaseGridDensity}
+                                            disabled={isDecreaseGridDensityDisabled}
+                                            aria-label="Show fewer cards per row"
+                                        >
+                                            -
+                                        </button>
+
+                                        <button
+                                            className={
+                                                isIncreaseGridDensityDisabled
+                                                    ? "rounded-md px-2 py-1 text-sm font-extrabold text-gray-300"
+                                                    : "rounded-md px-2 py-1 text-sm font-extrabold text-gray-600 hover:bg-gray-100"
+                                            }
+                                            type="button"
+                                            onClick={onIncreaseGridDensity}
+                                            disabled={isIncreaseGridDensityDisabled}
+                                            aria-label="Show more cards per row"
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </section>
 
-                    <section className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-4">
+                    <section className={getDexGridSectionClassName(selectedGridDensity)}>
                         {filteredDexEntries.map((dexEntry) => {
                             const status = getDexEntryStatus(dexEntry);
                             const isSelected = selectedDexEntry
@@ -592,7 +687,7 @@ export const LoadedDashboardView = ({
                                             <img
                                                 src={getPokemonSpriteUrl(dexEntry.dexNumber)}
                                                 alt={dexEntry.name}
-                                                className="max-h-[72px] max-w-[72px] object-contain"
+                                                className={getDexCardImageClassName(selectedGridDensity)}
                                             />
                                         )}
                                     </div>
@@ -688,7 +783,7 @@ export const LoadedDashboardView = ({
                             {selectedDexEntry ? (
                                 <>
                                     <SidebarToggleButton
-                                        label="Living Dex"
+                                        label="In Living Dex"
                                         value={selectedDexEntry.hasLivingEntry}
                                         onToggle={() => {
                                             onUpdateDexEntry({
@@ -730,7 +825,7 @@ export const LoadedDashboardView = ({
                                 <>
                                     <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
                                         <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
-                                            Living Dex
+                                            In Living Dex
                                         </span>
                                         <strong className="text-sm font-extrabold uppercase text-gray-400">
                                             No

@@ -8,6 +8,7 @@ import { LoginView } from "./components/auth/LoginView"; // login / guest entry 
 
 import type {
   DexFilter,
+  DexGridDensity,
   DexResponse,
   DexScope,
   GuestDexOverrideMap,
@@ -46,6 +47,7 @@ const App = () => {
   const [activeSaveProfileId, setActiveSaveProfileId] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<DexFilter>("all");
   const [selectedScope, setSelectedScope] = useState<DexScope>("national");
+  const [selectedGridDensity, setSelectedGridDensity] = useState<DexGridDensity>("default");
   const [selectedDexNumber, setSelectedDexNumber] = useState<number | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -115,6 +117,72 @@ const App = () => {
     dexResponse && isGuestMode
       ? getMergedGuestDexResponse(dexResponse, guestDexOverrides)
       : dexResponse;
+
+  // getNormalizedDexEntryPatch applies the dex hierarchy before any guest or backend update is saved.
+  // handleUpdateDexEntry uses this so seen, caught, and living stay consistent across both edit paths.
+  const getNormalizedDexEntryPatch = ({
+    pokemonSpeciesId,
+    patch,
+  }: {
+    pokemonSpeciesId: number;
+    patch: UpdateDexEntryRequest;
+  }): UpdateDexEntryRequest => {
+    const dexEntriesSource =
+      displayedDexResponse ? displayedDexResponse.entries : dexResponse ? dexResponse.entries : [];
+
+    const currentEntry = dexEntriesSource.find((entry) => {
+      return entry.pokemonSpeciesId === pokemonSpeciesId;
+    });
+
+    if (!currentEntry) {
+      return patch;
+    }
+
+    const normalizedPatch: UpdateDexEntryRequest = Object.assign({}, patch);
+    const nextEntryState = {
+      seen: currentEntry.seen,
+      caught: currentEntry.caught,
+      hasLivingEntry: currentEntry.hasLivingEntry
+    };
+
+    if (typeof patch.seen === "boolean") {
+      nextEntryState.seen = patch.seen;
+    }
+
+    if (typeof patch.caught === "boolean") {
+      nextEntryState.caught = patch.caught;
+    }
+
+    if (typeof patch.hasLivingEntry === "boolean") {
+      nextEntryState.hasLivingEntry = patch.hasLivingEntry;
+    }
+
+    if (nextEntryState.hasLivingEntry) {
+      nextEntryState.seen = true;
+      nextEntryState.caught = true;
+    }
+
+    if (!nextEntryState.seen) {
+      nextEntryState.caught = false;
+      nextEntryState.hasLivingEntry = false;
+    }
+
+    if (!nextEntryState.caught) {
+      nextEntryState.hasLivingEntry = false;
+    }
+
+    if (
+      typeof patch.seen === "boolean" ||
+      typeof patch.caught === "boolean" ||
+      typeof patch.hasLivingEntry === "boolean"
+    ) {
+      normalizedPatch.seen = nextEntryState.seen;
+      normalizedPatch.caught = nextEntryState.caught;
+      normalizedPatch.hasLivingEntry = nextEntryState.hasLivingEntry;
+    }
+
+    return normalizedPatch;
+  };
 
   // handleLogin submits the email to the backend and enters signed-in account mode on success
   // LoginView calls this when the user presses Sign In
@@ -230,6 +298,38 @@ const App = () => {
   const handleUploadError = (nextErrorMessage: string) => {
     setIsUploading(false);
     setErrorMessage(nextErrorMessage);
+  };
+
+  // handleDecreaseGridDensity moves the dex grid toward fewer cards per row.
+  // LoadedDashboardView calls this from the minus control while keeping the default density unchanged on first load.
+  const handleDecreaseGridDensity = () => {
+    setSelectedGridDensity((currentGridDensity) => {
+      if (currentGridDensity === "compact") {
+        return "default";
+      }
+
+      if (currentGridDensity === "default") {
+        return "comfortable";
+      }
+
+      return currentGridDensity;
+    });
+  };
+
+  // handleIncreaseGridDensity moves the dex grid toward more cards per row.
+  // LoadedDashboardView calls this from the plus control while capping the density at compact.
+  const handleIncreaseGridDensity = () => {
+    setSelectedGridDensity((currentGridDensity) => {
+      if (currentGridDensity === "comfortable") {
+        return "default";
+      }
+
+      if (currentGridDensity === "default") {
+        return "compact";
+      }
+
+      return currentGridDensity;
+    });
   };
 
   // handleCreateSaveUpload owns the empty-state upload flow for signed-in or guest users
@@ -385,32 +485,37 @@ const App = () => {
       return;
     }
 
+    const normalizedPatch = getNormalizedDexEntryPatch({
+      pokemonSpeciesId,
+      patch
+    });
+
     if (isGuestMode) {
       setGuestDexOverrides((currentOverrides) => {
         const currentOverride = currentOverrides[pokemonSpeciesId];
         const nextOverride = currentOverride ? Object.assign({}, currentOverride) : {};
 
-        if (Object.prototype.hasOwnProperty.call(patch, "seen")) {
-          if (patch.seen === null) {
+        if (Object.prototype.hasOwnProperty.call(normalizedPatch, "seen")) {
+          if (normalizedPatch.seen === null) {
             delete nextOverride.seen;
           } else {
-            nextOverride.seen = patch.seen;
+            nextOverride.seen = normalizedPatch.seen;
           }
         }
 
-        if (Object.prototype.hasOwnProperty.call(patch, "caught")) {
-          if (patch.caught === null) {
+        if (Object.prototype.hasOwnProperty.call(normalizedPatch, "caught")) {
+          if (normalizedPatch.caught === null) {
             delete nextOverride.caught;
           } else {
-            nextOverride.caught = patch.caught;
+            nextOverride.caught = normalizedPatch.caught;
           }
         }
 
-        if (Object.prototype.hasOwnProperty.call(patch, "hasLivingEntry")) {
-          if (patch.hasLivingEntry === null) {
+        if (Object.prototype.hasOwnProperty.call(normalizedPatch, "hasLivingEntry")) {
+          if (normalizedPatch.hasLivingEntry === null) {
             delete nextOverride.hasLivingEntry;
           } else {
-            nextOverride.hasLivingEntry = patch.hasLivingEntry;
+            nextOverride.hasLivingEntry = normalizedPatch.hasLivingEntry;
           }
         }
 
@@ -444,7 +549,7 @@ const App = () => {
       const nextDexResponse = await patchDexEntryOverride({
         saveProfileId: activeSaveProfileId,
         pokemonSpeciesId,
-        patch,
+        patch: normalizedPatch,
         currentUser
       });
 
@@ -558,6 +663,7 @@ const App = () => {
         activeSaveProfileId={activeSaveProfileId}
         selectedFilter={selectedFilter}
         selectedScope={selectedScope}
+        selectedGridDensity={selectedGridDensity}
         selectedDexNumber={selectedDexNumber}
         errorMessage={errorMessage}
         isUploading={isUploading}
@@ -565,6 +671,8 @@ const App = () => {
         sessionLabel={sessionLabel}
         onChangeFilter={setSelectedFilter}
         onChangeScope={setSelectedScope}
+        onDecreaseGridDensity={handleDecreaseGridDensity}
+        onIncreaseGridDensity={handleIncreaseGridDensity}
         onSelectDexNumber={setSelectedDexNumber}
         onSelectSaveProfile={handleSelectSaveProfile}
         onUpdateSave={handleUpdateActiveProfileSave}
