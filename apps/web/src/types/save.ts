@@ -1,8 +1,15 @@
+export type SupportedGame =
+    | "RUBY"
+    | "SAPPHIRE"
+    | "EMERALD"
+    | "FIRERED"
+    | "LEAFGREEN";
+
 export type SaveProfileRecord = {
     id: string;
     userId: string;
     name: string;
-    game: string | null;
+    game: SupportedGame | null;
     createdAt: string;
     updatedAt: string;
 };
@@ -16,7 +23,7 @@ export type UploadRecord = {
     fileUrl: string | null;
     fileSizeBytes: number;
     parseStatus: string;
-    detectedGame: string | null;
+    detectedGame: SupportedGame | null;
     parseError: string | null;
     createdAt: string;
     updatedAt: string;

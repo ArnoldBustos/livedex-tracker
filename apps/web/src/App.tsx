@@ -21,7 +21,6 @@ import {
   fetchSaveProfiles,
   loginWithEmail,
   uploadSaveAndFetchDex,
-  uploadSaveFile
 } from "./lib/api/uploads"; // API layer for backend requests
 
 import {
@@ -209,9 +208,8 @@ const App = () => {
       formData.append("saveFile", file);
       formData.append("saveProfileId", activeSaveProfileId);
 
-      const nextUploadResponse = await uploadSaveFile(formData, currentUser);
-      const saveProfileId = nextUploadResponse.saveProfile.id;
-      const nextDexResponse = await fetchDexBySaveProfileId(saveProfileId, currentUser);
+      const { uploadResponse: nextUploadResponse, dexResponse: nextDexResponse } =
+        await uploadSaveAndFetchDex(formData, currentUser);
 
       handleUploadSuccess(nextUploadResponse, nextDexResponse);
     } catch (error) {

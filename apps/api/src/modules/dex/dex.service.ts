@@ -36,9 +36,21 @@ export const syncSaveProfileDexFromParse = async ({
         await prismaClient.saveProfileDexEntry.updateMany({
             where: {
                 saveProfileId,
-                hasLivingEntry: true
+                OR: [
+                    {
+                        seen: true
+                    },
+                    {
+                        caught: true
+                    },
+                    {
+                        hasLivingEntry: true
+                    }
+                ]
             },
             data: {
+                seen: false,
+                caught: false,
                 hasLivingEntry: false
             }
         });
@@ -95,6 +107,48 @@ export const syncSaveProfileDexFromParse = async ({
             return pokemonSpecies.id;
         });
 
+    const seenPokemonSpeciesIds = matchingSpecies
+        .filter((pokemonSpecies) => {
+            return seenDexNumberSet.has(pokemonSpecies.dexNumber);
+        })
+        .map((pokemonSpecies) => {
+            return pokemonSpecies.id;
+        });
+
+    const caughtPokemonSpeciesIds = matchingSpecies
+        .filter((pokemonSpecies) => {
+            return caughtDexNumberSet.has(pokemonSpecies.dexNumber);
+        })
+        .map((pokemonSpecies) => {
+            return pokemonSpecies.id;
+        });
+
+    await prismaClient.saveProfileDexEntry.updateMany({
+        where: {
+            saveProfileId,
+            seen: true,
+            pokemonSpeciesId: {
+                notIn: seenPokemonSpeciesIds
+            }
+        },
+        data: {
+            seen: false
+        }
+    });
+
+    await prismaClient.saveProfileDexEntry.updateMany({
+        where: {
+            saveProfileId,
+            caught: true,
+            pokemonSpeciesId: {
+                notIn: caughtPokemonSpeciesIds
+            }
+        },
+        data: {
+            caught: false
+        }
+    });
+
     await prismaClient.saveProfileDexEntry.updateMany({
         where: {
             saveProfileId,
@@ -114,40 +168,51 @@ export const syncSaveProfileDexFromParse = async ({
 };
 
 export const getSaveProfileDex = async (saveProfileId: string) => {
+    const pokemonSpecies = await prismaClient.pokemonSpecies.findMany({
+        select: {
+            id: true,
+            dexNumber: true,
+            name: true,
+            generation: true,
+            primaryType: true,
+            secondaryType: true
+        },
+        orderBy: {
+            dexNumber: "asc"
+        }
+    });
+
     const dexEntries = await prismaClient.saveProfileDexEntry.findMany({
         where: {
             saveProfileId
         },
-        include: {
-            pokemonSpecies: {
-                select: {
-                    id: true,
-                    dexNumber: true,
-                    name: true,
-                    generation: true,
-                    primaryType: true,
-                    secondaryType: true
-                }
-            }
-        },
-        orderBy: {
-            pokemonSpecies: {
-                dexNumber: "asc"
-            }
+        select: {
+            pokemonSpeciesId: true,
+            seen: true,
+            caught: true,
+            hasLivingEntry: true
         }
     });
 
-    const entries = dexEntries.map((dexEntry) => {
+    const dexEntryBySpeciesId = new Map(
+        dexEntries.map((dexEntry) => {
+            return [dexEntry.pokemonSpeciesId, dexEntry];
+        })
+    );
+
+    const entries = pokemonSpecies.map((species) => {
+        const matchingDexEntry = dexEntryBySpeciesId.get(species.id);
+
         return {
-            pokemonSpeciesId: dexEntry.pokemonSpeciesId,
-            dexNumber: dexEntry.pokemonSpecies.dexNumber,
-            name: dexEntry.pokemonSpecies.name,
-            generation: dexEntry.pokemonSpecies.generation,
-            primaryType: dexEntry.pokemonSpecies.primaryType,
-            secondaryType: dexEntry.pokemonSpecies.secondaryType,
-            seen: dexEntry.seen,
-            caught: dexEntry.caught,
-            hasLivingEntry: dexEntry.hasLivingEntry
+            pokemonSpeciesId: species.id,
+            dexNumber: species.dexNumber,
+            name: species.name,
+            generation: species.generation,
+            primaryType: species.primaryType,
+            secondaryType: species.secondaryType,
+            seen: matchingDexEntry ? matchingDexEntry.seen : false,
+            caught: matchingDexEntry ? matchingDexEntry.caught : false,
+            hasLivingEntry: matchingDexEntry ? matchingDexEntry.hasLivingEntry : false
         };
     });
 

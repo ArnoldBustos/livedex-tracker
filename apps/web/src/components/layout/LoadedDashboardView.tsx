@@ -11,6 +11,7 @@ import type {
     UploadResponse
 } from "../../types/save";
 import { getPokemonTypeBadgeStyle } from "../../lib/pokemonTypeStyles";
+import { getDexEntriesForScope } from "../../lib/dex";
 
 type LoadedDashboardViewProps = {
     uploadResponse: UploadResponse;
@@ -156,14 +157,12 @@ export const LoadedDashboardView = ({
     }, [uploadResponse]);
 
     const dexEntries = useMemo(() => {
-        if (selectedScope === "regional") {
-            return dexResponse.entries.filter((dexEntry) => {
-                return dexEntry.generation <= 3;
-            });
-        }
-
-        return dexResponse.entries;
-    }, [dexResponse, selectedScope]);
+        return getDexEntriesForScope({
+            entries: dexResponse.entries,
+            scope: selectedScope,
+            game: uploadResponse.upload.detectedGame ?? uploadResponse.saveProfile.game
+        });
+    }, [dexResponse.entries, selectedScope, uploadResponse.saveProfile.game, uploadResponse.upload.detectedGame]);
 
     const filteredDexEntries = useMemo(() => {
         return dexEntries.filter((dexEntry) => {
