@@ -16,6 +16,7 @@ import {
   fetchSaveProfileById,
   fetchSaveProfiles,
   loginWithEmail,
+  uploadSaveAndFetchDex,
   uploadSaveFile
 } from "./lib/api/uploads";
 import { clearStoredUser, loadStoredUser, saveStoredUser } from "./lib/auth/session";
@@ -143,6 +144,29 @@ const App = () => {
   const handleUploadError = (nextErrorMessage: string) => {
     setIsUploading(false);
     setErrorMessage(nextErrorMessage);
+  };
+
+  // handleCreateSaveUpload owns the empty-state upload flow for signed-in or guest users
+  // EmptyStateView calls this through UploadHero so upload networking stays out of UI components
+  const handleCreateSaveUpload = async (
+    file: File,
+    saveProfileName: string
+  ) => {
+    if (!currentUser) {
+      throw new Error("No user is currently signed in.");
+    }
+
+    const formData = new FormData();
+    formData.append("saveFile", file);
+
+    if (saveProfileName) {
+      formData.append("saveProfileName", saveProfileName);
+    }
+
+    const { uploadResponse: nextUploadResponse, dexResponse: nextDexResponse } =
+      await uploadSaveAndFetchDex(formData, currentUser);
+
+    handleUploadSuccess(nextUploadResponse, nextDexResponse);
   };
 
   const handleUpdateActiveProfileSave = async (file: File) => {
@@ -309,7 +333,7 @@ const App = () => {
           isUploading={isUploading}
           errorMessage={errorMessage}
           onUploadStart={handleUploadStart}
-          onUploadSuccess={handleUploadSuccess}
+          onUploadFile={handleCreateSaveUpload}
           onUploadError={handleUploadError}
         />
       </div>

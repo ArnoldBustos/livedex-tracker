@@ -1,19 +1,15 @@
 import { useState } from "react";
-import type { DexResponse, UploadResponse } from "../../types/save";
 
 type UploadHeroProps = {
     isUploading: boolean;
     errorMessage: string;
     onUploadStart: () => void;
-    onUploadSuccess: (
-        uploadResponse: UploadResponse,
-        dexResponse: DexResponse
-    ) => void;
+    onUploadFile: (file: File, saveProfileName: string) => Promise<void>;
     onUploadError: (errorMessage: string) => void;
 };
 
-const API_BASE_URL = "http://localhost:4000";
-
+// getIsSupportedSaveFile validates accepted save file extensions for new uploads
+// UploadHero uses this before passing the selected file to the parent upload flow
 const getIsSupportedSaveFile = (file: File) => {
     const lowercaseFileName = file.name.toLowerCase();
 
@@ -32,13 +28,15 @@ export const UploadHero = ({
     isUploading,
     errorMessage,
     onUploadStart,
-    onUploadSuccess,
+    onUploadFile,
     onUploadError
 }: UploadHeroProps) => {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [saveProfileName, setSaveProfileName] = useState("");
     const [isDragging, setIsDragging] = useState(false);
 
+    // uploadFile validates the chosen file and hands upload execution to the parent
+    // App.tsx owns the real network flow so UploadHero stays a pure UI layer
     const uploadFile = async (file: File) => {
         if (!getIsSupportedSaveFile(file)) {
             onUploadError("Only .sav and .srm files are supported.");
@@ -49,36 +47,7 @@ export const UploadHero = ({
         onUploadStart();
 
         try {
-            const formData = new FormData();
-            formData.append("saveFile", file);
-
-            if (saveProfileName.trim()) {
-                formData.append("saveProfileName", saveProfileName.trim());
-            }
-
-            const uploadRequest = await fetch(`${API_BASE_URL}/uploads`, {
-                method: "POST",
-                body: formData
-            });
-
-            const uploadResponseText = await uploadRequest.text();
-
-            if (!uploadRequest.ok) {
-                throw new Error(uploadResponseText || "Upload failed");
-            }
-
-            const parsedUploadResponse = JSON.parse(uploadResponseText) as UploadResponse;
-            const saveProfileId = parsedUploadResponse.saveProfile.id;
-
-            const dexRequest = await fetch(`${API_BASE_URL}/dex/profile/${saveProfileId}`);
-
-            if (!dexRequest.ok) {
-                throw new Error("Dex fetch failed after upload");
-            }
-
-            const parsedDexResponse = await dexRequest.json() as DexResponse;
-
-            onUploadSuccess(parsedUploadResponse, parsedDexResponse);
+            await onUploadFile(file, saveProfileName.trim());
         } catch (error) {
             if (error instanceof Error) {
                 onUploadError(error.message);

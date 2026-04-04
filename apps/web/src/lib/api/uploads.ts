@@ -62,6 +62,24 @@ export const uploadSaveFile = async (
     });
 };
 
+// uploadSaveAndFetchDex creates or updates a save upload and then loads its dex data
+// App.tsx calls this for the empty-state upload flow so UI components stay request-free
+export const uploadSaveAndFetchDex = async (
+    formData: FormData,
+    currentUser: ApiClientUser
+) => {
+    const uploadResponse = await uploadSaveFile(formData, currentUser);
+    const dexResponse = await fetchDexBySaveProfileId(
+        uploadResponse.saveProfile.id,
+        currentUser
+    );
+
+    return {
+        uploadResponse,
+        dexResponse
+    };
+};
+
 // deleteSaveProfile sends the delete request for one save profile
 // App.tsx calls this to remove a profile from the backend
 export const deleteSaveProfile = async (

@@ -1,14 +1,10 @@
 import { UploadHero } from "../upload/UploadHero";
-import type { DexResponse, UploadResponse } from "../../types/save";
 
 type EmptyStateViewProps = {
     isUploading: boolean;
     errorMessage: string;
     onUploadStart: () => void;
-    onUploadSuccess: (
-        uploadResponse: UploadResponse,
-        dexResponse: DexResponse
-    ) => void;
+    onUploadFile: (file: File, saveProfileName: string) => Promise<void>;
     onUploadError: (errorMessage: string) => void;
 };
 
@@ -16,7 +12,7 @@ export const EmptyStateView = ({
     isUploading,
     errorMessage,
     onUploadStart,
-    onUploadSuccess,
+    onUploadFile,
     onUploadError
 }: EmptyStateViewProps) => {
     return (
@@ -26,7 +22,7 @@ export const EmptyStateView = ({
                     isUploading={isUploading}
                     errorMessage={errorMessage}
                     onUploadStart={onUploadStart}
-                    onUploadSuccess={onUploadSuccess}
+                    onUploadFile={onUploadFile}
                     onUploadError={onUploadError}
                 />
             </div>
