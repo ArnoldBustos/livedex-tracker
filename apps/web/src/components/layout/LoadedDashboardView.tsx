@@ -10,6 +10,7 @@ import type {
     SaveProfileRecord,
     UploadResponse
 } from "../../types/save";
+import { getPokemonTypeBadgeStyle } from "../../lib/pokemonTypeStyles";
 
 type LoadedDashboardViewProps = {
     uploadResponse: UploadResponse;
@@ -68,6 +69,10 @@ const getPokemonSpriteUrl = (dexNumber: number) => {
 
 const getPokemonArtworkUrl = (dexNumber: number) => {
     return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dexNumber}.png`;
+};
+
+const formatPokemonTypeLabel = (pokemonType: string) => {
+    return `${pokemonType.charAt(0)}${pokemonType.slice(1).toLowerCase()}`;
 };
 
 // slugifyPokemonDbName builds a Pokemon DB friendly slug from a species name
@@ -536,13 +541,17 @@ export const LoadedDashboardView = ({
                                     </div>
 
                                     <div className="mt-2 flex flex-wrap gap-1">
-                                        <span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-bold uppercase text-gray-700">
-                                            {dexEntry.primaryType}
+                                        <span
+                                            className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${getPokemonTypeBadgeStyle(dexEntry.primaryType).containerClassName}`}
+                                        >
+                                            {formatPokemonTypeLabel(dexEntry.primaryType)}
                                         </span>
 
                                         {dexEntry.secondaryType ? (
-                                            <span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-bold uppercase text-gray-700">
-                                                {dexEntry.secondaryType}
+                                            <span
+                                                className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${getPokemonTypeBadgeStyle(dexEntry.secondaryType).containerClassName}`}
+                                            >
+                                                {formatPokemonTypeLabel(dexEntry.secondaryType)}
                                             </span>
                                         ) : null}
                                     </div>
