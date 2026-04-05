@@ -3,10 +3,19 @@ import { resolveRequestUserId } from "../auth/requestUser.service";
 import { getEmptyDex, getOwnedSaveProfileDex, updateSaveProfileDexOverride } from "./dex.service";
 
 type DexOverrideRequestBody = {
-    seen?: boolean | null;
-    caught?: boolean | null;
-    hasLivingEntry?: boolean | null;
+    standard?: {
+        seen?: boolean | null;
+        caught?: boolean | null;
+        hasLivingEntry?: boolean | null;
+    };
+    shiny?: {
+        seen?: boolean | null;
+        caught?: boolean | null;
+        hasLivingEntry?: boolean | null;
+    };
 };
+
+type DexOverrideCollectionRequestBody = NonNullable<DexOverrideRequestBody["standard"]>;
 
 // getTrimmedRouteParam normalizes one required string route param from the request.
 // dex controllers use this to keep route validation consistent across endpoints.
@@ -38,11 +47,53 @@ const parsePokemonSpeciesId = (request: Request) => {
     return pokemonSpeciesId;
 };
 
+// parseDexOverrideCollectionBody validates one nested collection patch object from the PATCH body.
+// parseDexOverrideRequestBody uses this so standard and shiny share the same field validation path.
+const parseDexOverrideCollectionBody = (
+    collectionValue: unknown
+): DexOverrideCollectionRequestBody | null => {
+    if (!collectionValue || typeof collectionValue !== "object" || Array.isArray(collectionValue)) {
+        return null;
+    }
+
+    const parsedCollection: DexOverrideCollectionRequestBody = {};
+    const collectionRecord = collectionValue as Record<string, unknown>;
+    const allowedFieldNames = ["seen", "caught", "hasLivingEntry"];
+    let hasAtLeastOneField = false;
+
+    for (const fieldName of allowedFieldNames) {
+        if (!Object.prototype.hasOwnProperty.call(collectionRecord, fieldName)) {
+            continue;
+        }
+
+        hasAtLeastOneField = true;
+
+        const fieldValue = collectionRecord[fieldName];
+
+        if (fieldValue !== null && typeof fieldValue !== "boolean") {
+            return null;
+        }
+
+        if (fieldName === "seen") {
+            parsedCollection.seen = fieldValue as boolean | null;
+        }
+
+        if (fieldName === "caught") {
+            parsedCollection.caught = fieldValue as boolean | null;
+        }
+
+        if (fieldName === "hasLivingEntry") {
+            parsedCollection.hasLivingEntry = fieldValue as boolean | null;
+        }
+    }
+
+    return hasAtLeastOneField ? parsedCollection : {};
+};
+
 // parseDexOverrideRequestBody validates manual override fields from the PATCH body.
 // patchDexEntryBySaveProfileId uses this to support boolean writes and null clears per field.
 const parseDexOverrideRequestBody = (request: Request): DexOverrideRequestBody | null => {
     const requestBodyValue = request.body;
-    const allowedFieldNames = ["seen", "caught", "hasLivingEntry"];
     const parsedBody: DexOverrideRequestBody = {};
     let hasAtLeastOneField = false;
 
@@ -52,30 +103,40 @@ const parseDexOverrideRequestBody = (request: Request): DexOverrideRequestBody |
 
     const requestBody = requestBodyValue as Record<string, unknown>;
 
-    for (const fieldName of allowedFieldNames) {
-        if (!Object.prototype.hasOwnProperty.call(requestBody, fieldName)) {
-            continue;
-        }
+    if (Object.prototype.hasOwnProperty.call(requestBody, "standard")) {
+        const parsedStandard = parseDexOverrideCollectionBody(requestBody.standard);
 
-        hasAtLeastOneField = true;
-
-        const fieldValue = requestBody[fieldName];
-
-        if (fieldValue !== null && typeof fieldValue !== "boolean") {
+        if (parsedStandard === null) {
             return null;
         }
 
-        if (fieldName === "seen") {
-            parsedBody.seen = fieldValue as boolean | null;
+        if (
+            Object.prototype.hasOwnProperty.call(parsedStandard, "seen") ||
+            Object.prototype.hasOwnProperty.call(parsedStandard, "caught") ||
+            Object.prototype.hasOwnProperty.call(parsedStandard, "hasLivingEntry")
+        ) {
+            hasAtLeastOneField = true;
         }
 
-        if (fieldName === "caught") {
-            parsedBody.caught = fieldValue as boolean | null;
+        parsedBody.standard = parsedStandard;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(requestBody, "shiny")) {
+        const parsedShiny = parseDexOverrideCollectionBody(requestBody.shiny);
+
+        if (parsedShiny === null) {
+            return null;
         }
 
-        if (fieldName === "hasLivingEntry") {
-            parsedBody.hasLivingEntry = fieldValue as boolean | null;
+        if (
+            Object.prototype.hasOwnProperty.call(parsedShiny, "seen") ||
+            Object.prototype.hasOwnProperty.call(parsedShiny, "caught") ||
+            Object.prototype.hasOwnProperty.call(parsedShiny, "hasLivingEntry")
+        ) {
+            hasAtLeastOneField = true;
         }
+
+        parsedBody.shiny = parsedShiny;
     }
 
     return hasAtLeastOneField ? parsedBody : null;
@@ -160,7 +221,7 @@ export const patchDexEntryBySaveProfileId = async (
 
     if (!overridePatch) {
         response.status(400).json({
-            error: "Request body must include seen, caught, or hasLivingEntry as boolean or null"
+            error: "Request body must include standard or shiny fields with seen, caught, or hasLivingEntry as boolean or null"
         });
         return;
     }

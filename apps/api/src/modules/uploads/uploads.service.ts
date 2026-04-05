@@ -9,6 +9,7 @@ import {
 import prismaClient from "../../lib/prisma";
 import { getSaveProfileDex, syncSaveProfileDexFromParse } from "../dex/dex.service";
 import { parseUploadedSave } from "../parser/parser.service";
+import type { ImportedDexSnapshot } from "../parser/gen3/buildImportedDexSnapshot";
 import { getStorageProvider } from "../storage/storage.service";
 
 // CreateUploadResult stores either a completed upload payload or a manual FRLG selection requirement.
@@ -33,25 +34,23 @@ type CreateGuestUploadParams = {
 // buildGuestDexResponse converts parser output into the frontend dex response shape
 // createGuestUpload uses this so guest mode can render dex data without persisting DB rows
 const buildGuestDexResponse = async ({
-    seenNationalDexNumbers,
-    caughtNationalDexNumbers,
-    livingNationalDexNumbers
+    importedDexSnapshot
 }: {
-    seenNationalDexNumbers: number[];
-    caughtNationalDexNumbers: number[];
-    livingNationalDexNumbers: number[];
+    importedDexSnapshot: ImportedDexSnapshot;
 }) => {
     const pokemonSpecies = await prismaClient.pokemonSpecies.findMany({
         orderBy: {
             dexNumber: "asc"
         }
     });
-
-    const seenDexNumberSet = new Set(seenNationalDexNumbers);
-    const caughtDexNumberSet = new Set(caughtNationalDexNumbers);
-    const livingDexNumberSet = new Set(livingNationalDexNumbers);
-
+    const importedSnapshotByDexNumber = new Map(
+        importedDexSnapshot.entries.map((entry) => {
+            return [entry.dexNumber, entry];
+        })
+    );
     const entries = pokemonSpecies.map((species) => {
+        const importedSnapshotEntry = importedSnapshotByDexNumber.get(species.dexNumber);
+
         return {
             pokemonSpeciesId: species.id,
             dexNumber: species.dexNumber,
@@ -59,19 +58,31 @@ const buildGuestDexResponse = async ({
             generation: species.generation,
             primaryType: species.primaryType,
             secondaryType: species.secondaryType,
-            seen: seenDexNumberSet.has(species.dexNumber),
-            caught: caughtDexNumberSet.has(species.dexNumber),
-            hasLivingEntry: livingDexNumberSet.has(species.dexNumber)
+            standard: importedSnapshotEntry
+                ? importedSnapshotEntry.standard
+                : {
+                    seen: false,
+                    caught: false,
+                    hasLivingEntry: false
+                },
+            shiny: importedSnapshotEntry
+                ? importedSnapshotEntry.shiny
+                : {
+                    seen: false,
+                    caught: false,
+                    hasLivingEntry: false
+                },
+            ownership: importedSnapshotEntry
+                ? importedSnapshotEntry.ownership
+                : {
+                    totalOwnedCount: 0,
+                    shinyOwnedCount: 0
+                }
         };
     });
 
     return {
-        summary: {
-            totalEntries: entries.length,
-            seenCount: entries.filter((entry) => entry.seen).length,
-            caughtCount: entries.filter((entry) => entry.caught).length,
-            livingCount: entries.filter((entry) => entry.hasLivingEntry).length
-        },
+        summary: importedDexSnapshot.summary,
         entries
     };
 };
@@ -488,9 +499,7 @@ export const createGuestUpload = async ({
                 : "Guest Session";
 
     const dexResponse = await buildGuestDexResponse({
-        seenNationalDexNumbers: parseResult.pokedexFlags.seenNationalDexNumbers,
-        caughtNationalDexNumbers: parseResult.pokedexFlags.ownedNationalDexNumbers,
-        livingNationalDexNumbers: parseResult.debug.livingNationalDexNumbers
+        importedDexSnapshot: parseResult.importedDexSnapshot
     });
 
     return buildCompletedUploadResult({
@@ -589,9 +598,7 @@ export const createUpload = async ({
 
         await syncSaveProfileDexFromParse({
             saveProfileId: saveProfile.id,
-            seenNationalDexNumbers: parseResult.pokedexFlags.seenNationalDexNumbers,
-            caughtNationalDexNumbers: parseResult.pokedexFlags.ownedNationalDexNumbers,
-            livingNationalDexNumbers: parseResult.debug.livingNationalDexNumbers
+            importedDexSnapshot: parseResult.importedDexSnapshot
         });
 
         const updatedUpload = await prismaClient.saveUpload.update({

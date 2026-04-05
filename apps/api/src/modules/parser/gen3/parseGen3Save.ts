@@ -1,4 +1,8 @@
 import {
+    buildImportedDexSnapshot,
+    type ImportedDexSnapshot
+} from "./buildImportedDexSnapshot";
+import {
     detectGen3Game,
     type DetectedGen3Game,
     type Gen3Layout
@@ -32,6 +36,7 @@ export type ParsedGen3Save = {
     partyPokemon: ParsedGen3Pokemon[];
     boxPokemon: ParsedGen3Pokemon[];
     pokedexFlags: ExtractedPokedexFlags;
+    importedDexSnapshot: ImportedDexSnapshot;
     debug: {
         activeSaveIndex: number;
         sectionIds: number[];
@@ -150,20 +155,18 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
         fallbackValue: []
     });
     const boxPokemon = boxExtractionResult.value;
-
-    const livingNationalDexNumbers = Array.from(
-        new Set(
-            [...partyPokemon, ...boxPokemon]
-                .map((pokemon) => {
-                    return pokemon.speciesId;
-                })
-                .filter((speciesId) => {
-                    return speciesId > 0 && speciesId <= 386;
-                })
-        )
-    ).sort((leftDexNumber, rightDexNumber) => {
-        return leftDexNumber - rightDexNumber;
+    const importedDexSnapshot = buildImportedDexSnapshot({
+        pokedexFlags,
+        partyPokemon,
+        boxPokemon
     });
+    const livingNationalDexNumbers = importedDexSnapshot.entries
+        .filter((entry) => {
+            return entry.standard.hasLivingEntry;
+        })
+        .map((entry) => {
+            return entry.dexNumber;
+        });
 
     const sectionIds = Array.from(sectionsById.keys()).sort((leftSectionId, rightSectionId) => {
         return leftSectionId - rightSectionId;
@@ -189,6 +192,7 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
         partyPokemon,
         boxPokemon,
         pokedexFlags,
+        importedDexSnapshot,
         debug: {
             activeSaveIndex,
             sectionIds,

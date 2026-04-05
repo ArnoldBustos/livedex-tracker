@@ -1,16 +1,22 @@
 import prismaClient from "../../lib/prisma";
+import type { ImportedDexSnapshot } from "../parser/gen3/buildImportedDexSnapshot";
 
 type SyncSaveProfileDexFromParseParams = {
     saveProfileId: string;
-    seenNationalDexNumbers: number[];
-    caughtNationalDexNumbers: number[];
-    livingNationalDexNumbers: number[];
+    importedDexSnapshot: ImportedDexSnapshot;
 };
 
 type SaveProfileDexOverridePatch = {
-    seen?: boolean | null;
-    caught?: boolean | null;
-    hasLivingEntry?: boolean | null;
+    standard?: {
+        seen?: boolean | null;
+        caught?: boolean | null;
+        hasLivingEntry?: boolean | null;
+    };
+    shiny?: {
+        seen?: boolean | null;
+        caught?: boolean | null;
+        hasLivingEntry?: boolean | null;
+    };
 };
 
 type UpdateSaveProfileDexOverrideParams = {
@@ -32,6 +38,24 @@ type DexOverrideState = {
     hasLivingEntry: boolean | null;
 };
 
+type LayeredDexState = {
+    standard: DexState;
+    shiny: DexState;
+};
+
+type DexOwnershipState = {
+    totalOwnedCount: number;
+    shinyOwnedCount: number;
+};
+
+type ImportedDexEntryState = DexState & {
+    shinySeen: boolean;
+    shinyCaught: boolean;
+    shinyLiving: boolean;
+    totalOwnedCount: number;
+    shinyOwnedCount: number;
+};
+
 type DexSpeciesRecord = {
     id: number;
     dexNumber: number;
@@ -39,6 +63,75 @@ type DexSpeciesRecord = {
     generation: number;
     primaryType: string;
     secondaryType: string | null;
+};
+
+// getEmptyDexState creates one false-initialized collection state.
+// layered dex helpers use this so blank standard and shiny layers share the same base shape.
+const getEmptyDexState = (): DexState => {
+    return {
+        seen: false,
+        caught: false,
+        hasLivingEntry: false
+    };
+};
+
+// buildCollectionState creates one collection layer for a dex entry response.
+// getEmptyDex, getSaveProfileDex, and upload response builders use this so standard and shiny stay structurally aligned.
+const buildCollectionState = ({
+    seen,
+    caught,
+    hasLivingEntry
+}: DexState) => {
+    return {
+        seen,
+        caught,
+        hasLivingEntry
+    };
+};
+
+// buildLayeredCollectionState converts one layered dex state into the response entry collection shape.
+// getEmptyDex and getSaveProfileDex use this so standard and shiny entry fields stay assembled in one place.
+const buildLayeredCollectionState = (layeredState: LayeredDexState) => {
+    return {
+        standard: buildCollectionState(layeredState.standard),
+        shiny: buildCollectionState(layeredState.shiny)
+    };
+};
+
+// buildDefaultOwnershipState creates zeroed ownership counters for one dex entry response.
+// getEmptyDex and getSaveProfileDex use this so ownership fields exist before ownership behavior is added.
+const buildDefaultOwnershipState = (): DexOwnershipState => {
+    return {
+        totalOwnedCount: 0,
+        shinyOwnedCount: 0
+    };
+};
+
+// buildLayeredDexSummary creates the layered summary payload from separated collection and ownership layers.
+// getEmptyDex and getSaveProfileDex use this so summary generation matches the imported snapshot model.
+const buildLayeredDexSummary = (layeredEntries: Array<{
+    collectionState: LayeredDexState;
+    ownershipState: DexOwnershipState;
+}>) => {
+    const standardEntries = layeredEntries.map((entry) => {
+        return entry.collectionState.standard;
+    });
+    const shinyEntries = layeredEntries.map((entry) => {
+        return entry.collectionState.shiny;
+    });
+
+    return {
+        standard: buildDexSummary(standardEntries),
+        shiny: buildDexSummary(shinyEntries),
+        ownership: {
+            totalOwnedCount: layeredEntries.reduce((currentTotal, entry) => {
+                return currentTotal + entry.ownershipState.totalOwnedCount;
+            }, 0),
+            totalShinyOwnedCount: layeredEntries.reduce((currentTotal, entry) => {
+                return currentTotal + entry.ownershipState.shinyOwnedCount;
+            }, 0)
+        }
+    };
 };
 
 // normalizeDexOverrideState enforces the seen -> caught -> living hierarchy for nullable override rows.
@@ -71,67 +164,49 @@ const normalizeDexOverrideState = (overrideState: DexOverrideState): DexOverride
     return nextOverrideState;
 };
 
+// getNextOverrideFieldValue resolves one nullable override field from a layered patch and any stored override row.
+// updateSaveProfileDexOverride uses this so standard override writes stay centralized and layered-ready.
+const getNextOverrideFieldValue = ({
+    overridePatch,
+    existingOverride,
+    fieldName
+}: {
+    overridePatch?: SaveProfileDexOverridePatch["standard"];
+    existingOverride?: DexOverrideState | null;
+    fieldName: keyof DexOverrideState;
+}) => {
+    if (overridePatch && Object.prototype.hasOwnProperty.call(overridePatch, fieldName)) {
+        const nextFieldValue = overridePatch[fieldName];
+
+        return nextFieldValue === undefined ? null : nextFieldValue;
+    }
+
+    if (existingOverride) {
+        return existingOverride[fieldName];
+    }
+
+    return null;
+};
+
 // syncSaveProfileDexFromParse stores the imported save snapshot for one profile.
 // uploads.service.ts calls this after parser output is available for a completed upload.
 export const syncSaveProfileDexFromParse = async ({
     saveProfileId,
-    seenNationalDexNumbers,
-    caughtNationalDexNumbers,
-    livingNationalDexNumbers
+    importedDexSnapshot
 }: SyncSaveProfileDexFromParseParams) => {
     console.log("syncSaveProfileDexFromParse input", {
         saveProfileId,
-        seenNationalDexNumbers,
-        caughtNationalDexNumbers,
-        livingNationalDexNumbers
+        importedDexSnapshotEntryCount: importedDexSnapshot.entries.length,
+        importedOwnershipTotal: importedDexSnapshot.summary.ownership.totalOwnedCount,
+        importedShinyOwnershipTotal: importedDexSnapshot.summary.ownership.totalShinyOwnedCount
     });
-
-    const allDexNumbers = Array.from(
-        new Set([
-            ...seenNationalDexNumbers,
-            ...caughtNationalDexNumbers,
-            ...livingNationalDexNumbers
-        ])
+    const importedSnapshotByDexNumber = new Map(
+        importedDexSnapshot.entries.map((entry) => {
+            return [entry.dexNumber, entry];
+        })
     );
 
-    const seenDexNumberSet = new Set(seenNationalDexNumbers);
-    const caughtDexNumberSet = new Set(caughtNationalDexNumbers);
-    const livingDexNumberSet = new Set(livingNationalDexNumbers);
-
-    if (allDexNumbers.length === 0) {
-        await prismaClient.saveProfileDexEntry.updateMany({
-            where: {
-                saveProfileId,
-                OR: [
-                    {
-                        seen: true
-                    },
-                    {
-                        caught: true
-                    },
-                    {
-                        hasLivingEntry: true
-                    }
-                ]
-            },
-            data: {
-                seen: false,
-                caught: false,
-                hasLivingEntry: false
-            }
-        });
-
-        return {
-            updatedCount: 0
-        };
-    }
-
     const matchingSpecies = await prismaClient.pokemonSpecies.findMany({
-        where: {
-            dexNumber: {
-                in: allDexNumbers
-            }
-        },
         select: {
             id: true,
             dexNumber: true
@@ -139,9 +214,16 @@ export const syncSaveProfileDexFromParse = async ({
     });
 
     for (const pokemonSpecies of matchingSpecies) {
-        const isSeen = seenDexNumberSet.has(pokemonSpecies.dexNumber);
-        const isCaught = caughtDexNumberSet.has(pokemonSpecies.dexNumber);
-        const hasLivingEntry = livingDexNumberSet.has(pokemonSpecies.dexNumber);
+        const importedSnapshotEntry = importedSnapshotByDexNumber.get(pokemonSpecies.dexNumber);
+        const standardState = importedSnapshotEntry
+            ? importedSnapshotEntry.standard
+            : getEmptyDexState();
+        const shinyState = importedSnapshotEntry
+            ? importedSnapshotEntry.shiny
+            : getEmptyDexState();
+        const ownershipState = importedSnapshotEntry
+            ? importedSnapshotEntry.ownership
+            : buildDefaultOwnershipState();
 
         await prismaClient.saveProfileDexEntry.upsert({
             where: {
@@ -151,82 +233,29 @@ export const syncSaveProfileDexFromParse = async ({
                 }
             },
             update: {
-                seen: isSeen,
-                caught: isCaught,
-                hasLivingEntry
+                seen: standardState.seen,
+                caught: standardState.caught,
+                hasLivingEntry: standardState.hasLivingEntry,
+                shinySeen: shinyState.seen,
+                shinyCaught: shinyState.caught,
+                shinyLiving: shinyState.hasLivingEntry,
+                totalOwnedCount: ownershipState.totalOwnedCount,
+                shinyOwnedCount: ownershipState.shinyOwnedCount
             },
             create: {
                 saveProfileId,
                 pokemonSpeciesId: pokemonSpecies.id,
-                seen: isSeen,
-                caught: isCaught,
-                hasLivingEntry
+                seen: standardState.seen,
+                caught: standardState.caught,
+                hasLivingEntry: standardState.hasLivingEntry,
+                shinySeen: shinyState.seen,
+                shinyCaught: shinyState.caught,
+                shinyLiving: shinyState.hasLivingEntry,
+                totalOwnedCount: ownershipState.totalOwnedCount,
+                shinyOwnedCount: ownershipState.shinyOwnedCount
             }
         });
     }
-
-    const livingPokemonSpeciesIds = matchingSpecies
-        .filter((pokemonSpecies) => {
-            return livingDexNumberSet.has(pokemonSpecies.dexNumber);
-        })
-        .map((pokemonSpecies) => {
-            return pokemonSpecies.id;
-        });
-
-    const seenPokemonSpeciesIds = matchingSpecies
-        .filter((pokemonSpecies) => {
-            return seenDexNumberSet.has(pokemonSpecies.dexNumber);
-        })
-        .map((pokemonSpecies) => {
-            return pokemonSpecies.id;
-        });
-
-    const caughtPokemonSpeciesIds = matchingSpecies
-        .filter((pokemonSpecies) => {
-            return caughtDexNumberSet.has(pokemonSpecies.dexNumber);
-        })
-        .map((pokemonSpecies) => {
-            return pokemonSpecies.id;
-        });
-
-    await prismaClient.saveProfileDexEntry.updateMany({
-        where: {
-            saveProfileId,
-            seen: true,
-            pokemonSpeciesId: {
-                notIn: seenPokemonSpeciesIds
-            }
-        },
-        data: {
-            seen: false
-        }
-    });
-
-    await prismaClient.saveProfileDexEntry.updateMany({
-        where: {
-            saveProfileId,
-            caught: true,
-            pokemonSpeciesId: {
-                notIn: caughtPokemonSpeciesIds
-            }
-        },
-        data: {
-            caught: false
-        }
-    });
-
-    await prismaClient.saveProfileDexEntry.updateMany({
-        where: {
-            saveProfileId,
-            hasLivingEntry: true,
-            pokemonSpeciesId: {
-                notIn: livingPokemonSpeciesIds
-            }
-        },
-        data: {
-            hasLivingEntry: false
-        }
-    });
 
     return {
         updatedCount: matchingSpecies.length
@@ -292,22 +321,35 @@ const getDexSpeciesRecords = async (): Promise<DexSpeciesRecord[]> => {
 export const getEmptyDex = async () => {
     const pokemonSpecies = await getDexSpeciesRecords();
 
-    const entries = pokemonSpecies.map((species) => {
+    const layeredEntries = pokemonSpecies.map((species) => {
         return {
-            pokemonSpeciesId: species.id,
-            dexNumber: species.dexNumber,
-            name: species.name,
-            generation: species.generation,
-            primaryType: species.primaryType,
-            secondaryType: species.secondaryType,
-            seen: false,
-            caught: false,
-            hasLivingEntry: false
+            species,
+            collectionState: {
+                standard: getEmptyDexState(),
+                shiny: getEmptyDexState()
+            },
+            ownershipState: buildDefaultOwnershipState()
+        };
+    });
+
+    const entries = layeredEntries.map((layeredEntry) => {
+        const layeredCollectionState = buildLayeredCollectionState(layeredEntry.collectionState);
+
+        return {
+            pokemonSpeciesId: layeredEntry.species.id,
+            dexNumber: layeredEntry.species.dexNumber,
+            name: layeredEntry.species.name,
+            generation: layeredEntry.species.generation,
+            primaryType: layeredEntry.species.primaryType,
+            secondaryType: layeredEntry.species.secondaryType,
+            standard: layeredCollectionState.standard,
+            shiny: layeredCollectionState.shiny,
+            ownership: buildDefaultOwnershipState()
         };
     });
 
     return {
-        summary: buildDexSummary(entries),
+        summary: buildLayeredDexSummary(layeredEntries),
         entries
     };
 };
@@ -323,7 +365,12 @@ const getImportedDexEntryMap = async (saveProfileId: string) => {
             pokemonSpeciesId: true,
             seen: true,
             caught: true,
-            hasLivingEntry: true
+            hasLivingEntry: true,
+            shinySeen: true,
+            shinyCaught: true,
+            shinyLiving: true,
+            totalOwnedCount: true,
+            shinyOwnedCount: true
         }
     });
 
@@ -357,27 +404,35 @@ const getOverrideDexEntryMap = async (saveProfileId: string) => {
 };
 
 // getResolvedDexEntryState merges imported snapshot state with one manual override row.
-// getSaveProfileDex uses this to return the final frontend-visible dex entry values.
-const getResolvedDexEntryState = ({
+// getSaveProfileDex uses this to return the final frontend-visible standard and shiny layer values.
+const getResolvedLayeredDexEntryState = ({
     importedState,
     overrideState
 }: {
-    importedState?: DexState;
+    importedState?: ImportedDexEntryState;
     overrideState?: DexOverrideState;
-}): DexState => {
+}): LayeredDexState => {
     const baseState: DexState = {
         seen: importedState ? importedState.seen : false,
         caught: importedState ? importedState.caught : false,
         hasLivingEntry: importedState ? importedState.hasLivingEntry : false
     };
+    const shinyState: DexState = {
+        seen: importedState && "shinySeen" in importedState ? importedState.shinySeen : false,
+        caught: importedState && "shinyCaught" in importedState ? importedState.shinyCaught : false,
+        hasLivingEntry: importedState && "shinyLiving" in importedState ? importedState.shinyLiving : false
+    };
 
     return {
-        seen: resolveOverrideValue(baseState.seen, overrideState ? overrideState.seen : undefined),
-        caught: resolveOverrideValue(baseState.caught, overrideState ? overrideState.caught : undefined),
-        hasLivingEntry: resolveOverrideValue(
-            baseState.hasLivingEntry,
-            overrideState ? overrideState.hasLivingEntry : undefined
-        )
+        standard: {
+            seen: resolveOverrideValue(baseState.seen, overrideState ? overrideState.seen : undefined),
+            caught: resolveOverrideValue(baseState.caught, overrideState ? overrideState.caught : undefined),
+            hasLivingEntry: resolveOverrideValue(
+                baseState.hasLivingEntry,
+                overrideState ? overrideState.hasLivingEntry : undefined
+            )
+        },
+        shiny: shinyState
     };
 };
 
@@ -434,27 +489,43 @@ export const getSaveProfileDex = async (saveProfileId: string) => {
     const importedDexEntryBySpeciesId = await getImportedDexEntryMap(saveProfileId);
     const overrideDexEntryBySpeciesId = await getOverrideDexEntryMap(saveProfileId);
 
-    const entries = pokemonSpecies.map((species) => {
-        const resolvedState = getResolvedDexEntryState({
-            importedState: importedDexEntryBySpeciesId.get(species.id),
+    const layeredEntries = pokemonSpecies.map((species) => {
+        const importedDexEntry = importedDexEntryBySpeciesId.get(species.id);
+        const resolvedLayeredState = getResolvedLayeredDexEntryState({
+            importedState: importedDexEntry,
             overrideState: overrideDexEntryBySpeciesId.get(species.id)
         });
 
         return {
-            pokemonSpeciesId: species.id,
-            dexNumber: species.dexNumber,
-            name: species.name,
-            generation: species.generation,
-            primaryType: species.primaryType,
-            secondaryType: species.secondaryType,
-            seen: resolvedState.seen,
-            caught: resolvedState.caught,
-            hasLivingEntry: resolvedState.hasLivingEntry
+            species,
+            collectionState: resolvedLayeredState,
+            ownershipState: importedDexEntry
+                ? {
+                    totalOwnedCount: importedDexEntry.totalOwnedCount,
+                    shinyOwnedCount: importedDexEntry.shinyOwnedCount
+                }
+                : buildDefaultOwnershipState()
+        };
+    });
+
+    const entries = layeredEntries.map((layeredEntry) => {
+        const layeredCollectionState = buildLayeredCollectionState(layeredEntry.collectionState);
+
+        return {
+            pokemonSpeciesId: layeredEntry.species.id,
+            dexNumber: layeredEntry.species.dexNumber,
+            name: layeredEntry.species.name,
+            generation: layeredEntry.species.generation,
+            primaryType: layeredEntry.species.primaryType,
+            secondaryType: layeredEntry.species.secondaryType,
+            standard: layeredCollectionState.standard,
+            shiny: layeredCollectionState.shiny,
+            ownership: layeredEntry.ownershipState
         };
     });
 
     return {
-        summary: buildDexSummary(entries),
+        summary: buildLayeredDexSummary(layeredEntries),
         entries
     };
 };
@@ -500,30 +571,21 @@ export const updateSaveProfileDexOverride = async ({
     });
 
     const nextOverrideState = normalizeDexOverrideState({
-        seen:
-            Object.prototype.hasOwnProperty.call(overridePatch, "seen")
-                ? overridePatch.seen === undefined
-                    ? null
-                    : overridePatch.seen
-                : existingOverride
-                    ? existingOverride.seen
-                    : null,
-        caught:
-            Object.prototype.hasOwnProperty.call(overridePatch, "caught")
-                ? overridePatch.caught === undefined
-                    ? null
-                    : overridePatch.caught
-                : existingOverride
-                    ? existingOverride.caught
-                    : null,
-        hasLivingEntry:
-            Object.prototype.hasOwnProperty.call(overridePatch, "hasLivingEntry")
-                ? overridePatch.hasLivingEntry === undefined
-                    ? null
-                    : overridePatch.hasLivingEntry
-                : existingOverride
-                    ? existingOverride.hasLivingEntry
-                    : null
+        seen: getNextOverrideFieldValue({
+            overridePatch: overridePatch.standard,
+            existingOverride,
+            fieldName: "seen"
+        }),
+        caught: getNextOverrideFieldValue({
+            overridePatch: overridePatch.standard,
+            existingOverride,
+            fieldName: "caught"
+        }),
+        hasLivingEntry: getNextOverrideFieldValue({
+            overridePatch: overridePatch.standard,
+            existingOverride,
+            fieldName: "hasLivingEntry"
+        })
     });
 
     if (!hasAnyOverrideValue(nextOverrideState)) {

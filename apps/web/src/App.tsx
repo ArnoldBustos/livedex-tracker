@@ -328,16 +328,38 @@ const App = () => {
   // guest merged dex state uses this so frontend-only overrides stay consistent with the sidebar and cards.
   const buildDexSummary = (entries: DexResponse["entries"]) => {
     return {
-      totalEntries: entries.length,
-      seenCount: entries.filter((entry) => {
-        return entry.seen;
-      }).length,
-      caughtCount: entries.filter((entry) => {
-        return entry.caught;
-      }).length,
-      livingCount: entries.filter((entry) => {
-        return entry.hasLivingEntry;
-      }).length
+      standard: {
+        totalEntries: entries.length,
+        seenCount: entries.filter((entry) => {
+          return entry.standard.seen;
+        }).length,
+        caughtCount: entries.filter((entry) => {
+          return entry.standard.caught;
+        }).length,
+        livingCount: entries.filter((entry) => {
+          return entry.standard.hasLivingEntry;
+        }).length
+      },
+      shiny: {
+        totalEntries: entries.length,
+        seenCount: entries.filter((entry) => {
+          return entry.shiny.seen;
+        }).length,
+        caughtCount: entries.filter((entry) => {
+          return entry.shiny.caught;
+        }).length,
+        livingCount: entries.filter((entry) => {
+          return entry.shiny.hasLivingEntry;
+        }).length
+      },
+      ownership: {
+        totalOwnedCount: entries.reduce((currentTotal, entry) => {
+          return currentTotal + entry.ownership.totalOwnedCount;
+        }, 0),
+        totalShinyOwnedCount: entries.reduce((currentTotal, entry) => {
+          return currentTotal + entry.ownership.shinyOwnedCount;
+        }, 0)
+      }
     };
   };
 
@@ -355,19 +377,21 @@ const App = () => {
       }
 
       const nextEntry = Object.assign({}, entry);
+      const nextStandard = Object.assign({}, entry.standard);
 
-      if (typeof override.seen === "boolean") {
-        nextEntry.seen = override.seen;
+      if (override.standard && typeof override.standard.seen === "boolean") {
+        nextStandard.seen = override.standard.seen;
       }
 
-      if (typeof override.caught === "boolean") {
-        nextEntry.caught = override.caught;
+      if (override.standard && typeof override.standard.caught === "boolean") {
+        nextStandard.caught = override.standard.caught;
       }
 
-      if (typeof override.hasLivingEntry === "boolean") {
-        nextEntry.hasLivingEntry = override.hasLivingEntry;
+      if (override.standard && typeof override.standard.hasLivingEntry === "boolean") {
+        nextStandard.hasLivingEntry = override.standard.hasLivingEntry;
       }
 
+      nextEntry.standard = nextStandard;
       return nextEntry;
     });
 
@@ -406,21 +430,21 @@ const App = () => {
 
     const normalizedPatch: UpdateDexEntryRequest = Object.assign({}, patch);
     const nextEntryState = {
-      seen: currentEntry.seen,
-      caught: currentEntry.caught,
-      hasLivingEntry: currentEntry.hasLivingEntry
+      seen: currentEntry.standard.seen,
+      caught: currentEntry.standard.caught,
+      hasLivingEntry: currentEntry.standard.hasLivingEntry
     };
 
-    if (typeof patch.seen === "boolean") {
-      nextEntryState.seen = patch.seen;
+    if (patch.standard && typeof patch.standard.seen === "boolean") {
+      nextEntryState.seen = patch.standard.seen;
     }
 
-    if (typeof patch.caught === "boolean") {
-      nextEntryState.caught = patch.caught;
+    if (patch.standard && typeof patch.standard.caught === "boolean") {
+      nextEntryState.caught = patch.standard.caught;
     }
 
-    if (typeof patch.hasLivingEntry === "boolean") {
-      nextEntryState.hasLivingEntry = patch.hasLivingEntry;
+    if (patch.standard && typeof patch.standard.hasLivingEntry === "boolean") {
+      nextEntryState.hasLivingEntry = patch.standard.hasLivingEntry;
     }
 
     if (nextEntryState.hasLivingEntry) {
@@ -442,13 +466,21 @@ const App = () => {
     }
 
     if (
-      typeof patch.seen === "boolean" ||
-      typeof patch.caught === "boolean" ||
-      typeof patch.hasLivingEntry === "boolean"
+      patch.standard && (
+        typeof patch.standard.seen === "boolean" ||
+        typeof patch.standard.caught === "boolean" ||
+        typeof patch.standard.hasLivingEntry === "boolean"
+      )
     ) {
-      normalizedPatch.seen = nextEntryState.seen;
-      normalizedPatch.caught = nextEntryState.caught;
-      normalizedPatch.hasLivingEntry = nextEntryState.hasLivingEntry;
+      normalizedPatch.standard = {
+        seen: nextEntryState.seen,
+        caught: nextEntryState.caught,
+        hasLivingEntry: nextEntryState.hasLivingEntry
+      };
+    }
+
+    if (patch.shiny) {
+      normalizedPatch.shiny = Object.assign({}, patch.shiny);
     }
 
     return normalizedPatch;
@@ -1047,38 +1079,76 @@ const App = () => {
       setGuestDexOverrides((currentOverrides) => {
         const currentOverride = currentOverrides[pokemonSpeciesId];
         const nextOverride = currentOverride ? Object.assign({}, currentOverride) : {};
+        const currentStandardOverride =
+          currentOverride && currentOverride.standard
+            ? currentOverride.standard
+            : {};
+        const nextStandardOverride = Object.assign({}, currentStandardOverride);
 
-        if (Object.prototype.hasOwnProperty.call(normalizedPatch, "seen")) {
-          if (normalizedPatch.seen === null) {
-            delete nextOverride.seen;
+        if (
+          normalizedPatch.standard &&
+          Object.prototype.hasOwnProperty.call(normalizedPatch.standard, "seen")
+        ) {
+          if (normalizedPatch.standard.seen === null) {
+            delete nextStandardOverride.seen;
           } else {
-            nextOverride.seen = normalizedPatch.seen;
+            nextStandardOverride.seen = normalizedPatch.standard.seen;
           }
         }
 
-        if (Object.prototype.hasOwnProperty.call(normalizedPatch, "caught")) {
-          if (normalizedPatch.caught === null) {
-            delete nextOverride.caught;
+        if (
+          normalizedPatch.standard &&
+          Object.prototype.hasOwnProperty.call(normalizedPatch.standard, "caught")
+        ) {
+          if (normalizedPatch.standard.caught === null) {
+            delete nextStandardOverride.caught;
           } else {
-            nextOverride.caught = normalizedPatch.caught;
+            nextStandardOverride.caught = normalizedPatch.standard.caught;
           }
         }
 
-        if (Object.prototype.hasOwnProperty.call(normalizedPatch, "hasLivingEntry")) {
-          if (normalizedPatch.hasLivingEntry === null) {
-            delete nextOverride.hasLivingEntry;
+        if (
+          normalizedPatch.standard &&
+          Object.prototype.hasOwnProperty.call(normalizedPatch.standard, "hasLivingEntry")
+        ) {
+          if (normalizedPatch.standard.hasLivingEntry === null) {
+            delete nextStandardOverride.hasLivingEntry;
           } else {
-            nextOverride.hasLivingEntry = normalizedPatch.hasLivingEntry;
+            nextStandardOverride.hasLivingEntry = normalizedPatch.standard.hasLivingEntry;
           }
         }
+
+        nextOverride.standard = nextStandardOverride;
 
         const nextOverrides = Object.assign({}, currentOverrides);
 
         if (
-          typeof nextOverride.seen !== "boolean" &&
-          typeof nextOverride.caught !== "boolean" &&
-          typeof nextOverride.hasLivingEntry !== "boolean"
+          !nextOverride.standard &&
+          !nextOverride.shiny
         ) {
+          delete nextOverrides[pokemonSpeciesId];
+          return nextOverrides;
+        }
+
+        if (
+          nextOverride.standard &&
+          typeof nextOverride.standard.seen !== "boolean" &&
+          typeof nextOverride.standard.caught !== "boolean" &&
+          typeof nextOverride.standard.hasLivingEntry !== "boolean"
+        ) {
+          delete nextOverride.standard;
+        }
+
+        if (
+          nextOverride.shiny &&
+          typeof nextOverride.shiny.seen !== "boolean" &&
+          typeof nextOverride.shiny.caught !== "boolean" &&
+          typeof nextOverride.shiny.hasLivingEntry !== "boolean"
+        ) {
+          delete nextOverride.shiny;
+        }
+
+        if (!nextOverride.standard && !nextOverride.shiny) {
           delete nextOverrides[pokemonSpeciesId];
           return nextOverrides;
         }

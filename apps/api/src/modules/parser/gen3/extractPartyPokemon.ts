@@ -1,5 +1,8 @@
 import {
     decryptGen3StoredPokemon,
+    getIsShinyGen3Pokemon,
+    readGen3OriginalTrainerId,
+    readGen3PersonalityValue,
     readGen3SpeciesId
 } from "./gen3PokemonCrypto";
 import type { Gen3Layout } from "./detectGen3Game";
@@ -11,6 +14,9 @@ export type ParsedGen3Pokemon = {
     level: number;
     nickname: string;
     isEgg: boolean;
+    personalityValue: number;
+    originalTrainerId: number;
+    isShiny: boolean;
 };
 
 type ExtractPartyPokemonParams = {
@@ -99,6 +105,9 @@ export const extractPartyPokemon = ({
         const level = decryptedPartyPokemon.readUInt8(84);
         const nickname = "";
         const isEgg = false;
+        const personalityValue = readGen3PersonalityValue(decryptedPartyPokemon);
+        const originalTrainerId = readGen3OriginalTrainerId(decryptedPartyPokemon);
+        const isShiny = getIsShinyGen3Pokemon(decryptedPartyPokemon);
 
         if (speciesId <= 0) {
             continue;
@@ -109,7 +118,10 @@ export const extractPartyPokemon = ({
             speciesId,
             level,
             nickname,
-            isEgg
+            isEgg,
+            personalityValue,
+            originalTrainerId,
+            isShiny
         });
     }
 

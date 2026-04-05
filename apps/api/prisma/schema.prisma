@@ -114,6 +114,16 @@ model SaveProfileDexEntry {
   seen             Boolean  @default(false)
   caught           Boolean  @default(false)
   hasLivingEntry   Boolean  @default(false)
+  // shinySeen stores imported shiny seen state for one species snapshot row.
+  shinySeen        Boolean  @default(false)
+  // shinyCaught stores imported shiny caught state for one species snapshot row.
+  shinyCaught      Boolean  @default(false)
+  // shinyLiving stores imported shiny living state for one species snapshot row.
+  shinyLiving      Boolean  @default(false)
+  // totalOwnedCount stores the imported non-shiny-plus-shiny ownership count for one species snapshot row.
+  totalOwnedCount  Int      @default(0)
+  // shinyOwnedCount stores the imported shiny ownership count for one species snapshot row.
+  shinyOwnedCount  Int      @default(0)
   updatedAt        DateTime @updatedAt
 
   saveProfile    SaveProfile    @relation("SaveProfileDexEntries", fields: [saveProfileId], references: [id], onDelete: Cascade)
@@ -129,6 +139,12 @@ model SaveProfileDexOverride {
   seen             Boolean?
   caught           Boolean?
   hasLivingEntry   Boolean?
+  // shinySeen stores one nullable manual shiny seen override for a species row.
+  shinySeen        Boolean?
+  // shinyCaught stores one nullable manual shiny caught override for a species row.
+  shinyCaught      Boolean?
+  // shinyLiving stores one nullable manual shiny living override for a species row.
+  shinyLiving      Boolean?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

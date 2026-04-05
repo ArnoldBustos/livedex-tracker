@@ -115,6 +115,21 @@ export type UploadFlowResult =
     | CompletedUploadFlowResponse
     | UploadManualGameSelectionRequirement;
 
+// DexEntryCollectionState stores one collection layer for a dex entry.
+// DexEntry and dex update request types reuse this so standard and shiny flags stay structurally aligned.
+export type DexEntryCollectionState = {
+    seen: boolean;
+    caught: boolean;
+    hasLivingEntry: boolean;
+};
+
+// DexEntryOwnershipState stores ownership counters for one dex entry.
+// DexEntry uses this so ownership counts can expand without changing the collection flag layers.
+export type DexEntryOwnershipState = {
+    totalOwnedCount: number;
+    shinyOwnedCount: number;
+};
+
 export type DexEntry = {
     pokemonSpeciesId: number;
     dexNumber: number;
@@ -122,35 +137,56 @@ export type DexEntry = {
     generation: number;
     primaryType: string;
     secondaryType: string | null;
-    seen: boolean;
-    caught: boolean;
-    hasLivingEntry: boolean;
+    standard: DexEntryCollectionState;
+    shiny: DexEntryCollectionState;
+    ownership: DexEntryOwnershipState;
+};
+
+// DexSummaryCollectionState stores aggregate totals for one dex collection layer.
+// DexResponse.summary uses this so standard and shiny totals stay parallel and modular.
+export type DexSummaryCollectionState = {
+    totalEntries: number;
+    seenCount: number;
+    caughtCount: number;
+    livingCount: number;
+};
+
+// DexSummaryOwnershipState stores aggregate ownership totals across the dex.
+// DexResponse.summary uses this so ownership counters stay separate from boolean collection totals.
+export type DexSummaryOwnershipState = {
+    totalOwnedCount: number;
+    totalShinyOwnedCount: number;
 };
 
 export type DexResponse = {
     summary: {
-        totalEntries: number;
-        seenCount: number;
-        caughtCount: number;
-        livingCount: number;
+        standard: DexSummaryCollectionState;
+        shiny: DexSummaryCollectionState;
+        ownership: DexSummaryOwnershipState;
     };
     entries: DexEntry[];
 };
 
-// UpdateDexEntryRequest is the backend PATCH payload for one dex entry override.
-// lib/api/dex.ts uses this for signed-in manual dex edits.
-export type UpdateDexEntryRequest = {
+// DexEntryCollectionPatch stores nullable override writes for one dex collection layer.
+// UpdateDexEntryRequest and guest override types reuse this so standard and shiny edits share one patch contract.
+export type DexEntryCollectionPatch = {
     seen?: boolean | null;
     caught?: boolean | null;
     hasLivingEntry?: boolean | null;
 };
 
+// UpdateDexEntryRequest is the backend PATCH payload for one dex entry override.
+// lib/api/dex.ts uses this for signed-in manual dex edits.
+export type UpdateDexEntryRequest = {
+    standard?: DexEntryCollectionPatch;
+    shiny?: DexEntryCollectionPatch;
+};
+
 // GuestDexOverrideValue stores one guest-only dex override for a single species.
 // App.tsx uses this value shape inside GuestDexOverrideMap for local manual edits.
 export type GuestDexOverrideValue = {
-    seen?: boolean;
-    caught?: boolean;
-    hasLivingEntry?: boolean;
+    standard?: DexEntryCollectionPatch;
+    shiny?: DexEntryCollectionPatch;
 };
 
 // GuestDexOverrideMap stores temporary guest-only dex edits keyed by species id.

@@ -1,7 +1,10 @@
 import {
     decryptGen3StoredPokemon,
+    getIsShinyGen3Pokemon,
     isPresentGen3StoredPokemon,
     isValidGen3StoredPokemon,
+    readGen3OriginalTrainerId,
+    readGen3PersonalityValue,
     readGen3SpeciesId
 } from "./gen3PokemonCrypto";
 import type { ParsedGen3Pokemon } from "./extractPartyPokemon";
@@ -69,10 +72,10 @@ export const extractBoxPokemon = ({
             const absoluteSlotIndex = (boxIndex * SLOTS_PER_BOX) + slotIndex;
 
             // Reads the personality value from the slot header for checksum-failure logging context.
-            const personalityValue = encryptedStoredPokemon.readUInt32LE(0);
+            const personalityValue = readGen3PersonalityValue(encryptedStoredPokemon);
 
             // Reads the original trainer ID value from the slot header for debugging storage decoding.
-            const originalTrainerId = encryptedStoredPokemon.readUInt32LE(4);
+            const originalTrainerId = readGen3OriginalTrainerId(encryptedStoredPokemon);
 
             // Skips raw PC slots that do not advertise a present Gen 3 Pokemon before decryption.
             if (!isPresentGen3StoredPokemon(encryptedStoredPokemon)) {
@@ -100,6 +103,8 @@ export const extractBoxPokemon = ({
 
             // Reads the species id from the decrypted stored Pokemon data.
             const speciesId = readGen3SpeciesId(decryptedStoredPokemon);
+            // Reads the shiny state from the decrypted/shared Pokemon header for imported snapshot aggregation.
+            const isShiny = getIsShinyGen3Pokemon(decryptedStoredPokemon);
 
             // Validates that the species id is in the supported Gen 3 National Dex range.
             const isValidSpeciesId = speciesId > 0 && speciesId <= MAX_GEN3_NATIONAL_DEX_NUMBER;
@@ -122,7 +127,10 @@ export const extractBoxPokemon = ({
                 speciesId,
                 level: 0,
                 nickname: "",
-                isEgg: false
+                isEgg: false,
+                personalityValue,
+                originalTrainerId,
+                isShiny
             });
         }
     }

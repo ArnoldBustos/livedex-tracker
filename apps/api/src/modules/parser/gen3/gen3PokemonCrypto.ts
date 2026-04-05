@@ -104,6 +104,28 @@ export const readGen3SpeciesId = (decryptedPokemon: Buffer): number => {
     return decryptedPokemon.readUInt16LE(32);
 };
 
+export const readGen3PersonalityValue = (pokemonData: Buffer): number => {
+    // Reads the Gen 3 personality value from the shared Pokemon header for shiny and ordering logic.
+    return pokemonData.readUInt32LE(0);
+};
+
+export const readGen3OriginalTrainerId = (pokemonData: Buffer): number => {
+    // Reads the packed Gen 3 trainer id value from the shared Pokemon header for shiny evaluation.
+    return pokemonData.readUInt32LE(4);
+};
+
+export const getIsShinyGen3Pokemon = (pokemonData: Buffer): boolean => {
+    // Evaluates the Gen 3 shiny formula from the Pokemon header fields without depending on dex flags.
+    const personalityValue = readGen3PersonalityValue(pokemonData);
+    const originalTrainerId = readGen3OriginalTrainerId(pokemonData);
+    const trainerId = originalTrainerId & 0xffff;
+    const secretId = originalTrainerId >>> 16;
+    const personalityHighWord = personalityValue >>> 16;
+    const personalityLowWord = personalityValue & 0xffff;
+
+    return ((trainerId ^ secretId) ^ (personalityHighWord ^ personalityLowWord)) < 8;
+};
+
 export const readGen3StoredChecksum = (decryptedPokemon: Buffer): number => {
     // Reads the checksum stored in the Gen 3 Pokemon header so parser callers can validate decrypted data.
     return decryptedPokemon.readUInt16LE(STORED_CHECKSUM_OFFSET);

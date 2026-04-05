@@ -42,9 +42,16 @@ type LoadedDashboardViewProps = {
     onUpdateDexEntry: (params: {
         pokemonSpeciesId: number;
         patch: {
-            seen?: boolean | null;
-            caught?: boolean | null;
-            hasLivingEntry?: boolean | null;
+            standard?: {
+                seen?: boolean | null;
+                caught?: boolean | null;
+                hasLivingEntry?: boolean | null;
+            };
+            shiny?: {
+                seen?: boolean | null;
+                caught?: boolean | null;
+                hasLivingEntry?: boolean | null;
+            };
         };
     }) => Promise<void> | void;
     onLogout: () => void;
@@ -109,15 +116,15 @@ const dexGridDensityOrder: DexGridDensity[] = [
 // getDexEntryStatus returns the strongest collection state for one dex entry.
 // cards, filters, and summary counts use this so UI status rules stay aligned.
 const getDexEntryStatus = (dexEntry: DexEntry): DexDisplayStatus => {
-    if (dexEntry.hasLivingEntry) {
+    if (dexEntry.standard.hasLivingEntry) {
         return "living";
     }
 
-    if (dexEntry.caught) {
+    if (dexEntry.standard.caught) {
         return "caught";
     }
 
-    if (dexEntry.seen) {
+    if (dexEntry.standard.seen) {
         return "seen";
     }
 
@@ -426,16 +433,32 @@ export const LoadedDashboardView = ({
     // dashboardSummary derives the active scope counts used by the summary cards and progress labels.
     // DashboardSummary and the completion bar both read this object so count logic stays centralized.
     const dashboardSummary = useMemo(() => {
+        const standardSummary = dexResponse.summary.standard;
+
+        if (selectedScope === "national") {
+            const missingCount = standardSummary.totalEntries - standardSummary.seenCount;
+            const seenOnlyCount = standardSummary.seenCount - standardSummary.caughtCount;
+
+            return {
+                totalCount: standardSummary.totalEntries,
+                seenCount: standardSummary.seenCount,
+                caughtCount: standardSummary.caughtCount,
+                livingCount: standardSummary.livingCount,
+                missingCount,
+                seenOnlyCount
+            };
+        }
+
         const seenCount = dexEntries.filter((dexEntry) => {
-            return dexEntry.seen;
+            return dexEntry.standard.seen;
         }).length;
 
         const caughtCount = dexEntries.filter((dexEntry) => {
-            return dexEntry.caught;
+            return dexEntry.standard.caught;
         }).length;
 
         const livingCount = dexEntries.filter((dexEntry) => {
-            return dexEntry.hasLivingEntry;
+            return dexEntry.standard.hasLivingEntry;
         }).length;
 
         const missingCount = dexEntries.filter((dexEntry) => {
@@ -454,7 +477,7 @@ export const LoadedDashboardView = ({
             missingCount,
             seenOnlyCount
         };
-    }, [dexEntries]);
+    }, [dexEntries, dexResponse.summary.standard, selectedScope]);
 
     // completionPercentage keeps the sidebar progress bar aligned with the shared dashboard summary percentage logic.
     const completionPercentage = computeDexProgress({
@@ -840,12 +863,14 @@ export const LoadedDashboardView = ({
                                     <>
                                         <SidebarToggleButton
                                             label="In Living Dex"
-                                            value={selectedDexEntry.hasLivingEntry}
+                                            value={selectedDexEntry.standard.hasLivingEntry}
                                             onToggle={() => {
                                                 onUpdateDexEntry({
                                                     pokemonSpeciesId: selectedDexEntry.pokemonSpeciesId,
                                                     patch: {
-                                                        hasLivingEntry: !selectedDexEntry.hasLivingEntry
+                                                        standard: {
+                                                            hasLivingEntry: !selectedDexEntry.standard.hasLivingEntry
+                                                        }
                                                     }
                                                 });
                                             }}
@@ -853,12 +878,14 @@ export const LoadedDashboardView = ({
 
                                         <SidebarToggleButton
                                             label="Caught"
-                                            value={selectedDexEntry.caught}
+                                            value={selectedDexEntry.standard.caught}
                                             onToggle={() => {
                                                 onUpdateDexEntry({
                                                     pokemonSpeciesId: selectedDexEntry.pokemonSpeciesId,
                                                     patch: {
-                                                        caught: !selectedDexEntry.caught
+                                                        standard: {
+                                                            caught: !selectedDexEntry.standard.caught
+                                                        }
                                                     }
                                                 });
                                             }}
@@ -866,12 +893,14 @@ export const LoadedDashboardView = ({
 
                                         <SidebarToggleButton
                                             label="Seen"
-                                            value={selectedDexEntry.seen}
+                                            value={selectedDexEntry.standard.seen}
                                             onToggle={() => {
                                                 onUpdateDexEntry({
                                                     pokemonSpeciesId: selectedDexEntry.pokemonSpeciesId,
                                                     patch: {
-                                                        seen: !selectedDexEntry.seen
+                                                        standard: {
+                                                            seen: !selectedDexEntry.standard.seen
+                                                        }
                                                     }
                                                 });
                                             }}
