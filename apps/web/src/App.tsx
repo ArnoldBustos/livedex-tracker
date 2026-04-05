@@ -373,6 +373,10 @@ const App = () => {
       nextEntryState.caught = true;
     }
 
+    if (nextEntryState.caught) {
+      nextEntryState.seen = true;
+    }
+
     if (!nextEntryState.seen) {
       nextEntryState.caught = false;
       nextEntryState.hasLivingEntry = false;

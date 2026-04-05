@@ -15,7 +15,13 @@ export type DexProgressResult = {
     livingPercent: number;
 };
 
-// computeDexProgress converts scoped dex counts into rounded whole-number percentages.
+// getRoundedDexPercent converts one scoped dex count into a percentage with one-decimal precision.
+// computeDexProgress uses this so small non-zero progress values do not disappear into 0%.
+const getRoundedDexPercent = (count: number, total: number) => {
+    return Number(((count / total) * 100).toFixed(1));
+};
+
+// computeDexProgress converts scoped dex counts into rounded percentage values.
 // dashboard summary UI uses this so percentage logic stays modular and reusable outside components.
 export const computeDexProgress = ({
     total,
@@ -32,8 +38,8 @@ export const computeDexProgress = ({
     }
 
     return {
-        seenPercent: Math.round((seen / total) * 100),
-        caughtPercent: Math.round((caught / total) * 100),
-        livingPercent: Math.round((living / total) * 100)
+        seenPercent: getRoundedDexPercent(seen, total),
+        caughtPercent: getRoundedDexPercent(caught, total),
+        livingPercent: getRoundedDexPercent(living, total)
     };
 };

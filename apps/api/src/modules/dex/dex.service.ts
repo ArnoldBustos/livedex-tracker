@@ -26,6 +26,12 @@ type DexState = {
     hasLivingEntry: boolean;
 };
 
+type DexOverrideState = {
+    seen: boolean | null;
+    caught: boolean | null;
+    hasLivingEntry: boolean | null;
+};
+
 type DexSpeciesRecord = {
     id: number;
     dexNumber: number;
@@ -33,6 +39,36 @@ type DexSpeciesRecord = {
     generation: number;
     primaryType: string;
     secondaryType: string | null;
+};
+
+// normalizeDexOverrideState enforces the seen -> caught -> living hierarchy for nullable override rows.
+// updateSaveProfileDexOverride uses this so API writes match the dashboard's manual edit rules.
+const normalizeDexOverrideState = (overrideState: DexOverrideState): DexOverrideState => {
+    const nextOverrideState = {
+        seen: overrideState.seen,
+        caught: overrideState.caught,
+        hasLivingEntry: overrideState.hasLivingEntry
+    };
+
+    if (nextOverrideState.hasLivingEntry === true) {
+        nextOverrideState.seen = true;
+        nextOverrideState.caught = true;
+    }
+
+    if (nextOverrideState.caught === true) {
+        nextOverrideState.seen = true;
+    }
+
+    if (nextOverrideState.seen === false) {
+        nextOverrideState.caught = false;
+        nextOverrideState.hasLivingEntry = false;
+    }
+
+    if (nextOverrideState.caught === false) {
+        nextOverrideState.hasLivingEntry = false;
+    }
+
+    return nextOverrideState;
 };
 
 // syncSaveProfileDexFromParse stores the imported save snapshot for one profile.
@@ -327,11 +363,7 @@ const getResolvedDexEntryState = ({
     overrideState
 }: {
     importedState?: DexState;
-    overrideState?: {
-        seen: boolean | null;
-        caught: boolean | null;
-        hasLivingEntry: boolean | null;
-    };
+    overrideState?: DexOverrideState;
 }): DexState => {
     const baseState: DexState = {
         seen: importedState ? importedState.seen : false,
@@ -386,11 +418,7 @@ const assertExistingPokemonSpecies = async (pokemonSpeciesId: number) => {
 
 // hasAnyOverrideValue checks whether a patch still contains at least one persisted override field.
 // updateSaveProfileDexOverride uses this to delete empty override rows instead of storing null-only rows.
-const hasAnyOverrideValue = (overrideState: {
-    seen: boolean | null;
-    caught: boolean | null;
-    hasLivingEntry: boolean | null;
-}) => {
+const hasAnyOverrideValue = (overrideState: DexOverrideState) => {
     return (
         typeof overrideState.seen === "boolean" ||
         typeof overrideState.caught === "boolean" ||
@@ -471,7 +499,7 @@ export const updateSaveProfileDexOverride = async ({
         }
     });
 
-    const nextOverrideState = {
+    const nextOverrideState = normalizeDexOverrideState({
         seen:
             Object.prototype.hasOwnProperty.call(overridePatch, "seen")
                 ? overridePatch.seen === undefined
@@ -496,7 +524,7 @@ export const updateSaveProfileDexOverride = async ({
                 : existingOverride
                     ? existingOverride.hasLivingEntry
                     : null
-    };
+    });
 
     if (!hasAnyOverrideValue(nextOverrideState)) {
         if (existingOverride) {

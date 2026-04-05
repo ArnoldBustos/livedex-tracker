@@ -13,6 +13,7 @@ import type {
 } from "../../types/save";
 import { getPokemonTypeBadgeStyle } from "../../lib/pokemonTypeStyles";
 import { getDexEntriesForScope } from "../../lib/dex";
+import { computeDexProgress } from "../../lib/dex/computeDexProgress";
 import { getDisplayGameLabel } from "../../lib/getDisplayGameLabel";
 
 type LoadedDashboardViewProps = {
@@ -185,7 +186,7 @@ const getDexCardImageClassName = (selectedGridDensity: DexGridDensity) => {
 };
 
 // getPokemonSpriteUrl builds the Home sprite URL for one dex card.
-// the card grid uses this so discovered pokemon render with consistent artwork.
+// the card grid uses this so every dex entry can render consistent artwork.
 const getPokemonSpriteUrl = (dexNumber: number) => {
     return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${dexNumber}.png`;
 };
@@ -194,6 +195,16 @@ const getPokemonSpriteUrl = (dexNumber: number) => {
 // the right sidebar uses this so the focused entry shows larger artwork than the grid cards.
 const getPokemonArtworkUrl = (dexNumber: number) => {
     return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dexNumber}.png`;
+};
+
+// getDexEntryImageToneClassName returns the artwork tone classes for one dex status.
+// LoadedDashboardView uses this so missing entries stay visible but darker than seen or owned entries.
+const getDexEntryImageToneClassName = (status: DexDisplayStatus) => {
+    if (status === "missing") {
+        return "opacity-55 brightness-75 saturate-0";
+    }
+
+    return "";
 };
 
 // formatPokemonTypeLabel converts API casing into the badge label casing shown on cards.
@@ -443,9 +454,13 @@ export const LoadedDashboardView = ({
         };
     }, [dexEntries]);
 
-    const completionPercentage = dexEntries.length > 0
-        ? Math.round((dashboardSummary.livingCount / dexEntries.length) * 100)
-        : 0;
+    // completionPercentage keeps the sidebar progress bar aligned with the shared dashboard summary percentage logic.
+    const completionPercentage = computeDexProgress({
+        total: dashboardSummary.totalCount,
+        seen: dashboardSummary.seenCount,
+        caught: dashboardSummary.caughtCount,
+        living: dashboardSummary.livingCount
+    }).livingPercent;
 
     return (
         <>
@@ -683,6 +698,7 @@ export const LoadedDashboardView = ({
                     <section className={getDexGridSectionClassName(selectedGridDensity)}>
                         {filteredDexEntries.map((dexEntry) => {
                             const status = getDexEntryStatus(dexEntry);
+                            const imageToneClassName = getDexEntryImageToneClassName(status);
                             const isSelected = selectedDexEntry
                                 ? selectedDexEntry.dexNumber === dexEntry.dexNumber
                                 : false;
@@ -721,15 +737,11 @@ export const LoadedDashboardView = ({
                                     </div>
 
                                     <div className="flex h-[88px] items-center justify-center overflow-hidden">
-                                        {status === "missing" ? (
-                                            <span className="text-2xl font-bold text-gray-300">?</span>
-                                        ) : (
-                                            <img
-                                                src={getPokemonSpriteUrl(dexEntry.dexNumber)}
-                                                alt={dexEntry.name}
-                                                className={getDexCardImageClassName(selectedGridDensity)}
-                                            />
-                                        )}
+                                        <img
+                                            src={getPokemonSpriteUrl(dexEntry.dexNumber)}
+                                            alt={dexEntry.name}
+                                            className={`${getDexCardImageClassName(selectedGridDensity)} ${imageToneClassName}`.trim()}
+                                        />
                                     </div>
 
                                     <div className="mt-2 text-sm font-extrabold tracking-[0.01em] text-gray-900">
@@ -770,7 +782,7 @@ export const LoadedDashboardView = ({
                                     <img
                                         src={getPokemonArtworkUrl(selectedDexEntry.dexNumber)}
                                         alt={selectedDexEntry.name}
-                                        className="max-h-full max-w-full object-contain"
+                                        className={`max-h-full max-w-full object-contain ${getDexEntryImageToneClassName(getDexEntryStatus(selectedDexEntry))}`.trim()}
                                     />
                                 ) : (
                                     <span className="text-2xl font-bold text-gray-300">?</span>
