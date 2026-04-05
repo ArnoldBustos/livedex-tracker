@@ -53,7 +53,7 @@ const SummaryStatCard = ({
 };
 
 // DashboardSummary renders the active profile details and scoped dex summary metrics.
-// LoadedDashboardView places this above the grid so counts and progress stay tied to the selected scope.
+// LoadedDashboardView places this above the grid so long save names can wrap before the compact stat grid activates.
 export const DashboardSummary = ({
     saveProfileName,
     trainerName,
@@ -73,13 +73,13 @@ export const DashboardSummary = ({
     });
 
     return (
-        <section className="grid gap-4 md:grid-cols-[1.3fr_repeat(4,minmax(0,1fr))]">
+        <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-[1.3fr_repeat(4,minmax(0,1fr))]">
             <div className="rounded-2xl bg-white p-5 shadow-sm">
                 <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
                     Save Profile
                 </div>
 
-                <strong className="mt-3 block truncate text-3xl leading-tight font-extrabold tracking-tight text-gray-900">
+                <strong className="mt-3 block text-2xl leading-tight font-extrabold tracking-tight text-gray-900 break-words line-clamp-2">
                     {saveProfileName}
                 </strong>
 

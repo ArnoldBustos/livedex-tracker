@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { resolveRequestUserId } from "../auth/requestUser.service";
-import { getOwnedSaveProfileDex, updateSaveProfileDexOverride } from "./dex.service";
+import { getEmptyDex, getOwnedSaveProfileDex, updateSaveProfileDexOverride } from "./dex.service";
 
 type DexOverrideRequestBody = {
     seen?: boolean | null;
@@ -114,6 +114,22 @@ export const getDexBySaveProfileId = async (
     } catch (error) {
         return res.status(404).json({
             error: error instanceof Error ? error.message : "Save profile not found"
+        });
+    }
+};
+
+// getDexTemplate returns the blank dex payload used by manual save setup flows.
+// dex.routes.ts exposes this so the frontend can create local manual shells without duplicating species data.
+export const getDexTemplate = async (
+    _request: Request,
+    response: Response
+) => {
+    try {
+        const dexTemplate = await getEmptyDex();
+        response.status(200).json(dexTemplate);
+    } catch (error) {
+        response.status(500).json({
+            error: error instanceof Error ? error.message : "Failed to load dex template"
         });
     }
 };

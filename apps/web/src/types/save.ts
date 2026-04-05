@@ -1,3 +1,4 @@
+import { SUPPORTED_GAMES } from "../../../../packages/shared/src";
 import type {
     ManualGen3GameOverride,
     SupportedGame,
@@ -5,11 +6,28 @@ import type {
     UploadRequestFields
 } from "../../../../packages/shared/src";
 
+export {
+    SUPPORTED_GAMES
+};
+
 export type {
     ManualGen3GameOverride,
     SupportedGame,
     UploadManualGameSelectionRequirement,
     UploadRequestFields
+};
+
+// SaveSourceType distinguishes uploaded saves from frontend-created manual shells.
+// App.tsx and save setup components use this so both entry paths share one identity model.
+export type SaveSourceType = "upload" | "manual";
+
+// EditableSaveIdentity stores the user-editable identity fields shared by upload and manual save setup.
+// SaveDetailsForm and App.tsx use this so save naming stays modular instead of being duplicated per flow.
+export type EditableSaveIdentity = {
+    displayName: string;
+    trainerName: string;
+    game: SupportedGame | null;
+    sourceType: SaveSourceType;
 };
 
 export type SaveProfileRecord = {
@@ -73,6 +91,7 @@ export type UploadResponse = {
     trainerInfo?: TrainerInfo;
     dex?: DexResponse;
     debug?: DebugPayload;
+    editableIdentity?: EditableSaveIdentity;
 };
 
 // CompletedUploadFlowResponse stores the successful upload-endpoint payload before App.tsx moves into dashboard state.

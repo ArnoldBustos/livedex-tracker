@@ -6,12 +6,14 @@ import { EmptyStateView } from "./components/layout/EmptyStateView"; // empty up
 import { LoadedDashboardView } from "./components/layout/LoadedDashboardView"; // main dashboard
 import { LoginView } from "./components/auth/LoginView"; // login / guest entry screen
 import { ManualGameOverridePrompt } from "./components/upload/ManualGameOverridePrompt"; // FRLG manual title chooser
+import { SaveDetailsForm } from "./components/upload/SaveDetailsForm"; // shared save setup dialog
 
 import type {
   DexFilter,
   DexGridDensity,
   DexResponse,
   DexScope,
+  EditableSaveIdentity,
   GuestDexOverrideMap,
   ManualGen3GameOverride,
   SaveProfileRecord,
@@ -20,7 +22,7 @@ import type {
   UploadRequestFields,
   UploadResponse
 } from "./types/save"; // shared frontend types for dex + uploads
-import { patchDexEntryOverride } from "./lib/api/dex";
+import { fetchDexTemplate, patchDexEntryOverride } from "./lib/api/dex";
 
 import {
   deleteSaveProfile,
@@ -50,6 +52,191 @@ type PendingManualGameSelection = {
   requirement: UploadManualGameSelectionRequirement;
 };
 
+// PendingSaveSetup stores one in-progress save identity flow before upload or manual shell creation completes.
+// App.tsx uses this so upload and manual entry can share the same setup dialog and payload shape.
+type PendingSaveSetup = {
+  file: File | null;
+  identity: EditableSaveIdentity;
+};
+
+// getTrimmedValue normalizes one string-like value into a trimmed string.
+// save setup helpers use this so save labels and trainer names follow the same fallback rules.
+const getTrimmedValue = (value: string | null | undefined) => {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim();
+};
+
+// getDefaultUploadDisplayName derives an initial upload label from the chosen filename.
+// App.tsx uses this so upload setup starts with a real derived value instead of a hardcoded placeholder.
+const getDefaultUploadDisplayName = (file: File) => {
+  const extensionIndex = file.name.lastIndexOf(".");
+
+  if (extensionIndex <= 0) {
+    return file.name;
+  }
+
+  return file.name.slice(0, extensionIndex);
+};
+
+// getFallbackSaveName resolves the safe fallback label for one save source and session mode.
+// save setup uses this so guest and manual flows never leak placeholder names into the UI.
+const getFallbackSaveName = ({
+  sourceType,
+  isGuestSession
+}: {
+  sourceType: EditableSaveIdentity["sourceType"];
+  isGuestSession: boolean;
+}) => {
+  if (sourceType === "manual" && isGuestSession) {
+    return "Guest Save";
+  }
+
+  return "Unnamed Save";
+};
+
+// getSaveNameFromIdentity builds the final save label used by manual shells and upload requests.
+// App.tsx calls this so save naming stays centralized across guest, upload, and manual flows.
+const getSaveNameFromIdentity = ({
+  identity,
+  isGuestSession
+}: {
+  identity: EditableSaveIdentity;
+  isGuestSession: boolean;
+}) => {
+  const trimmedDisplayName = getTrimmedValue(identity.displayName);
+
+  if (trimmedDisplayName) {
+    return trimmedDisplayName;
+  }
+
+  const trimmedTrainerName = getTrimmedValue(identity.trainerName);
+
+  if (trimmedTrainerName) {
+    return trimmedTrainerName;
+  }
+
+  return getFallbackSaveName({
+    sourceType: identity.sourceType,
+    isGuestSession
+  });
+};
+
+// getEditableIdentityFromUploadResponse derives the shared save identity shape from one completed upload payload.
+// App.tsx uses this so dashboard code can read one consistent identity field for uploaded saves.
+const getEditableIdentityFromUploadResponse = (nextUploadResponse: UploadResponse): EditableSaveIdentity => {
+  const trainerNameFromTrainerInfo =
+    nextUploadResponse.trainerInfo && nextUploadResponse.trainerInfo.name
+      ? getTrimmedValue(nextUploadResponse.trainerInfo.name)
+      : "";
+  const trainerNameFromDebug =
+    nextUploadResponse.debug && nextUploadResponse.debug.trainerName
+      ? getTrimmedValue(nextUploadResponse.debug.trainerName)
+      : "";
+
+  return {
+    displayName: getTrimmedValue(nextUploadResponse.saveProfile.name),
+    trainerName: trainerNameFromTrainerInfo || trainerNameFromDebug,
+    game: nextUploadResponse.upload.detectedGame
+      ? nextUploadResponse.upload.detectedGame
+      : nextUploadResponse.saveProfile.game,
+    sourceType: "upload"
+  };
+};
+
+// getUploadResponseWithIdentity attaches the shared editable identity to one upload payload.
+// App.tsx calls this after upload reads and writes so downstream UI can rely on one identity model.
+const getUploadResponseWithIdentity = (nextUploadResponse: UploadResponse): UploadResponse => {
+  return Object.assign({}, nextUploadResponse, {
+    editableIdentity: getEditableIdentityFromUploadResponse(nextUploadResponse)
+  });
+};
+
+// getInitialSaveSetupIdentity builds the starting identity payload for a new upload or manual setup flow.
+// App.tsx uses this so the SaveDetailsForm can open with real defaults from the current entry path.
+const getInitialSaveSetupIdentity = ({
+  sourceType,
+  isGuestSession,
+  file
+}: {
+  sourceType: EditableSaveIdentity["sourceType"];
+  isGuestSession: boolean;
+  file: File | null;
+}) => {
+  return {
+    displayName:
+      file !== null
+        ? getDefaultUploadDisplayName(file)
+        : getFallbackSaveName({
+          sourceType,
+          isGuestSession
+        }),
+    trainerName: "",
+    game: null,
+    sourceType
+  };
+};
+
+// getManualUploadResponse builds the synthetic upload payload used by frontend-only manual shells.
+// App.tsx uses this so manual entry can reuse the loaded dashboard route without a backend save profile.
+const getManualUploadResponse = ({
+  currentUser,
+  identity,
+  isGuestSession
+}: {
+  currentUser: StoredUser;
+  identity: EditableSaveIdentity;
+  isGuestSession: boolean;
+}): UploadResponse => {
+  const now = new Date().toISOString();
+  const manualId = `manual-shell-${Date.now().toString()}`;
+  const trainerName = getTrimmedValue(identity.trainerName);
+  const saveName = getSaveNameFromIdentity({
+    identity,
+    isGuestSession
+  });
+
+  return {
+    upload: {
+      id: `manual-upload-${Date.now().toString()}`,
+      userId: currentUser.id,
+      saveProfileId: manualId,
+      originalFilename: "manual-entry",
+      storageProvider: "MANUAL",
+      storageKey: "manual-entry",
+      fileUrl: null,
+      fileSizeBytes: 0,
+      parseStatus: "COMPLETED",
+      detectedGame: identity.game,
+      parseError: null,
+      createdAt: now,
+      updatedAt: now,
+      trainerName: trainerName || null,
+      trainerGender: null
+    },
+    saveProfile: {
+      id: manualId,
+      userId: currentUser.id,
+      name: saveName,
+      game: identity.game,
+      createdAt: now,
+      updatedAt: now
+    },
+    trainerInfo: trainerName
+      ? {
+        name: trainerName,
+        gender: "Unknown"
+      }
+      : undefined,
+    editableIdentity: Object.assign({}, identity, {
+      displayName: saveName,
+      trainerName
+    })
+  };
+};
+
 const App = () => {
   const restoredSession = restoreSession();
 
@@ -71,7 +258,16 @@ const App = () => {
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [pendingManualGameSelection, setPendingManualGameSelection] =
     useState<PendingManualGameSelection | null>(null);
+  const [pendingSaveSetup, setPendingSaveSetup] = useState<PendingSaveSetup | null>(null);
   const isGuestMode = sessionMode === "guest";
+  const isLocalDexMode =
+    isGuestMode ||
+    (
+      uploadResponse &&
+      uploadResponse.editableIdentity
+        ? uploadResponse.editableIdentity.sourceType === "manual"
+        : false
+    );
 
   // buildDexSummary recalculates summary totals from a dex entry list.
   // guest merged dex state uses this so frontend-only overrides stay consistent with the sidebar and cards.
@@ -90,8 +286,8 @@ const App = () => {
     };
   };
 
-  // getMergedGuestDexResponse overlays guest local manual edits on top of imported guest dex data.
-  // App.tsx uses this so guest mode can edit dex state without calling the backend.
+  // getMergedGuestDexResponse overlays local frontend edits on top of the current dex data.
+  // App.tsx uses this so guest uploads and manual shells can edit dex state without backend writes.
   const getMergedGuestDexResponse = (
     baseDexResponse: DexResponse,
     overrides: GuestDexOverrideMap
@@ -126,10 +322,10 @@ const App = () => {
     };
   };
 
-  // displayedDexResponse chooses the backend dex for signed-in users and the locally merged dex for guests.
-  // App.tsx passes this into LoadedDashboardView so both modes render through one dashboard path.
+  // displayedDexResponse chooses the backend dex for persisted saves and the locally merged dex for session-only flows.
+  // App.tsx passes this into LoadedDashboardView so guest uploads and manual shells share the same dashboard path.
   const displayedDexResponse =
-    dexResponse && isGuestMode
+    dexResponse && isLocalDexMode
       ? getMergedGuestDexResponse(dexResponse, guestDexOverrides)
       : dexResponse;
 
@@ -262,45 +458,58 @@ const App = () => {
     loadSaveProfiles();
   }, [currentUser, sessionMode]);
 
-  const handleUploadStart = () => {
-    setIsUploading(true);
-    setErrorMessage("");
-    setPendingManualGameSelection(null);
+  // resetLoadedSaveState clears the currently open save while keeping the current auth session intact.
+  // Empty-state transitions and auth changes call this so loaded save state resets in one place.
+  const resetLoadedSaveState = () => {
     setUploadResponse(null);
     setDexResponse(null);
     setGuestDexOverrides({});
+    setActiveSaveProfileId(null);
+    setPendingManualGameSelection(null);
+    setPendingSaveSetup(null);
     setSelectedDexNumber(null);
     setSelectedFilter("all");
     setSelectedScope("national");
+    setIsUploading(false);
+    setErrorMessage("");
   };
 
+  // handleUploadSuccess finalizes one completed upload and moves the app into the loaded dashboard state.
+  // executeUploadFlow uses this for new uploads, guest uploads, and save replacements from the dashboard.
   const handleUploadSuccess = (
     nextUploadResponse: UploadResponse,
     nextDexResponse: DexResponse
   ) => {
+    const nextUploadResponseWithIdentity = getUploadResponseWithIdentity(nextUploadResponse);
+
     setPendingManualGameSelection(null);
-    setUploadResponse(nextUploadResponse);
+    setPendingSaveSetup(null);
+    setUploadResponse(nextUploadResponseWithIdentity);
     setDexResponse(nextDexResponse);
     setGuestDexOverrides({});
-    setActiveSaveProfileId(nextUploadResponse.saveProfile.id);
+    setActiveSaveProfileId(nextUploadResponseWithIdentity.saveProfile.id);
+    setSelectedFilter("all");
+    setSelectedScope("national");
 
-    setSaveProfiles((currentSaveProfiles) => {
-      const existingProfileIndex = currentSaveProfiles.findIndex((saveProfile) => {
-        return saveProfile.id === nextUploadResponse.saveProfile.id;
-      });
+    if (sessionMode === "user") {
+      setSaveProfiles((currentSaveProfiles) => {
+        const existingProfileIndex = currentSaveProfiles.findIndex((saveProfile) => {
+          return saveProfile.id === nextUploadResponseWithIdentity.saveProfile.id;
+        });
 
-      if (existingProfileIndex === -1) {
-        return [nextUploadResponse.saveProfile, ...currentSaveProfiles];
-      }
-
-      return currentSaveProfiles.map((saveProfile) => {
-        if (saveProfile.id === nextUploadResponse.saveProfile.id) {
-          return nextUploadResponse.saveProfile;
+        if (existingProfileIndex === -1) {
+          return [nextUploadResponseWithIdentity.saveProfile].concat(currentSaveProfiles);
         }
 
-        return saveProfile;
+        return currentSaveProfiles.map((saveProfile) => {
+          if (saveProfile.id === nextUploadResponseWithIdentity.saveProfile.id) {
+            return nextUploadResponseWithIdentity.saveProfile;
+          }
+
+          return saveProfile;
+        });
       });
-    });
+    }
 
     if (nextDexResponse.entries.length > 0) {
       setSelectedDexNumber(nextDexResponse.entries[0].dexNumber);
@@ -312,6 +521,8 @@ const App = () => {
     setErrorMessage("");
   };
 
+  // handleUploadError clears transient upload state and shows the latest upload-related error message.
+  // UploadHero and save setup flows call this for file validation and upload execution failures.
   const handleUploadError = (nextErrorMessage: string) => {
     setPendingManualGameSelection(null);
     setIsUploading(false);
@@ -349,6 +560,100 @@ const App = () => {
     }
 
     handleUploadSuccess(uploadResult.uploadResponse, uploadResult.dexResponse);
+  };
+
+  // handleSelectUploadFile opens shared save setup for the chosen upload file.
+  // EmptyStateView calls this so upload naming stays outside UploadHero and out of the main dashboard tree.
+  const handleSelectUploadFile = (file: File) => {
+    setErrorMessage("");
+    setPendingManualGameSelection(null);
+    setPendingSaveSetup({
+      file,
+      identity: getInitialSaveSetupIdentity({
+        sourceType: "upload",
+        isGuestSession: isGuestMode,
+        file
+      })
+    });
+  };
+
+  // handleCreateManualEntry opens shared save setup for a new manual save shell.
+  // EmptyStateView calls this so manual creation reuses the same identity model as uploads.
+  const handleCreateManualEntry = () => {
+    setErrorMessage("");
+    setPendingManualGameSelection(null);
+    setPendingSaveSetup({
+      file: null,
+      identity: getInitialSaveSetupIdentity({
+        sourceType: "manual",
+        isGuestSession: isGuestMode,
+        file: null
+      })
+    });
+  };
+
+  // handleCancelSaveSetup closes the shared save setup dialog without mutating the current loaded save state.
+  // SaveDetailsForm calls this so upload and manual setup can be abandoned cleanly.
+  const handleCancelSaveSetup = () => {
+    setPendingSaveSetup(null);
+    setErrorMessage("");
+  };
+
+  // handleSubmitSaveSetup finalizes shared save identity input for upload or manual shell creation.
+  // SaveDetailsForm calls this so App.tsx can keep setup orchestration centralized.
+  const handleSubmitSaveSetup = async (identity: EditableSaveIdentity) => {
+    if (!currentUser || !pendingSaveSetup) {
+      setErrorMessage("No active save setup is available.");
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      setErrorMessage("");
+      setPendingManualGameSelection(null);
+
+      if (pendingSaveSetup.file) {
+        const saveProfileName = getSaveNameFromIdentity({
+          identity,
+          isGuestSession: isGuestMode
+        });
+
+        setPendingSaveSetup(null);
+
+        await executeUploadFlow({
+          file: pendingSaveSetup.file,
+          requestFields: {
+            saveProfileName
+          }
+        });
+        return;
+      }
+
+      const dexTemplate = await fetchDexTemplate();
+      const manualUploadResponse = getManualUploadResponse({
+        currentUser,
+        identity,
+        isGuestSession: isGuestMode
+      });
+
+      setPendingSaveSetup(null);
+      setUploadResponse(manualUploadResponse);
+      setDexResponse(dexTemplate);
+      setGuestDexOverrides({});
+      setActiveSaveProfileId(null);
+      setSelectedFilter("all");
+      setSelectedScope("national");
+      setSelectedDexNumber(
+        dexTemplate.entries.length > 0 ? dexTemplate.entries[0].dexNumber : null
+      );
+      setIsUploading(false);
+      setErrorMessage("");
+    } catch (error) {
+      setIsUploading(false);
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to finish save setup"
+      );
+    }
   };
 
   // handleSubmitManualGameOverride resumes a paused FRLG upload using the user-selected title override.
@@ -441,26 +746,9 @@ const App = () => {
     });
   };
 
-  // handleCreateSaveUpload owns the empty-state upload flow for signed-in or guest users
-  // EmptyStateView calls this through UploadHero so upload networking stays out of UI components
-  const handleCreateSaveUpload = async (
-    file: File,
-    saveProfileName: string
-  ) => {
-    await executeUploadFlow({
-      file,
-      requestFields: {
-        saveProfileName
-      }
-    });
-  };
-
+  // handleUpdateActiveProfileSave uploads a replacement file for the active save or converts a local shell into an upload.
+  // LoadedDashboardView calls this so persisted saves and manual shells can both continue through the upload flow.
   const handleUpdateActiveProfileSave = async (file: File) => {
-    if (!activeSaveProfileId) {
-      setErrorMessage("No active save profile selected.");
-      return;
-    }
-
     if (!currentUser) {
       setErrorMessage("No user is currently signed in.");
       return;
@@ -470,6 +758,27 @@ const App = () => {
       setIsUploading(true);
       setErrorMessage("");
       setPendingManualGameSelection(null);
+
+      if (
+        isLocalDexMode ||
+        !activeSaveProfileId ||
+        !uploadResponse ||
+        !uploadResponse.editableIdentity
+      ) {
+        await executeUploadFlow({
+          file,
+          requestFields: {
+            saveProfileName:
+              uploadResponse && uploadResponse.editableIdentity
+                ? getSaveNameFromIdentity({
+                  identity: uploadResponse.editableIdentity,
+                  isGuestSession: isGuestMode
+                })
+                : getDefaultUploadDisplayName(file)
+          }
+        });
+        return;
+      }
 
       await executeUploadFlow({
         file,
@@ -486,6 +795,8 @@ const App = () => {
     }
   };
 
+  // handleSelectSaveProfile switches the dashboard to another persisted save profile.
+  // LoadedDashboardView calls this when the user chooses a different saved profile in the sidebar.
   const handleSelectSaveProfile = async (saveProfileId: string) => {
     if (saveProfileId === activeSaveProfileId) {
       return;
@@ -501,9 +812,11 @@ const App = () => {
       setErrorMessage("");
 
       const nextUploadResponse = await fetchSaveProfileById(saveProfileId, currentUser);
-      const nextDexResponse = nextUploadResponse.dex ?? await fetchDexBySaveProfileId(saveProfileId, currentUser);
+      const nextDexResponse = nextUploadResponse.dex
+        ? nextUploadResponse.dex
+        : await fetchDexBySaveProfileId(saveProfileId, currentUser);
 
-      setUploadResponse(nextUploadResponse);
+      setUploadResponse(getUploadResponseWithIdentity(nextUploadResponse));
       setDexResponse(nextDexResponse);
       setGuestDexOverrides({});
       setActiveSaveProfileId(saveProfileId);
@@ -525,8 +838,8 @@ const App = () => {
     }
   };
 
-  // handleDeleteProfile removes a profile and updates global state
-  // LoadedDashboardView calls this after the user confirms profile deletion
+  // handleDeleteProfile removes one persisted profile and clears the dashboard if it was active.
+  // LoadedDashboardView calls this after the user confirms profile deletion.
   const handleDeleteProfile = async (saveProfileId: string) => {
     if (!currentUser) {
       setErrorMessage("No user is currently signed in.");
@@ -537,29 +850,14 @@ const App = () => {
       await deleteSaveProfile(saveProfileId, currentUser);
 
       setSaveProfiles((currentSaveProfiles) => {
-        const nextSaveProfiles = currentSaveProfiles.filter((saveProfile) => {
+        return currentSaveProfiles.filter((saveProfile) => {
           return saveProfile.id !== saveProfileId;
         });
-
-        setActiveSaveProfileId((currentActiveSaveProfileId) => {
-          if (currentActiveSaveProfileId !== saveProfileId) {
-            return currentActiveSaveProfileId;
-          }
-
-          return nextSaveProfiles.length > 0 ? nextSaveProfiles[0].id : null;
-        });
-
-        if (activeSaveProfileId === saveProfileId && nextSaveProfiles.length === 0) {
-          setUploadResponse(null);
-          setDexResponse(null);
-          setGuestDexOverrides({});
-          setSelectedDexNumber(null);
-          setSelectedFilter("all");
-          setSelectedScope("national");
-        }
-
-        return nextSaveProfiles;
       });
+
+      if (activeSaveProfileId === saveProfileId) {
+        resetLoadedSaveState();
+      }
 
       setErrorMessage("");
     } catch (error) {
@@ -571,7 +869,7 @@ const App = () => {
   };
 
   // handleUpdateDexEntry applies one manual dex edit for the selected pokemon.
-  // signed-in mode persists through the backend, while guest mode stores a frontend-only override.
+  // Persisted uploads write through the backend, while guest uploads and manual shells store frontend-only overrides.
   const handleUpdateDexEntry = async ({
     pokemonSpeciesId,
     patch
@@ -589,7 +887,7 @@ const App = () => {
       patch
     });
 
-    if (isGuestMode) {
+    if (isLocalDexMode) {
       setGuestDexOverrides((currentOverrides) => {
         const currentOverride = currentOverrides[pokemonSpeciesId];
         const nextOverride = currentOverride ? Object.assign({}, currentOverride) : {};
@@ -660,56 +958,43 @@ const App = () => {
     }
   };
 
-  // resetDashboardState clears loaded profile and dex state without removing auth
-  // logout and empty-state transitions both call this so reset logic stays centralized
-  const resetDashboardState = () => {
-    setUploadResponse(null);
-    setDexResponse(null);
-    setGuestDexOverrides({});
-    setSaveProfiles([]);
-    setActiveSaveProfileId(null);
-    setPendingManualGameSelection(null);
-    setSelectedDexNumber(null);
-    setSelectedFilter("all");
-    setSelectedScope("national");
-    setIsUploading(false);
-    setErrorMessage("");
-  };
-
-  // handleResetToEmptyState clears dashboard data but keeps the current signed-in user
-  // LoadedDashboardView calls this when returning to the empty upload state
+  // handleResetToEmptyState clears the currently loaded save while keeping the current auth session active.
+  // LoadedDashboardView calls this when returning from the dashboard to the setup entry points.
   const handleResetToEmptyState = () => {
-    resetDashboardState();
+    resetLoadedSaveState();
   };
 
-  // handleGoToLogin clears any temporary session and returns the app to login mode
-  // Guest CTA buttons call this so guest sessions can transition into the auth flow
+  // handleGoToLogin clears temporary state and returns the app to login mode.
+  // Guest CTA buttons call this so guest sessions can transition into the auth flow.
   const handleGoToLogin = () => {
     clearStoredUser();
-    resetDashboardState();
+    resetLoadedSaveState();
+    setSaveProfiles([]);
     setCurrentUser(null);
     setSessionMode("auth");
     setAuthMode("login");
     setErrorMessage("");
   };
 
-  // handleGoToRegister clears any temporary session and returns the app to register mode
-  // Guest CTA buttons call this so guest sessions can transition into account creation flow
+  // handleGoToRegister clears temporary state and returns the app to register mode.
+  // Guest CTA buttons call this so guest sessions can transition into account creation flow.
   const handleGoToRegister = () => {
     clearStoredUser();
-    resetDashboardState();
+    resetLoadedSaveState();
+    setSaveProfiles([]);
     setCurrentUser(null);
     setSessionMode("auth");
     setAuthMode("register");
     setErrorMessage("");
   };
 
-  // handleLogout clears persisted auth, guest state, and loaded dashboard state
-  // LoadedDashboardView calls this so the app always returns to the auth screen after logout
+  // handleLogout clears persisted auth, loaded save state, and save profile list state.
+  // LoadedDashboardView calls this so the app always returns to the auth screen after logout.
   const handleLogout = () => {
     clearStoredUser();
     setLoginEmail("");
-    resetDashboardState();
+    resetLoadedSaveState();
+    setSaveProfiles([]);
     setCurrentUser(null);
     setSessionMode("auth");
   };
@@ -752,11 +1037,44 @@ const App = () => {
           <EmptyStateView
             isUploading={isUploading}
             errorMessage={errorMessage}
-            onUploadStart={handleUploadStart}
-            onUploadFile={handleCreateSaveUpload}
+            onSelectUploadFile={handleSelectUploadFile}
+            onCreateManualEntry={handleCreateManualEntry}
             onUploadError={handleUploadError}
           />
         </div>
+        <SaveDetailsForm
+          isOpen={pendingSaveSetup !== null}
+          title={
+            pendingSaveSetup && pendingSaveSetup.file
+              ? "Name this uploaded save"
+              : "Create a manual save shell"
+          }
+          description={
+            pendingSaveSetup && pendingSaveSetup.file
+              ? "Confirm the save label before the upload starts. Game detection still comes from the uploaded file."
+              : "Choose the game and identity details for a blank tracker shell."
+          }
+          confirmLabel={
+            pendingSaveSetup && pendingSaveSetup.file
+              ? "Start Upload"
+              : "Create Save"
+          }
+          isSubmitting={isUploading}
+          identity={
+            pendingSaveSetup
+              ? pendingSaveSetup.identity
+              : getInitialSaveSetupIdentity({
+                sourceType: "manual",
+                isGuestSession: isGuestMode,
+                file: null
+              })
+          }
+          showTrainerNameField={pendingSaveSetup ? pendingSaveSetup.file === null : true}
+          showGameField={pendingSaveSetup ? pendingSaveSetup.file === null : true}
+          requireGameSelection={pendingSaveSetup ? pendingSaveSetup.file === null : true}
+          onSubmit={handleSubmitSaveSetup}
+          onCancel={handleCancelSaveSetup}
+        />
         <ManualGameOverridePrompt
           isOpen={pendingManualGameSelection !== null}
           isSubmitting={isUploading}

@@ -3,13 +3,12 @@ import { useState } from "react";
 type UploadHeroProps = {
     isUploading: boolean;
     errorMessage: string;
-    onUploadStart: () => void;
-    onUploadFile: (file: File, saveProfileName: string) => Promise<void>;
+    onSelectUploadFile: (file: File) => void;
     onUploadError: (errorMessage: string) => void;
 };
 
-// getIsSupportedSaveFile validates accepted save file extensions for new uploads
-// UploadHero uses this before passing the selected file to the parent upload flow
+// getIsSupportedSaveFile validates accepted save file extensions for new uploads.
+// UploadHero uses this before handing the file to App.tsx for save setup orchestration.
 const getIsSupportedSaveFile = (file: File) => {
     const lowercaseFileName = file.name.toLowerCase();
 
@@ -24,41 +23,32 @@ const getIsSupportedSaveFile = (file: File) => {
     return false;
 };
 
+// UploadHero renders the empty-state upload picker and status copy.
+// EmptyStateView uses this so file selection stays separate from manual-entry setup UI.
 export const UploadHero = ({
     isUploading,
     errorMessage,
-    onUploadStart,
-    onUploadFile,
+    onSelectUploadFile,
     onUploadError
 }: UploadHeroProps) => {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [saveProfileName, setSaveProfileName] = useState("");
     const [isDragging, setIsDragging] = useState(false);
 
-    // uploadFile validates the chosen file and hands upload execution to the parent
-    // App.tsx owns the real network flow so UploadHero stays a pure UI layer
-    const uploadFile = async (file: File) => {
+    // handleSelectedFile validates the chosen file and forwards it into the shared save setup flow.
+    // App.tsx receives the file so upload details can be collected outside this presentational component.
+    const handleSelectedFile = (file: File) => {
         if (!getIsSupportedSaveFile(file)) {
             onUploadError("Only .sav and .srm files are supported.");
             return;
         }
 
         setSelectedFile(file);
-        onUploadStart();
-
-        try {
-            await onUploadFile(file, saveProfileName.trim());
-        } catch (error) {
-            if (error instanceof Error) {
-                onUploadError(error.message);
-                return;
-            }
-
-            onUploadError("Unknown upload error");
-        }
+        onSelectUploadFile(file);
     };
 
-    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    // handleFileChange reads the hidden file input and forwards the chosen file upward.
+    // UploadHero uses this for click-based file picking.
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const nextFiles = event.target.files;
 
         if (!nextFiles || nextFiles.length === 0) {
@@ -66,12 +56,12 @@ export const UploadHero = ({
             return;
         }
 
-        const nextFile = nextFiles[0];
-        await uploadFile(nextFile);
-
+        handleSelectedFile(nextFiles[0]);
         event.target.value = "";
     };
 
+    // handleDragOver enables dropzone styling while a file is dragged over the upload target.
+    // UploadHero uses this to keep drag feedback local to the upload surface.
     const handleDragOver = (event: React.DragEvent<HTMLLabelElement>) => {
         event.preventDefault();
 
@@ -82,12 +72,16 @@ export const UploadHero = ({
         setIsDragging(true);
     };
 
+    // handleDragLeave clears the temporary dropzone highlight when the drag leaves the target.
+    // UploadHero uses this so the drag state resets cleanly.
     const handleDragLeave = (event: React.DragEvent<HTMLLabelElement>) => {
         event.preventDefault();
         setIsDragging(false);
     };
 
-    const handleDrop = async (event: React.DragEvent<HTMLLabelElement>) => {
+    // handleDrop validates and forwards a dropped save file into shared setup state.
+    // App.tsx owns the next step so UploadHero remains limited to selection UX.
+    const handleDrop = (event: React.DragEvent<HTMLLabelElement>) => {
         event.preventDefault();
         setIsDragging(false);
 
@@ -101,16 +95,15 @@ export const UploadHero = ({
             return;
         }
 
-        const droppedFile = droppedFiles[0];
-        await uploadFile(droppedFile);
+        handleSelectedFile(droppedFiles[0]);
     };
 
     return (
-        <section className="flex w-full max-w-[1120px] justify-center">
+        <section className="flex w-full justify-center">
             <div className="grid w-full max-w-[1080px] grid-cols-[280px_minmax(0,1fr)] gap-6">
                 <aside className="rounded-2xl bg-white p-5 shadow-sm">
                     <div className="text-[12px] font-extrabold uppercase tracking-[0.12em] text-gray-500">
-                        Guest Mode
+                        Save Upload
                     </div>
 
                     <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-gray-900">
@@ -118,16 +111,16 @@ export const UploadHero = ({
                     </h2>
 
                     <p className="mt-2 text-sm leading-6 text-gray-600">
-                        Upload a Gen 3 save to preview your Pokédex progress before signing in.
+                        Upload a Gen 3 save to build a tracker session from real save data.
                     </p>
 
                     <div className="mt-6 rounded-xl bg-gray-50 p-4">
                         <div className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-gray-500">
-                            Signed-in later
+                            Shared setup
                         </div>
 
                         <p className="mt-2 text-sm leading-6 text-gray-600">
-                            Save multiple named profiles to your account and access them across devices.
+                            File selection now opens the shared save setup form so upload and manual entry use one naming path.
                         </p>
                     </div>
                 </aside>
@@ -144,33 +137,17 @@ export const UploadHero = ({
                             </h1>
 
                             <p className="mt-2 max-w-[560px] text-[15px] leading-6 text-gray-600">
-                                Drag in a Pokémon Gen 3 save or choose a file to build a temporary guest profile.
+                                Drag in a Pokemon Gen 3 save or choose a file to open save setup before the upload starts.
                             </p>
                         </div>
 
                         <div className="hidden rounded-full bg-green-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-green-800 md:block">
-                            Guest
+                            Upload
                         </div>
                     </div>
 
-                    <div className="flex flex-col gap-2">
-                        <label
-                            htmlFor="save-profile-name"
-                            className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-gray-500"
-                        >
-                            Save profile name
-                        </label>
-                        <input
-                            id="save-profile-name"
-                            className="min-h-[48px] rounded-xl border border-gray-200 bg-gray-50 px-4 text-[14px] text-gray-900 outline-none transition focus:border-green-500 focus:bg-white"
-                            type="text"
-                            placeholder="LeafGreen - Chey playthrough"
-                            value={saveProfileName}
-                            onChange={(event) => {
-                                setSaveProfileName(event.target.value);
-                            }}
-                            disabled={isUploading}
-                        />
+                    <div className="rounded-xl border border-[#d7d3ae] bg-[#f8f6e8] px-4 py-3 text-[14px] leading-6 text-[#56573f]">
+                        Upload setup collects the save name in the shared save details dialog. Game detection still comes from the uploaded file.
                     </div>
 
                     <input
@@ -194,7 +171,7 @@ export const UploadHero = ({
                         onDrop={handleDrop}
                     >
                         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white text-[24px] font-extrabold text-green-700 shadow-sm">
-                            ↑
+                            ^
                         </div>
 
                         <div className="flex flex-col gap-1">
@@ -206,7 +183,7 @@ export const UploadHero = ({
                                         : "Choose or drag a save file"}
                             </div>
                             <div className="text-[14px] text-gray-600">
-                                Supports .sav and .srm files. Valid files upload automatically.
+                                Supports .sav and .srm files. File selection opens save setup instead of uploading immediately.
                             </div>
                         </div>
                     </label>
@@ -229,7 +206,7 @@ export const UploadHero = ({
                     <div className="text-[13px] text-gray-500">
                         {isUploading
                             ? "Uploading save file..."
-                            : "Guest profiles are temporary until account support is added."}
+                            : "Upload details are confirmed in the shared save setup dialog."}
                     </div>
                 </div>
             </div>

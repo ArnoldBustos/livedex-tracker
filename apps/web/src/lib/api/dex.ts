@@ -32,3 +32,9 @@ export const patchDexEntryOverride = async ({
         }
     );
 };
+
+// fetchDexTemplate loads the blank dex template used by manual save creation.
+// App.tsx calls this so manual entry reuses backend species data instead of duplicating it in the web app.
+export const fetchDexTemplate = async () => {
+    return await apiRequest<DexResponse>("/dex/template");
+};

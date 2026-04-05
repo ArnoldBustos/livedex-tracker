@@ -26,6 +26,15 @@ type DexState = {
     hasLivingEntry: boolean;
 };
 
+type DexSpeciesRecord = {
+    id: number;
+    dexNumber: number;
+    name: string;
+    generation: number;
+    primaryType: string;
+    secondaryType: string | null;
+};
+
 // syncSaveProfileDexFromParse stores the imported save snapshot for one profile.
 // uploads.service.ts calls this after parser output is available for a completed upload.
 export const syncSaveProfileDexFromParse = async ({
@@ -224,6 +233,49 @@ const buildDexSummary = (entries: DexState[]) => {
     };
 };
 
+// getDexSpeciesRecords loads the canonical species rows used for both empty and resolved dex payloads.
+// getEmptyDex and getSaveProfileDex call this so the frontend always receives one consistent species ordering.
+const getDexSpeciesRecords = async (): Promise<DexSpeciesRecord[]> => {
+    return await prismaClient.pokemonSpecies.findMany({
+        select: {
+            id: true,
+            dexNumber: true,
+            name: true,
+            generation: true,
+            primaryType: true,
+            secondaryType: true
+        },
+        orderBy: {
+            dexNumber: "asc"
+        }
+    });
+};
+
+// getEmptyDex returns the blank dex template with every species initialized to false.
+// manual entry setup uses this so local shells render through the same dashboard path as uploads.
+export const getEmptyDex = async () => {
+    const pokemonSpecies = await getDexSpeciesRecords();
+
+    const entries = pokemonSpecies.map((species) => {
+        return {
+            pokemonSpeciesId: species.id,
+            dexNumber: species.dexNumber,
+            name: species.name,
+            generation: species.generation,
+            primaryType: species.primaryType,
+            secondaryType: species.secondaryType,
+            seen: false,
+            caught: false,
+            hasLivingEntry: false
+        };
+    });
+
+    return {
+        summary: buildDexSummary(entries),
+        entries
+    };
+};
+
 // getImportedDexEntryMap loads imported dex snapshot rows keyed by species id.
 // getSaveProfileDex uses this as the base state before manual overrides are applied.
 const getImportedDexEntryMap = async (saveProfileId: string) => {
@@ -349,19 +401,7 @@ const hasAnyOverrideValue = (overrideState: {
 // getSaveProfileDex returns the resolved dex payload for one save profile.
 // uploads and dex controllers call this so reads stay centralized in the dex module.
 export const getSaveProfileDex = async (saveProfileId: string) => {
-    const pokemonSpecies = await prismaClient.pokemonSpecies.findMany({
-        select: {
-            id: true,
-            dexNumber: true,
-            name: true,
-            generation: true,
-            primaryType: true,
-            secondaryType: true
-        },
-        orderBy: {
-            dexNumber: "asc"
-        }
-    });
+    const pokemonSpecies = await getDexSpeciesRecords();
 
     const importedDexEntryBySpeciesId = await getImportedDexEntryMap(saveProfileId);
     const overrideDexEntryBySpeciesId = await getOverrideDexEntryMap(saveProfileId);

@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { getDexBySaveProfileId, patchDexEntryBySaveProfileId } from "./dex.controller";
+import { getDexBySaveProfileId, getDexTemplate, patchDexEntryBySaveProfileId } from "./dex.controller";
 
 const dexRouter = Router();
 
+dexRouter.get("/template", getDexTemplate);
 dexRouter.get("/profile/:saveProfileId", getDexBySaveProfileId);
 dexRouter.patch("/profile/:saveProfileId/entry/:pokemonSpeciesId", patchDexEntryBySaveProfileId);
 
