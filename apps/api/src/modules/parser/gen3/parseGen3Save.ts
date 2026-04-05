@@ -1,6 +1,7 @@
 import {
     detectGen3Game,
-    type DetectedGen3Game
+    type DetectedGen3Game,
+    type Gen3Layout
 } from "./detectGen3Game";
 import { extractBoxPokemon } from "./extractBoxPokemon";
 import {
@@ -19,6 +20,7 @@ import { readGen3SaveSections } from "./readGen3SaveSections";
 
 export type ParsedGen3Save = {
     detectedGame: DetectedGen3Game;
+    detectedLayout: Gen3Layout;
     trainerInfo: ExtractedTrainerInfo;
     partyPokemon: ParsedGen3Pokemon[];
     boxPokemon: ParsedGen3Pokemon[];
@@ -104,6 +106,7 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
 
     return {
         detectedGame: detectedGameResult.detectedGame,
+        detectedLayout: detectedGameResult.layout,
         trainerInfo,
         partyPokemon,
         boxPokemon,

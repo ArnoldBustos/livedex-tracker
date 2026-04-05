@@ -5,6 +5,7 @@ import "./App.css";
 import { EmptyStateView } from "./components/layout/EmptyStateView"; // empty upload screen
 import { LoadedDashboardView } from "./components/layout/LoadedDashboardView"; // main dashboard
 import { LoginView } from "./components/auth/LoginView"; // login / guest entry screen
+import { ManualGameOverridePrompt } from "./components/upload/ManualGameOverridePrompt"; // FRLG manual title chooser
 
 import type {
   DexFilter,
@@ -12,8 +13,11 @@ import type {
   DexResponse,
   DexScope,
   GuestDexOverrideMap,
+  ManualGen3GameOverride,
   SaveProfileRecord,
   UpdateDexEntryRequest,
+  UploadManualGameSelectionRequirement,
+  UploadRequestFields,
   UploadResponse
 } from "./types/save"; // shared frontend types for dex + uploads
 import { patchDexEntryOverride } from "./lib/api/dex";
@@ -24,6 +28,7 @@ import {
   fetchSaveProfileById,
   fetchSaveProfiles,
   loginWithEmail,
+  buildUploadSaveFormData,
   uploadSaveAndFetchDex,
 } from "./lib/api/uploads"; // API layer for backend requests
 
@@ -36,6 +41,14 @@ import type { StoredUser } from "./lib/auth/session"; // persisted frontend user
 
 type SessionMode = "auth" | "user" | "guest";
 type AuthMode = "login" | "register";
+
+// PendingManualGameSelection stores one paused upload that needs FireRed or LeafGreen before completion.
+// App.tsx uses this so both new uploads and active-profile replacements can resume through one path.
+type PendingManualGameSelection = {
+  file: File;
+  requestFields: UploadRequestFields;
+  requirement: UploadManualGameSelectionRequirement;
+};
 
 const App = () => {
   const restoredSession = restoreSession();
@@ -56,6 +69,8 @@ const App = () => {
   const [loginEmail, setLoginEmail] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [pendingManualGameSelection, setPendingManualGameSelection] =
+    useState<PendingManualGameSelection | null>(null);
   const isGuestMode = sessionMode === "guest";
 
   // buildDexSummary recalculates summary totals from a dex entry list.
@@ -250,6 +265,7 @@ const App = () => {
   const handleUploadStart = () => {
     setIsUploading(true);
     setErrorMessage("");
+    setPendingManualGameSelection(null);
     setUploadResponse(null);
     setDexResponse(null);
     setGuestDexOverrides({});
@@ -262,6 +278,7 @@ const App = () => {
     nextUploadResponse: UploadResponse,
     nextDexResponse: DexResponse
   ) => {
+    setPendingManualGameSelection(null);
     setUploadResponse(nextUploadResponse);
     setDexResponse(nextDexResponse);
     setGuestDexOverrides({});
@@ -296,8 +313,84 @@ const App = () => {
   };
 
   const handleUploadError = (nextErrorMessage: string) => {
+    setPendingManualGameSelection(null);
     setIsUploading(false);
     setErrorMessage(nextErrorMessage);
+  };
+
+  // executeUploadFlow sends one upload request and either finalizes the dashboard state or pauses for FRLG title selection.
+  // App.tsx uses this shared path for new uploads, replacement uploads, and manual override resubmits.
+  const executeUploadFlow = async ({
+    file,
+    requestFields
+  }: {
+    file: File;
+    requestFields: UploadRequestFields;
+  }) => {
+    if (!currentUser) {
+      throw new Error("No user is currently signed in.");
+    }
+
+    const formData = buildUploadSaveFormData({
+      file,
+      requestFields
+    });
+    const uploadResult = await uploadSaveAndFetchDex(formData, currentUser);
+
+    if ("status" in uploadResult) {
+      setPendingManualGameSelection({
+        file,
+        requestFields,
+        requirement: uploadResult
+      });
+      setIsUploading(false);
+      setErrorMessage("");
+      return;
+    }
+
+    handleUploadSuccess(uploadResult.uploadResponse, uploadResult.dexResponse);
+  };
+
+  // handleSubmitManualGameOverride resumes a paused FRLG upload using the user-selected title override.
+  // ManualGameOverridePrompt calls this so the chooser remains a UI-only wrapper around the upload flow.
+  const handleSubmitManualGameOverride = async (
+    selectedGame: ManualGen3GameOverride
+  ) => {
+    if (!pendingManualGameSelection) {
+      setErrorMessage("No pending upload is waiting for a game selection.");
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      setErrorMessage("");
+
+      const nextRequestFields = Object.assign(
+        {},
+        pendingManualGameSelection.requestFields,
+        {
+          manualGameOverride: selectedGame
+        }
+      );
+
+      await executeUploadFlow({
+        file: pendingManualGameSelection.file,
+        requestFields: nextRequestFields
+      });
+    } catch (error) {
+      setIsUploading(false);
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to submit manual game override"
+      );
+    }
+  };
+
+  // handleCancelManualGameOverride abandons the paused FRLG title-selection step without changing the current dashboard state.
+  // ManualGameOverridePrompt calls this so users can back out of the manual override flow cleanly.
+  const handleCancelManualGameOverride = () => {
+    setPendingManualGameSelection(null);
+    setIsUploading(false);
+    setErrorMessage("");
   };
 
   // handleDecreaseGridDensity moves the dex grid toward fewer cards per row.
@@ -338,21 +431,12 @@ const App = () => {
     file: File,
     saveProfileName: string
   ) => {
-    if (!currentUser) {
-      throw new Error("No user is currently signed in.");
-    }
-
-    const formData = new FormData();
-    formData.append("saveFile", file);
-
-    if (saveProfileName) {
-      formData.append("saveProfileName", saveProfileName);
-    }
-
-    const { uploadResponse: nextUploadResponse, dexResponse: nextDexResponse } =
-      await uploadSaveAndFetchDex(formData, currentUser);
-
-    handleUploadSuccess(nextUploadResponse, nextDexResponse);
+    await executeUploadFlow({
+      file,
+      requestFields: {
+        saveProfileName
+      }
+    });
   };
 
   const handleUpdateActiveProfileSave = async (file: File) => {
@@ -369,15 +453,14 @@ const App = () => {
     try {
       setIsUploading(true);
       setErrorMessage("");
+      setPendingManualGameSelection(null);
 
-      const formData = new FormData();
-      formData.append("saveFile", file);
-      formData.append("saveProfileId", activeSaveProfileId);
-
-      const { uploadResponse: nextUploadResponse, dexResponse: nextDexResponse } =
-        await uploadSaveAndFetchDex(formData, currentUser);
-
-      handleUploadSuccess(nextUploadResponse, nextDexResponse);
+      await executeUploadFlow({
+        file,
+        requestFields: {
+          saveProfileId: activeSaveProfileId
+        }
+      });
     } catch (error) {
       console.error("Failed to update active save profile", error);
       setErrorMessage(
@@ -569,6 +652,7 @@ const App = () => {
     setGuestDexOverrides({});
     setSaveProfiles([]);
     setActiveSaveProfileId(null);
+    setPendingManualGameSelection(null);
     setSelectedDexNumber(null);
     setSelectedFilter("all");
     setSelectedScope("national");
@@ -616,37 +700,59 @@ const App = () => {
 
   if (sessionMode === "auth" || !currentUser) {
     return (
-      <LoginView
-        authMode={authMode}
-        email={loginEmail}
-        isSubmitting={isLoggingIn}
-        errorMessage={errorMessage}
-        onChangeEmail={setLoginEmail}
-        onSubmit={handleLogin}
-        onContinueAsGuest={handleContinueAsGuest}
-        onSwitchToLogin={() => {
-          setAuthMode("login");
-          setErrorMessage("");
-        }}
-        onSwitchToRegister={() => {
-          setAuthMode("register");
-          setErrorMessage("");
-        }}
-      />
+      <>
+        <LoginView
+          authMode={authMode}
+          email={loginEmail}
+          isSubmitting={isLoggingIn}
+          errorMessage={errorMessage}
+          onChangeEmail={setLoginEmail}
+          onSubmit={handleLogin}
+          onContinueAsGuest={handleContinueAsGuest}
+          onSwitchToLogin={() => {
+            setAuthMode("login");
+            setErrorMessage("");
+          }}
+          onSwitchToRegister={() => {
+            setAuthMode("register");
+            setErrorMessage("");
+          }}
+        />
+        <ManualGameOverridePrompt
+          isOpen={false}
+          isSubmitting={false}
+          message=""
+          onSelectGame={handleSubmitManualGameOverride}
+          onCancel={handleCancelManualGameOverride}
+        />
+      </>
     );
   }
 
   if (!uploadResponse || !displayedDexResponse) {
     return (
-      <div className="min-h-screen bg-[#f6f5dc] text-[#38392a]">
-        <EmptyStateView
-          isUploading={isUploading}
-          errorMessage={errorMessage}
-          onUploadStart={handleUploadStart}
-          onUploadFile={handleCreateSaveUpload}
-          onUploadError={handleUploadError}
+      <>
+        <div className="min-h-screen bg-[#f6f5dc] text-[#38392a]">
+          <EmptyStateView
+            isUploading={isUploading}
+            errorMessage={errorMessage}
+            onUploadStart={handleUploadStart}
+            onUploadFile={handleCreateSaveUpload}
+            onUploadError={handleUploadError}
+          />
+        </div>
+        <ManualGameOverridePrompt
+          isOpen={pendingManualGameSelection !== null}
+          isSubmitting={isUploading}
+          message={
+            pendingManualGameSelection
+              ? pendingManualGameSelection.requirement.message
+              : ""
+          }
+          onSelectGame={handleSubmitManualGameOverride}
+          onCancel={handleCancelManualGameOverride}
         />
-      </div>
+      </>
     );
   }
 
@@ -655,35 +761,48 @@ const App = () => {
     : currentUser.email;
 
   return (
-    <div className="min-h-screen bg-[#f6f5dc] text-[#38392a]">
-      <LoadedDashboardView
-        uploadResponse={uploadResponse}
-        dexResponse={displayedDexResponse}
-        saveProfiles={saveProfiles}
-        activeSaveProfileId={activeSaveProfileId}
-        selectedFilter={selectedFilter}
-        selectedScope={selectedScope}
-        selectedGridDensity={selectedGridDensity}
-        selectedDexNumber={selectedDexNumber}
-        errorMessage={errorMessage}
-        isUploading={isUploading}
-        isGuestMode={isGuestMode}
-        sessionLabel={sessionLabel}
-        onChangeFilter={setSelectedFilter}
-        onChangeScope={setSelectedScope}
-        onDecreaseGridDensity={handleDecreaseGridDensity}
-        onIncreaseGridDensity={handleIncreaseGridDensity}
-        onSelectDexNumber={setSelectedDexNumber}
-        onSelectSaveProfile={handleSelectSaveProfile}
-        onUpdateSave={handleUpdateActiveProfileSave}
-        onUpdateDexEntry={handleUpdateDexEntry}
-        onResetToEmptyState={handleResetToEmptyState}
-        onDeleteProfile={handleDeleteProfile}
-        onLogout={handleLogout}
-        onGoToLogin={handleGoToLogin}
-        onGoToRegister={handleGoToRegister}
+    <>
+      <div className="min-h-screen bg-[#f6f5dc] text-[#38392a]">
+        <LoadedDashboardView
+          uploadResponse={uploadResponse}
+          dexResponse={displayedDexResponse}
+          saveProfiles={saveProfiles}
+          activeSaveProfileId={activeSaveProfileId}
+          selectedFilter={selectedFilter}
+          selectedScope={selectedScope}
+          selectedGridDensity={selectedGridDensity}
+          selectedDexNumber={selectedDexNumber}
+          errorMessage={errorMessage}
+          isUploading={isUploading}
+          isGuestMode={isGuestMode}
+          sessionLabel={sessionLabel}
+          onChangeFilter={setSelectedFilter}
+          onChangeScope={setSelectedScope}
+          onDecreaseGridDensity={handleDecreaseGridDensity}
+          onIncreaseGridDensity={handleIncreaseGridDensity}
+          onSelectDexNumber={setSelectedDexNumber}
+          onSelectSaveProfile={handleSelectSaveProfile}
+          onUpdateSave={handleUpdateActiveProfileSave}
+          onUpdateDexEntry={handleUpdateDexEntry}
+          onResetToEmptyState={handleResetToEmptyState}
+          onDeleteProfile={handleDeleteProfile}
+          onLogout={handleLogout}
+          onGoToLogin={handleGoToLogin}
+          onGoToRegister={handleGoToRegister}
+        />
+      </div>
+      <ManualGameOverridePrompt
+        isOpen={pendingManualGameSelection !== null}
+        isSubmitting={isUploading}
+        message={
+          pendingManualGameSelection
+            ? pendingManualGameSelection.requirement.message
+            : ""
+        }
+        onSelectGame={handleSubmitManualGameOverride}
+        onCancel={handleCancelManualGameOverride}
       />
-    </div>
+    </>
   );
 };
 

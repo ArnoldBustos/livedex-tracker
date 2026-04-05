@@ -1,5 +1,11 @@
 import { apiRequest } from "./client";
-import type { DexResponse, SaveProfileRecord, UploadResponse } from "../../types/save";
+import type {
+    DexResponse,
+    SaveProfileRecord,
+    UploadFlowResult,
+    UploadRequestFields,
+    UploadResponse
+} from "../../types/save";
 import type { ApiClientUser } from "./client";
 
 // loginWithEmail sends the email login request and returns the backend user payload
@@ -49,13 +55,41 @@ export const fetchDexBySaveProfileId = async (
     });
 };
 
+// buildUploadSaveFormData creates the multipart payload shared by initial uploads and FRLG override resubmits.
+// App.tsx calls this so file upload request fields stay centralized outside component code.
+export const buildUploadSaveFormData = ({
+    file,
+    requestFields
+}: {
+    file: File;
+    requestFields: UploadRequestFields;
+}) => {
+    const formData = new FormData();
+
+    formData.append("saveFile", file);
+
+    if (requestFields.saveProfileName) {
+        formData.append("saveProfileName", requestFields.saveProfileName);
+    }
+
+    if (requestFields.saveProfileId) {
+        formData.append("saveProfileId", requestFields.saveProfileId);
+    }
+
+    if (requestFields.manualGameOverride) {
+        formData.append("manualGameOverride", requestFields.manualGameOverride);
+    }
+
+    return formData;
+};
+
 // uploadSaveFile uploads a new or replacement save file using multipart form data
 // App.tsx calls this for both new uploads and active-profile updates
 export const uploadSaveFile = async (
     formData: FormData,
     currentUser: ApiClientUser
 ) => {
-    return apiRequest<UploadResponse>("/uploads", {
+    return apiRequest<UploadFlowResult>("/uploads", {
         method: "POST",
         currentUser,
         body: formData
@@ -68,9 +102,11 @@ export const uploadSaveAndFetchDex = async (
     formData: FormData,
     currentUser: ApiClientUser
 ) => {
-    const uploadResponse = await uploadSaveFile(formData, currentUser) as UploadResponse & {
-        dex?: DexResponse;
-    };
+    const uploadResponse = await uploadSaveFile(formData, currentUser);
+
+    if (uploadResponse.status === "manual-game-selection-required") {
+        return uploadResponse;
+    }
 
     if (uploadResponse.dex) {
         if (!uploadResponse.dex) {

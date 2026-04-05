@@ -137,14 +137,14 @@ const getDexEntryStatusLabel = (status: DexDisplayStatus) => {
 // LoadedDashboardView uses this to keep density layout mapping out of the JSX tree.
 const getDexGridSectionClassName = (selectedGridDensity: DexGridDensity) => {
     if (selectedGridDensity === "comfortable") {
-        return "grid grid-cols-[repeat(auto-fill,minmax(176px,1fr))] gap-4";
+        return "grid grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-4";
     }
 
     if (selectedGridDensity === "compact") {
-        return "grid grid-cols-[repeat(auto-fill,minmax(124px,1fr))] gap-4";
+        return "grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3";
     }
 
-    return "grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-4";
+    return "grid grid-cols-[repeat(auto-fill,minmax(132px,1fr))] gap-3";
 };
 
 // getDexCardImageClassName chooses sprite sizing for the active density option.
@@ -426,8 +426,8 @@ export const LoadedDashboardView = ({
             <div
                 className={
                     isGuestMode
-                        ? "grid min-h-[calc(100vh-84px)] grid-cols-[minmax(0,1fr)_320px] gap-6 bg-[#f3f4f6] px-6 py-6"
-                        : "grid min-h-[calc(100vh-84px)] grid-cols-[280px_minmax(0,1fr)_320px] gap-6 bg-[#f3f4f6] px-6 py-6"
+                        ? "grid min-h-[calc(100vh-84px)] grid-cols-[minmax(0,1fr)_288px] gap-4 bg-[#f3f4f6] px-4 py-4"
+                        : "grid min-h-[calc(100vh-84px)] grid-cols-[248px_minmax(0,1fr)_288px] gap-4 bg-[#f3f4f6] px-4 py-4"
                 }
             >
                 {!isGuestMode ? (
@@ -540,7 +540,7 @@ export const LoadedDashboardView = ({
                 </aside>
                 ) : null}
 
-                <main className="flex flex-col gap-6">
+                <main className="flex flex-col gap-4">
                     {errorMessage ? (
                         <div className="message error-message">{errorMessage}</div>
                     ) : null}
@@ -560,12 +560,12 @@ export const LoadedDashboardView = ({
                             <p className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
                                 Database View
                             </p>
-                            <h2 className="text-4xl font-extrabold tracking-tight text-gray-900">
+                            <h2 className="text-3xl font-extrabold tracking-tight text-gray-900">
                                 {selectedScope === "national" ? "National Dex" : "Regional Dex"}
                             </h2>
                         </div>
 
-                        <div className="flex w-full flex-wrap items-start justify-between gap-3 rounded-2xl border border-[rgba(130,129,111,0.18)] bg-white/80 px-4 py-4 shadow-sm">
+                        <div className="flex w-full flex-wrap items-start justify-between gap-2 rounded-2xl border border-[rgba(130,129,111,0.18)] bg-white/80 px-3 py-3 shadow-sm">
                             <div className="min-w-0">
                                 <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
                                     Filter

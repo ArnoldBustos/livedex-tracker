@@ -1,9 +1,16 @@
-export type SupportedGame =
-    | "RUBY"
-    | "SAPPHIRE"
-    | "EMERALD"
-    | "FIRERED"
-    | "LEAFGREEN";
+import type {
+    ManualGen3GameOverride,
+    SupportedGame,
+    UploadManualGameSelectionRequirement,
+    UploadRequestFields
+} from "../../../../packages/shared/src";
+
+export type {
+    ManualGen3GameOverride,
+    SupportedGame,
+    UploadManualGameSelectionRequirement,
+    UploadRequestFields
+};
 
 export type SaveProfileRecord = {
     id: string;
@@ -51,8 +58,11 @@ export type DebugPayload = {
     partySpeciesIds?: number[];
     boxCount?: number;
     boxSpeciesIds?: number[];
+    detectedLayout?: "EMERALD" | "FRLG";
+    detectedGameReason?: string;
 };
 
+// UploadResponse stores the successful dashboard payload used for saved-profile reads and completed uploads.
 export type UploadResponse = {
     upload: UploadRecord & {
         saveProfileId?: string;
@@ -64,6 +74,16 @@ export type UploadResponse = {
     dex?: DexResponse;
     debug?: DebugPayload;
 };
+
+// CompletedUploadFlowResponse stores the successful upload-endpoint payload before App.tsx moves into dashboard state.
+export type CompletedUploadFlowResponse = UploadResponse & {
+    status: "completed";
+};
+
+// UploadFlowResult stores either a completed upload payload or the FRLG manual title selection requirement.
+export type UploadFlowResult =
+    | CompletedUploadFlowResponse
+    | UploadManualGameSelectionRequirement;
 
 export type DexEntry = {
     pokemonSpeciesId: number;

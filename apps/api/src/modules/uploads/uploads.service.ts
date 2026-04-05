@@ -1,19 +1,32 @@
 import { randomUUID } from "crypto";
+import {
+    MANUAL_GEN3_GAME_OVERRIDES,
+    type ManualGen3GameOverride,
+    type SupportedGame,
+    type UploadManualGameSelectionRequirement
+} from "../../../../../packages/shared/src";
 import prismaClient from "../../lib/prisma";
 import { getSaveProfileDex, syncSaveProfileDexFromParse } from "../dex/dex.service";
 import { parseUploadedSave } from "../parser/parser.service";
 import { getStorageProvider } from "../storage/storage.service";
+
+// CreateUploadResult stores either a completed upload payload or a manual FRLG selection requirement.
+export type CreateUploadResult =
+    | Awaited<ReturnType<typeof buildCompletedUploadResult>>
+    | UploadManualGameSelectionRequirement;
 
 type CreateUploadParams = {
     userId: string;
     file: Express.Multer.File;
     saveProfileName?: string;
     saveProfileId?: string;
+    manualGameOverride?: ManualGen3GameOverride;
 };
 
 type CreateGuestUploadParams = {
     file: Express.Multer.File;
     saveProfileName?: string;
+    manualGameOverride?: ManualGen3GameOverride;
 };
 
 // buildGuestDexResponse converts parser output into the frontend dex response shape
@@ -62,6 +75,13 @@ const buildGuestDexResponse = async ({
     };
 };
 
+// getIsManualGen3GameOverride checks whether one raw request value is an allowed FRLG title override.
+export const getIsManualGen3GameOverride = (
+    value: string
+): value is ManualGen3GameOverride => {
+    return MANUAL_GEN3_GAME_OVERRIDES.includes(value as ManualGen3GameOverride);
+};
+
 type ListSaveProfilesParams = {
     userId: string;
 };
@@ -86,7 +106,7 @@ const resolveSaveProfile = async ({
     saveProfileId?: string;
     saveProfileName?: string;
     // detectedGame can stay null when the parser knows the FRLG layout but cannot prove FireRed vs LeafGreen.
-    detectedGame?: "RUBY" | "SAPPHIRE" | "EMERALD" | "FIRERED" | "LEAFGREEN" | null;
+    detectedGame?: SupportedGame | null;
 }) => {
     if (saveProfileId) {
         const existingProfile = await prismaClient.saveProfile.findFirst({
@@ -150,6 +170,111 @@ const resolveSaveProfile = async ({
             game: detectedGame
         }
     });
+};
+
+// getRequiresManualGameSelection checks whether a parsed FRLG save still needs a user title choice.
+const getRequiresManualGameSelection = ({
+    detectedGame,
+    detectedLayout,
+    manualGameOverride
+}: {
+    detectedGame: SupportedGame | null;
+    detectedLayout: "EMERALD" | "FRLG";
+    manualGameOverride?: ManualGen3GameOverride;
+}): boolean => {
+    return detectedLayout === "FRLG" &&
+        detectedGame === null &&
+        typeof manualGameOverride !== "string";
+};
+
+// createManualGameSelectionRequirement builds the shared API response that asks the frontend for FireRed or LeafGreen.
+const createManualGameSelectionRequirement = (): UploadManualGameSelectionRequirement => {
+    return {
+        status: "manual-game-selection-required",
+        detectedLayout: "FRLG",
+        detectedGame: null,
+        allowedGames: MANUAL_GEN3_GAME_OVERRIDES,
+        message: "This Gen 3 save uses the FireRed/LeafGreen layout. Choose FireRed or LeafGreen to continue."
+    };
+};
+
+// resolveUploadDetectedGame finalizes the game stored for the upload after combining parser output with any manual override.
+const resolveUploadDetectedGame = ({
+    detectedGame,
+    detectedLayout,
+    manualGameOverride
+}: {
+    detectedGame: SupportedGame | null;
+    detectedLayout: "EMERALD" | "FRLG";
+    manualGameOverride?: ManualGen3GameOverride;
+}): SupportedGame | null => {
+    if (getRequiresManualGameSelection({
+        detectedGame,
+        detectedLayout,
+        manualGameOverride
+    })) {
+        return null;
+    }
+
+    if (detectedLayout === "FRLG" && detectedGame === null) {
+        return manualGameOverride || null;
+    }
+
+    if (typeof manualGameOverride === "string") {
+        throw new Error("Manual game override is only allowed for FireRed/LeafGreen layout saves that need a title choice");
+    }
+
+    return detectedGame;
+};
+
+// buildCompletedUploadResult assembles the shared completed upload payload returned to the frontend.
+const buildCompletedUploadResult = async ({
+    upload,
+    saveProfile,
+    trainerInfo,
+    debug,
+    dex
+}: {
+    upload: {
+        id: string;
+        userId: string;
+        saveProfileId: string;
+        originalFilename: string;
+        storageProvider: string;
+        storageKey: string;
+        fileUrl: string | null;
+        fileSizeBytes: number;
+        parseStatus: string;
+        detectedGame: SupportedGame | null;
+        parseError: string | null;
+        trainerName: string | null;
+        trainerGender: string | null;
+        createdAt: string | Date;
+        updatedAt: string | Date;
+    };
+    saveProfile: {
+        id: string;
+        userId: string;
+        name: string;
+        game: SupportedGame | null;
+        createdAt: string | Date;
+        updatedAt: string | Date;
+    };
+    trainerInfo: {
+        name: string;
+        gender: string;
+    };
+    debug: Awaited<ReturnType<typeof parseUploadedSave>>["debug"];
+    dex?: Awaited<ReturnType<typeof getSaveProfileDex>>;
+}) => {
+    return {
+        status: "completed" as const,
+        upload,
+        saveProfile,
+        trainerInfo,
+        dex,
+        debug
+    };
 };
 
 export const listSaveProfiles = async ({
@@ -268,16 +393,31 @@ export const deleteSaveProfile = async ({
 // uploads.controller.ts calls this for guest mode so guest uploads stay temporary and isolated
 export const createGuestUpload = async ({
     file,
-    saveProfileName
-}: CreateGuestUploadParams) => {
+    saveProfileName,
+    manualGameOverride
+}: CreateGuestUploadParams): Promise<CreateUploadResult> => {
     const parseResult = await parseUploadedSave(file.buffer);
+    const resolvedDetectedGame = resolveUploadDetectedGame({
+        detectedGame: parseResult.detectedGame,
+        detectedLayout: parseResult.detectedLayout,
+        manualGameOverride
+    });
+
+    if (getRequiresManualGameSelection({
+        detectedGame: parseResult.detectedGame,
+        detectedLayout: parseResult.detectedLayout,
+        manualGameOverride
+    })) {
+        return createManualGameSelectionRequirement();
+    }
+
     const now = new Date().toISOString();
 
     const nextProfileName =
         saveProfileName && saveProfileName.trim().length > 0
             ? saveProfileName.trim()
-            : parseResult.detectedGame
-                ? `${parseResult.detectedGame} Guest Session`
+            : resolvedDetectedGame
+                ? `${resolvedDetectedGame} Guest Session`
                 : "Guest Session";
 
     const dexResponse = await buildGuestDexResponse({
@@ -286,7 +426,7 @@ export const createGuestUpload = async ({
         livingNationalDexNumbers: parseResult.debug.livingNationalDexNumbers
     });
 
-    return {
+    return buildCompletedUploadResult({
         upload: {
             id: `guest-upload-${randomUUID()}`,
             userId: "guest",
@@ -297,7 +437,7 @@ export const createGuestUpload = async ({
             fileUrl: null,
             fileSizeBytes: file.size,
             parseStatus: "COMPLETED",
-            detectedGame: parseResult.detectedGame,
+            detectedGame: resolvedDetectedGame,
             parseError: null,
             trainerName: parseResult.trainerInfo.name,
             trainerGender: parseResult.trainerInfo.gender,
@@ -308,29 +448,24 @@ export const createGuestUpload = async ({
             id: "guest-session",
             userId: "guest",
             name: nextProfileName,
-            game: parseResult.detectedGame,
+            game: resolvedDetectedGame,
             createdAt: now,
             updatedAt: now
         },
         trainerInfo: parseResult.trainerInfo,
         dex: dexResponse,
         debug: parseResult.debug
-    };
+    });
 };
 
 export const createUpload = async ({
     userId,
     file,
     saveProfileName,
-    saveProfileId
-}: CreateUploadParams) => {
+    saveProfileId,
+    manualGameOverride
+}: CreateUploadParams): Promise<CreateUploadResult> => {
     const storageProvider = getStorageProvider();
-
-    const storedFile = await storageProvider.uploadFile({
-        buffer: file.buffer,
-        filename: file.originalname,
-        mimeType: file.mimetype
-    });
 
     try {
         console.log("createUpload input", {
@@ -338,16 +473,36 @@ export const createUpload = async ({
             originalFilename: file.originalname,
             fileSizeBytes: file.size,
             saveProfileId,
-            saveProfileName
+            saveProfileName,
+            manualGameOverride
         });
 
         const parseResult = await parseUploadedSave(file.buffer);
+        const resolvedDetectedGame = resolveUploadDetectedGame({
+            detectedGame: parseResult.detectedGame,
+            detectedLayout: parseResult.detectedLayout,
+            manualGameOverride
+        });
+
+        if (getRequiresManualGameSelection({
+            detectedGame: parseResult.detectedGame,
+            detectedLayout: parseResult.detectedLayout,
+            manualGameOverride
+        })) {
+            return createManualGameSelectionRequirement();
+        }
+
+        const storedFile = await storageProvider.uploadFile({
+            buffer: file.buffer,
+            filename: file.originalname,
+            mimeType: file.mimetype
+        });
 
         const saveProfile = await resolveSaveProfile({
             userId,
             saveProfileId,
             saveProfileName,
-            detectedGame: parseResult.detectedGame
+            detectedGame: resolvedDetectedGame
         });
 
         const createdUpload = await prismaClient.saveUpload.create({
@@ -359,7 +514,7 @@ export const createUpload = async ({
                 storageKey: storedFile.storageKey,
                 fileUrl: storedFile.fileUrl,
                 fileSizeBytes: file.size,
-                detectedGame: parseResult.detectedGame,
+                detectedGame: resolvedDetectedGame,
                 parseStatus: "PROCESSING"
             }
         });
@@ -377,20 +532,20 @@ export const createUpload = async ({
             },
             data: {
                 parseStatus: "COMPLETED",
-                detectedGame: parseResult.detectedGame,
+                detectedGame: resolvedDetectedGame,
                 parseError: null,
                 trainerName: parseResult.trainerInfo.name,
                 trainerGender: parseResult.trainerInfo.gender
             }
         });
 
-        return {
+        return buildCompletedUploadResult({
             upload: updatedUpload,
             saveProfile,
-            dex: await getSaveProfileDex(saveProfile.id),
             trainerInfo: parseResult.trainerInfo,
+            dex: await getSaveProfileDex(saveProfile.id),
             debug: parseResult.debug
-        };
+        });
     } catch (error) {
         console.error("createUpload failed", error);
 

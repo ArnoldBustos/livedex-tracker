@@ -1,12 +1,34 @@
 import type { Request, Response } from "express";
+import { type ManualGen3GameOverride } from "../../../../../packages/shared/src";
 import { resolveRequestUserId } from "../auth/requestUser.service";
 import {
     createGuestUpload,
     createUpload,
     deleteSaveProfile,
+    getIsManualGen3GameOverride,
     getSaveProfileDetails,
     listSaveProfiles
 } from "./uploads.service";
+
+// getManualGameOverride reads and validates the optional FRLG override field from the multipart upload request.
+const getManualGameOverride = (
+    request: Request
+): ManualGen3GameOverride | undefined => {
+    const rawManualGameOverride =
+        typeof request.body.manualGameOverride === "string"
+            ? request.body.manualGameOverride.trim()
+            : "";
+
+    if (!rawManualGameOverride) {
+        return undefined;
+    }
+
+    if (!getIsManualGen3GameOverride(rawManualGameOverride)) {
+        throw new Error("manualGameOverride must be FIRERED or LEAFGREEN when provided");
+    }
+
+    return rawManualGameOverride;
+};
 
 // getSaveProfiles returns all save profiles for the current request user
 // the uploads routes call this to populate the profile list in the frontend
@@ -115,10 +137,20 @@ export const uploadSaveFile = async (request: Request, response: Response) => {
         typeof request.body.saveProfileId === "string"
             ? request.body.saveProfileId.trim()
             : "";
+    let manualGameOverride: ManualGen3GameOverride | undefined;
 
     if (!uploadedFile) {
         response.status(400).json({
             error: "No file uploaded"
+        });
+        return;
+    }
+
+    try {
+        manualGameOverride = getManualGameOverride(request);
+    } catch (error) {
+        response.status(400).json({
+            error: error instanceof Error ? error.message : "Invalid manual game override"
         });
         return;
     }
@@ -129,10 +161,13 @@ export const uploadSaveFile = async (request: Request, response: Response) => {
         if (isGuestRequest) {
             const guestUploadResult = await createGuestUpload({
                 file: uploadedFile,
-                saveProfileName: saveProfileName || undefined
+                saveProfileName: saveProfileName || undefined,
+                manualGameOverride
             });
 
-            response.status(201).json(guestUploadResult);
+            response.status(
+                guestUploadResult.status === "completed" ? 201 : 200
+            ).json(guestUploadResult);
             return;
         }
 
@@ -149,10 +184,13 @@ export const uploadSaveFile = async (request: Request, response: Response) => {
             userId,
             file: uploadedFile,
             saveProfileName: saveProfileName || undefined,
-            saveProfileId: saveProfileId || undefined
+            saveProfileId: saveProfileId || undefined,
+            manualGameOverride
         });
 
-        response.status(201).json(uploadResult);
+        response.status(
+            uploadResult.status === "completed" ? 201 : 200
+        ).json(uploadResult);
     } catch (error) {
         response.status(500).json({
             error: error instanceof Error ? error.message : "Upload failed"
