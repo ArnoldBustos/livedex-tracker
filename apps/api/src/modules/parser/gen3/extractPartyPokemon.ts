@@ -14,13 +14,13 @@ export type ParsedGen3Pokemon = {
 };
 
 type ExtractPartyPokemonParams = {
-    // layout selects the party offsets for FRLG versus Emerald parsing.
+    // layout selects the party offsets for Ruby/Sapphire, Emerald, or FRLG parsing.
     layout: Gen3Layout;
     // sectionsById provides the active save sections needed to assemble the large data block.
     sectionsById: Map<number, Gen3SaveSection>;
 };
 
-// PARTY_LAYOUTS centralizes per-game-family offsets so Emerald support does not fork the parser flow.
+// PARTY_LAYOUTS centralizes per-game-family offsets so Ruby/Sapphire, Emerald, and FRLG stay modular.
 const PARTY_LAYOUTS: Partial<
     Record<
         Gen3Layout,
@@ -30,6 +30,10 @@ const PARTY_LAYOUTS: Partial<
         }
     >
 > = {
+    RUBY_SAPPHIRE: {
+        partyCountOffset: 0x0234,
+        partyBufferOffset: 0x0238
+    },
     EMERALD: {
         partyCountOffset: 0x0234,
         partyBufferOffset: 0x0238

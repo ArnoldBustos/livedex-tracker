@@ -16,6 +16,7 @@ import {
     extractTrainerInfo,
     type ExtractedTrainerInfo
 } from "./extractTrainerInfo";
+import { normalizeGen3SaveBuffer } from "./normalizeGen3SaveBuffer";
 import { readGen3SaveSections } from "./readGen3SaveSections";
 
 // OptionalGen3ExtractionResult stores one best-effort parser step so minimally valid saves can still upload.
@@ -36,6 +37,7 @@ export type ParsedGen3Save = {
         sectionIds: number[];
         trainerName: string;
         trainerGender: "male" | "female" | "unknown";
+        hasNationalDex: boolean;
         seenNationalDexNumbers: number[];
         caughtNationalDexNumbers: number[];
         seenCount: number;
@@ -90,7 +92,10 @@ const extractOptionalGen3Data = <T>({
 export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
     console.log("parseGen3Save entered");
 
-    const { activeSaveIndex, sectionsById } = readGen3SaveSections(fileBuffer);
+    // Normalize raw Gen 3 save bytes before section parsing so padded emulator saves work.
+    const normalizedFileBuffer = normalizeGen3SaveBuffer(fileBuffer);
+
+    const { activeSaveIndex, sectionsById } = readGen3SaveSections(normalizedFileBuffer);
     const detectedGameResult = detectGen3Game(sectionsById);
 
     console.log("parseGen3Save after readGen3SaveSections", {
@@ -107,7 +112,8 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
     // emptyPokedexFlags preserves a valid parse result when one layout does not expose supported dex offsets yet.
     const emptyPokedexFlags: ExtractedPokedexFlags = {
         seenNationalDexNumbers: [],
-        ownedNationalDexNumbers: []
+        ownedNationalDexNumbers: [],
+        hasNationalDex: false
     };
 
     const pokedexExtractionResult = extractOptionalGen3Data({
@@ -166,6 +172,7 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
     console.log("parseGen3Save trainer debug", {
         trainerName: trainerInfo.name,
         trainerGender: trainerInfo.gender,
+        hasNationalDex: pokedexFlags.hasNationalDex,
         livingNationalDexNumbers,
         detectedGame: detectedGameResult.detectedGame,
         detectedLayout: detectedGameResult.layout,
@@ -187,6 +194,7 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
             sectionIds,
             trainerName: trainerInfo.name,
             trainerGender: trainerInfo.gender,
+            hasNationalDex: pokedexFlags.hasNationalDex,
             seenNationalDexNumbers: pokedexFlags.seenNationalDexNumbers,
             caughtNationalDexNumbers: pokedexFlags.ownedNationalDexNumbers,
             seenCount: pokedexFlags.seenNationalDexNumbers.length,

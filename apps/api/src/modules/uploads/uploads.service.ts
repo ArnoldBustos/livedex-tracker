@@ -216,11 +216,14 @@ const createManualGameSelectionRequirement = (): UploadManualGameSelectionRequir
 const resolveUploadDetectedGame = ({
     detectedGame,
     detectedLayout,
-    manualGameOverride
+    manualGameOverride,
+    originalFilename
 }: {
     detectedGame: SupportedGame | null;
     detectedLayout: "RUBY_SAPPHIRE" | "EMERALD" | "FRLG";
     manualGameOverride?: ManualGen3GameOverride;
+    // originalFilename provides a Ruby/Sapphire fallback signal when layout detection cannot choose the exact title.
+    originalFilename?: string;
 }): SupportedGame | null => {
     if (getRequiresManualGameSelection({
         detectedGame,
@@ -236,6 +239,25 @@ const resolveUploadDetectedGame = ({
 
     if (typeof manualGameOverride === "string") {
         throw new Error("Manual game override is only allowed for FireRed/LeafGreen layout saves that need a title choice");
+    }
+
+    // Ruby/Sapphire fallback detection uses the upload filename when parser detection is still ambiguous.
+    if (detectedLayout === "RUBY_SAPPHIRE" && detectedGame === null) {
+        if (originalFilename) {
+            // lowerFilename normalizes the uploaded name so Ruby/Sapphire keyword checks stay case-insensitive.
+            const lowerFilename = originalFilename.toLowerCase();
+
+            if (lowerFilename.includes("sapphire")) {
+                return "SAPPHIRE";
+            }
+
+            if (lowerFilename.includes("ruby")) {
+                return "RUBY";
+            }
+        }
+
+        // Default Ruby keeps uploads usable when the filename does not distinguish Ruby from Sapphire.
+        return "RUBY";
     }
 
     return detectedGame;
@@ -444,7 +466,8 @@ export const createGuestUpload = async ({
     const resolvedDetectedGame = resolveUploadDetectedGame({
         detectedGame: parseResult.detectedGame,
         detectedLayout: parseResult.detectedLayout,
-        manualGameOverride
+        manualGameOverride,
+        originalFilename: file.originalname
     });
 
     if (getRequiresManualGameSelection({
@@ -525,7 +548,8 @@ export const createUpload = async ({
         const resolvedDetectedGame = resolveUploadDetectedGame({
             detectedGame: parseResult.detectedGame,
             detectedLayout: parseResult.detectedLayout,
-            manualGameOverride
+            manualGameOverride,
+            originalFilename: file.originalname
         });
 
         if (getRequiresManualGameSelection({

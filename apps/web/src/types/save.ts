@@ -69,6 +69,7 @@ export type TrainerInfo = {
 export type DebugPayload = {
     activeSaveIndex?: number;
     sectionIds?: number[];
+    hasNationalDex?: boolean;
     seenNationalDexNumbers?: number[];
     caughtNationalDexNumbers?: number[];
     ownedNationalDexNumbers?: number[];

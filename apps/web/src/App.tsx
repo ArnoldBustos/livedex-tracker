@@ -105,6 +105,22 @@ const getFallbackSaveName = ({
   return "Unnamed Save";
 };
 
+// getDefaultDexScope resolves the initial dex scope from the loaded save's National Dex state.
+// App.tsx uses this so uploads and profile switches default to regional scope until National Dex is unlocked.
+const getDefaultDexScope = (hasNationalDex: boolean): DexScope => {
+  return hasNationalDex ? "national" : "regional";
+};
+
+// getDefaultDexScopeFromUploadResponse reads the parser debug payload and derives the dashboard's initial dex scope.
+// App.tsx uses this so scope resets stay centralized across upload, switch, and reset flows.
+const getDefaultDexScopeFromUploadResponse = (nextUploadResponse: UploadResponse | null): DexScope => {
+  return getDefaultDexScope(
+    nextUploadResponse && nextUploadResponse.debug && nextUploadResponse.debug.hasNationalDex
+      ? nextUploadResponse.debug.hasNationalDex
+      : false
+  );
+};
+
 // getSaveNameFromIdentity builds the final save label used by manual shells and upload requests.
 // App.tsx calls this so save naming stays centralized across guest, upload, and manual flows.
 const getSaveNameFromIdentity = ({
@@ -283,7 +299,7 @@ const App = () => {
   const [saveProfiles, setSaveProfiles] = useState<SaveProfileRecord[]>([]);
   const [activeSaveProfileId, setActiveSaveProfileId] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<DexFilter>("all");
-  const [selectedScope, setSelectedScope] = useState<DexScope>("national");
+  const [selectedScope, setSelectedScope] = useState<DexScope>("regional");
   const [selectedGridDensity, setSelectedGridDensity] = useState<DexGridDensity>("default");
   const [selectedDexNumber, setSelectedDexNumber] = useState<number | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -513,7 +529,7 @@ const App = () => {
     setPendingSaveProfileEdit(null);
     setSelectedDexNumber(null);
     setSelectedFilter("all");
-    setSelectedScope("national");
+    setSelectedScope("regional");
     setIsUploading(false);
     setErrorMessage("");
   };
@@ -533,7 +549,7 @@ const App = () => {
     setGuestDexOverrides({});
     setActiveSaveProfileId(nextUploadResponseWithIdentity.saveProfile.id);
     setSelectedFilter("all");
-    setSelectedScope("national");
+    setSelectedScope(getDefaultDexScopeFromUploadResponse(nextUploadResponseWithIdentity));
 
     if (sessionMode === "user") {
       setSaveProfiles((currentSaveProfiles) => {
@@ -782,7 +798,7 @@ const App = () => {
       setGuestDexOverrides({});
       setActiveSaveProfileId(null);
       setSelectedFilter("all");
-      setSelectedScope("national");
+      setSelectedScope(getDefaultDexScopeFromUploadResponse(manualUploadResponse));
       setSelectedDexNumber(
         dexTemplate.entries.length > 0 ? dexTemplate.entries[0].dexNumber : null
       );
@@ -961,7 +977,7 @@ const App = () => {
       setGuestDexOverrides({});
       setActiveSaveProfileId(saveProfileId);
       setSelectedFilter("all");
-      setSelectedScope("national");
+      setSelectedScope(getDefaultDexScopeFromUploadResponse(nextUploadResponse));
 
       if (nextDexResponse.entries.length > 0) {
         setSelectedDexNumber(nextDexResponse.entries[0].dexNumber);
