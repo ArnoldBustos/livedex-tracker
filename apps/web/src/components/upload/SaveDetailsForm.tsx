@@ -19,6 +19,16 @@ type SaveDetailsFormProps = {
     onCancel: () => void;
 };
 
+// supportedGameLabelByValue maps stored game ids to the mixed-case labels shown in the setup dropdown.
+// SaveDetailsForm uses this so the select can keep enum-style values while showing human-readable names.
+const supportedGameLabelByValue: Record<SupportedGame, string> = {
+    RUBY: "Ruby",
+    SAPPHIRE: "Sapphire",
+    EMERALD: "Emerald",
+    FIRERED: "FireRed",
+    LEAFGREEN: "LeafGreen"
+};
+
 // gameSelectionOptions stores the supported game choices shown in reusable save setup flows.
 // SaveDetailsForm maps this so manual creation and future upload confirmation can share the same list.
 const gameSelectionOptions: Array<{
@@ -27,7 +37,7 @@ const gameSelectionOptions: Array<{
 }> = SUPPORTED_GAMES.map((supportedGame) => {
     return {
         value: supportedGame,
-        label: supportedGame
+        label: supportedGameLabelByValue[supportedGame]
     };
 });
 

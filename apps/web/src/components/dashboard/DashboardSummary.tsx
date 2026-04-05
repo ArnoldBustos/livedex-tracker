@@ -6,6 +6,7 @@ type DashboardSummaryProps = {
     saveProfileName: string;
     trainerName: string;
     gameLabel: string;
+    onEditSaveProfile: () => void;
     totalCount: number;
     seenCount: number;
     caughtCount: number;
@@ -58,6 +59,7 @@ export const DashboardSummary = ({
     saveProfileName,
     trainerName,
     gameLabel,
+    onEditSaveProfile,
     totalCount,
     seenCount,
     caughtCount,
@@ -79,16 +81,49 @@ export const DashboardSummary = ({
                     Save Profile
                 </div>
 
-                <strong className="mt-3 block text-2xl leading-tight font-extrabold tracking-tight text-gray-900 break-words line-clamp-2">
-                    {saveProfileName}
-                </strong>
+                <div className="mt-3 flex items-start justify-between gap-3">
+                    <strong className="block min-w-0 break-words text-2xl leading-tight font-extrabold tracking-tight text-gray-900 line-clamp-2">
+                        {saveProfileName}
+                    </strong>
+
+                    <button
+                        type="button"
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[rgba(130,129,111,0.18)] bg-gray-50 text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+                        aria-label="Edit save profile"
+                        onClick={onEditSaveProfile}
+                    >
+                        <svg
+                            aria-hidden="true"
+                            viewBox="0 0 24 24"
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        >
+                            <path d="M12 20h9" />
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                        </svg>
+                    </button>
+                </div>
 
                 <div className="mt-3 text-sm font-semibold text-gray-600">
                     {trainerName}
                 </div>
 
-                <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-green-700">
-                    {gameLabel}
+                <div className="mt-2 flex items-center gap-2">
+                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-green-700">
+                        {gameLabel}
+                    </div>
+
+                    <button
+                        type="button"
+                        className="rounded-full border border-[rgba(130,129,111,0.18)] bg-gray-50 px-2.5 py-1 text-[11px] font-bold tracking-[0.04em] text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+                        onClick={onEditSaveProfile}
+                    >
+                        Edit
+                    </button>
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-3 text-[11px] font-bold uppercase tracking-[0.08em] text-gray-500">

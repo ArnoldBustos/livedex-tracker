@@ -4,6 +4,7 @@ import {
     deleteSaveProfileById,
     getSaveProfileById,
     getSaveProfiles,
+    patchSaveProfileById,
     uploadSaveFile
 } from "./uploads.controller";
 
@@ -12,6 +13,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 uploadsRouter.get("/profiles", getSaveProfiles);
 uploadsRouter.get("/profiles/:saveProfileId", getSaveProfileById);
+uploadsRouter.patch("/profiles/:saveProfileId", patchSaveProfileById);
 uploadsRouter.delete("/profiles/:saveProfileId", deleteSaveProfileById);
 uploadsRouter.post("/", upload.single("saveFile"), uploadSaveFile);
 

@@ -38,6 +38,7 @@ type LoadedDashboardViewProps = {
     onDeleteProfile: (saveProfileId: string) => Promise<void>;
     onResetToEmptyState: () => void;
     onUpdateSave: (file: File) => void;
+    onEditSaveProfile: () => void;
     onUpdateDexEntry: (params: {
         pokemonSpeciesId: number;
         patch: {
@@ -322,6 +323,7 @@ export const LoadedDashboardView = ({
     onSelectSaveProfile,
     onResetToEmptyState,
     onUpdateSave,
+    onEditSaveProfile,
     onDeleteProfile,
     onUpdateDexEntry,
     onLogout,
@@ -369,7 +371,7 @@ export const LoadedDashboardView = ({
         return getDexEntriesForScope({
             entries: dexResponse.entries,
             scope: selectedScope,
-            game: uploadResponse.upload.detectedGame ?? uploadResponse.saveProfile.game
+            game: uploadResponse.saveProfile.game ?? uploadResponse.upload.detectedGame
         });
     }, [dexResponse.entries, selectedScope, uploadResponse.saveProfile.game, uploadResponse.upload.detectedGame]);
 
@@ -401,25 +403,25 @@ export const LoadedDashboardView = ({
         });
     }, [dexEntries, selectedFilter]);
 
+    // selectedDexEntry keeps the sidebar focused on the chosen dex entry even when filters remove it from the grid.
+    // LoadedDashboardView uses this so manual edits in filtered views do not immediately replace the right-sidebar focus.
     const selectedDexEntry = useMemo(() => {
+        if (selectedDexNumber !== null) {
+            const matchedDexEntry = dexEntries.find((dexEntry) => {
+                return dexEntry.dexNumber === selectedDexNumber;
+            });
+
+            if (matchedDexEntry) {
+                return matchedDexEntry;
+            }
+        }
+
         if (filteredDexEntries.length === 0) {
             return null;
         }
 
-        if (selectedDexNumber === null) {
-            return filteredDexEntries[0];
-        }
-
-        const matchedDexEntry = filteredDexEntries.find((dexEntry) => {
-            return dexEntry.dexNumber === selectedDexNumber;
-        });
-
-        if (matchedDexEntry) {
-            return matchedDexEntry;
-        }
-
         return filteredDexEntries[0];
-    }, [filteredDexEntries, selectedDexNumber]);
+    }, [dexEntries, filteredDexEntries, selectedDexNumber]);
 
     // dashboardSummary derives the active scope counts used by the summary cards and progress labels.
     // DashboardSummary and the completion bar both read this object so count logic stays centralized.
@@ -602,6 +604,7 @@ export const LoadedDashboardView = ({
                         saveProfileName={uploadResponse.saveProfile.name}
                         trainerName={trainerName}
                         gameLabel={displayGameLabel}
+                        onEditSaveProfile={onEditSaveProfile}
                         totalCount={dashboardSummary.totalCount}
                         seenCount={dashboardSummary.seenCount}
                         caughtCount={dashboardSummary.caughtCount}

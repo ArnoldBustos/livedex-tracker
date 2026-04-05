@@ -19,8 +19,44 @@ export const getDisplayGameLabel = ({
     saveProfileGame,
     unknownLabel = "Unknown Game"
 }: DisplayGameLabelParams): string => {
-    if (detectedGame) {
-        return detectedGame;
+    if (saveProfileGame === "RUBY") {
+        return "Ruby";
+    }
+
+    if (saveProfileGame === "SAPPHIRE") {
+        return "Sapphire";
+    }
+
+    if (saveProfileGame === "EMERALD") {
+        return "Emerald";
+    }
+
+    if (saveProfileGame === "FIRERED") {
+        return "FireRed";
+    }
+
+    if (saveProfileGame === "LEAFGREEN") {
+        return "LeafGreen";
+    }
+
+    if (detectedGame === "RUBY") {
+        return "Ruby";
+    }
+
+    if (detectedGame === "SAPPHIRE") {
+        return "Sapphire";
+    }
+
+    if (detectedGame === "EMERALD") {
+        return "Emerald";
+    }
+
+    if (detectedGame === "FIRERED") {
+        return "FireRed";
+    }
+
+    if (detectedGame === "LEAFGREEN") {
+        return "LeafGreen";
     }
 
     if (detectedLayout === "RUBY_SAPPHIRE") {
@@ -33,10 +69,6 @@ export const getDisplayGameLabel = ({
 
     if (detectedLayout === "EMERALD") {
         return "Emerald";
-    }
-
-    if (saveProfileGame) {
-        return saveProfileGame;
     }
 
     return unknownLabel;

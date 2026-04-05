@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import {
     MANUAL_GEN3_GAME_OVERRIDES,
+    SUPPORTED_GAMES,
     type ManualGen3GameOverride,
     type SupportedGame,
     type UploadManualGameSelectionRequirement
@@ -82,6 +83,12 @@ export const getIsManualGen3GameOverride = (
     return MANUAL_GEN3_GAME_OVERRIDES.includes(value as ManualGen3GameOverride);
 };
 
+// getIsSupportedGame checks whether one raw request value is an allowed saved-profile game id.
+// uploads.controller.ts uses this so metadata edits accept only the shared supported game values.
+export const getIsSupportedGame = (value: string): value is SupportedGame => {
+    return SUPPORTED_GAMES.includes(value as SupportedGame);
+};
+
 type ListSaveProfilesParams = {
     userId: string;
 };
@@ -94,6 +101,13 @@ type GetSaveProfileDetailsParams = {
 type DeleteSaveProfileParams = {
     userId: string;
     saveProfileId: string;
+};
+
+type UpdateSaveProfileMetadataParams = {
+    userId: string;
+    saveProfileId: string;
+    name: string;
+    game: SupportedGame | null;
 };
 
 const resolveSaveProfile = async ({
@@ -387,6 +401,36 @@ export const deleteSaveProfile = async ({
     return {
         deletedSaveProfileId: saveProfile.id
     };
+};
+
+// updateSaveProfileMetadata updates one saved profile's editable name and game fields.
+// uploads.controller.ts calls this so dashboard metadata edits stay separate from upload replacement flow.
+export const updateSaveProfileMetadata = async ({
+    userId,
+    saveProfileId,
+    name,
+    game
+}: UpdateSaveProfileMetadataParams) => {
+    const saveProfile = await prismaClient.saveProfile.findFirst({
+        where: {
+            id: saveProfileId,
+            userId
+        }
+    });
+
+    if (!saveProfile) {
+        throw new Error("Save profile not found");
+    }
+
+    return prismaClient.saveProfile.update({
+        where: {
+            id: saveProfile.id
+        },
+        data: {
+            name,
+            game
+        }
+    });
 };
 
 // createGuestUpload parses a guest save without creating persistent save profile or upload records

@@ -17,6 +17,7 @@ import type {
   GuestDexOverrideMap,
   ManualGen3GameOverride,
   SaveProfileRecord,
+  UpdateSaveProfileRequest,
   UpdateDexEntryRequest,
   UploadManualGameSelectionRequirement,
   UploadRequestFields,
@@ -31,6 +32,7 @@ import {
   fetchSaveProfiles,
   loginWithEmail,
   buildUploadSaveFormData,
+  updateSaveProfileMetadata,
   uploadSaveAndFetchDex,
 } from "./lib/api/uploads"; // API layer for backend requests
 
@@ -56,6 +58,12 @@ type PendingManualGameSelection = {
 // App.tsx uses this so upload and manual entry can share the same setup dialog and payload shape.
 type PendingSaveSetup = {
   file: File | null;
+  identity: EditableSaveIdentity;
+};
+
+// PendingSaveProfileEdit stores one in-progress dashboard metadata edit for the active profile.
+// App.tsx uses this so the existing save-details dialog can be reused without mixing with upload setup state.
+type PendingSaveProfileEdit = {
   identity: EditableSaveIdentity;
 };
 
@@ -151,6 +159,35 @@ const getEditableIdentityFromUploadResponse = (nextUploadResponse: UploadRespons
 const getUploadResponseWithIdentity = (nextUploadResponse: UploadResponse): UploadResponse => {
   return Object.assign({}, nextUploadResponse, {
     editableIdentity: getEditableIdentityFromUploadResponse(nextUploadResponse)
+  });
+};
+
+// getUploadResponseWithEditedIdentity applies one save-profile metadata edit to the active dashboard payload.
+// App.tsx uses this so local shells and persisted profiles update the same frontend shape after an edit.
+const getUploadResponseWithEditedIdentity = ({
+  currentUploadResponse,
+  identity,
+  isGuestSession
+}: {
+  currentUploadResponse: UploadResponse;
+  identity: EditableSaveIdentity;
+  isGuestSession: boolean;
+}): UploadResponse => {
+  const nextSaveName = getSaveNameFromIdentity({
+    identity,
+    isGuestSession
+  });
+  const nextEditableIdentity = Object.assign({}, identity, {
+    displayName: nextSaveName,
+    trainerName: getTrimmedValue(identity.trainerName)
+  });
+
+  return Object.assign({}, currentUploadResponse, {
+    saveProfile: Object.assign({}, currentUploadResponse.saveProfile, {
+      name: nextSaveName,
+      game: identity.game
+    }),
+    editableIdentity: nextEditableIdentity
   });
 };
 
@@ -259,6 +296,8 @@ const App = () => {
   const [pendingManualGameSelection, setPendingManualGameSelection] =
     useState<PendingManualGameSelection | null>(null);
   const [pendingSaveSetup, setPendingSaveSetup] = useState<PendingSaveSetup | null>(null);
+  const [pendingSaveProfileEdit, setPendingSaveProfileEdit] =
+    useState<PendingSaveProfileEdit | null>(null);
   const isGuestMode = sessionMode === "guest";
   const isLocalDexMode =
     isGuestMode ||
@@ -471,6 +510,7 @@ const App = () => {
     setActiveSaveProfileId(null);
     setPendingManualGameSelection(null);
     setPendingSaveSetup(null);
+    setPendingSaveProfileEdit(null);
     setSelectedDexNumber(null);
     setSelectedFilter("all");
     setSelectedScope("national");
@@ -601,6 +641,102 @@ const App = () => {
   const handleCancelSaveSetup = () => {
     setPendingSaveSetup(null);
     setErrorMessage("");
+  };
+
+  // handleOpenSaveProfileEdit opens the shared metadata dialog for the active profile name and game fields.
+  // LoadedDashboardView calls this so the summary card can edit profile metadata without a separate custom modal.
+  const handleOpenSaveProfileEdit = () => {
+    if (!uploadResponse || !uploadResponse.editableIdentity) {
+      setErrorMessage("No active save profile is available to edit.");
+      return;
+    }
+
+    setPendingSaveProfileEdit({
+      identity: Object.assign({}, uploadResponse.editableIdentity)
+    });
+    setErrorMessage("");
+  };
+
+  // handleCancelSaveProfileEdit closes the active profile metadata dialog with no changes.
+  // SaveDetailsForm calls this when the user abandons a dashboard metadata edit.
+  const handleCancelSaveProfileEdit = () => {
+    setPendingSaveProfileEdit(null);
+    setErrorMessage("");
+  };
+
+  // handleSubmitSaveProfileEdit applies one active profile metadata edit locally or through the backend.
+  // SaveDetailsForm calls this so profile name and game edits reuse the shared dialog flow.
+  const handleSubmitSaveProfileEdit = async (identity: EditableSaveIdentity) => {
+    if (!uploadResponse) {
+      setErrorMessage("No active save profile is available to edit.");
+      return;
+    }
+
+    const normalizedIdentity = Object.assign({}, identity, {
+      displayName: getSaveNameFromIdentity({
+        identity,
+        isGuestSession: isGuestMode
+      }),
+      trainerName: getTrimmedValue(identity.trainerName)
+    });
+
+    try {
+      setIsUploading(true);
+      setErrorMessage("");
+
+      if (isLocalDexMode || !currentUser || !activeSaveProfileId) {
+        setUploadResponse(getUploadResponseWithEditedIdentity({
+          currentUploadResponse: uploadResponse,
+          identity: normalizedIdentity,
+          isGuestSession: isGuestMode
+        }));
+        setPendingSaveProfileEdit(null);
+        setIsUploading(false);
+        return;
+      }
+
+      const patch: UpdateSaveProfileRequest = {
+        name: normalizedIdentity.displayName,
+        game: normalizedIdentity.game
+      };
+      const updatedSaveProfile = await updateSaveProfileMetadata({
+        saveProfileId: activeSaveProfileId,
+        patch,
+        currentUser
+      });
+
+      setUploadResponse((currentUploadResponse) => {
+        if (!currentUploadResponse) {
+          return currentUploadResponse;
+        }
+
+        return Object.assign({}, currentUploadResponse, {
+          saveProfile: updatedSaveProfile,
+          editableIdentity: currentUploadResponse.editableIdentity
+            ? Object.assign({}, currentUploadResponse.editableIdentity, {
+              displayName: updatedSaveProfile.name,
+              game: updatedSaveProfile.game
+            })
+            : currentUploadResponse.editableIdentity
+        });
+      });
+      setSaveProfiles((currentSaveProfiles) => {
+        return currentSaveProfiles.map((saveProfile) => {
+          if (saveProfile.id === updatedSaveProfile.id) {
+            return updatedSaveProfile;
+          }
+
+          return saveProfile;
+        });
+      });
+      setPendingSaveProfileEdit(null);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to update save profile"
+      );
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   // handleSubmitSaveSetup finalizes shared save identity input for upload or manual shell creation.
@@ -1121,6 +1257,7 @@ const App = () => {
           onSelectDexNumber={setSelectedDexNumber}
           onSelectSaveProfile={handleSelectSaveProfile}
           onUpdateSave={handleUpdateActiveProfileSave}
+          onEditSaveProfile={handleOpenSaveProfileEdit}
           onUpdateDexEntry={handleUpdateDexEntry}
           onResetToEmptyState={handleResetToEmptyState}
           onDeleteProfile={handleDeleteProfile}
@@ -1139,6 +1276,27 @@ const App = () => {
         }
         onSelectGame={handleSubmitManualGameOverride}
         onCancel={handleCancelManualGameOverride}
+      />
+      <SaveDetailsForm
+        isOpen={pendingSaveProfileEdit !== null}
+        title="Edit save profile"
+        description="Update the saved profile name and game used by the dashboard."
+        confirmLabel="Save Changes"
+        isSubmitting={isUploading}
+        identity={
+          pendingSaveProfileEdit
+            ? pendingSaveProfileEdit.identity
+            : getInitialSaveSetupIdentity({
+              sourceType: "upload",
+              isGuestSession: isGuestMode,
+              file: null
+            })
+        }
+        showTrainerNameField={false}
+        showGameField={true}
+        requireGameSelection={false}
+        onSubmit={handleSubmitSaveProfileEdit}
+        onCancel={handleCancelSaveProfileEdit}
       />
     </>
   );

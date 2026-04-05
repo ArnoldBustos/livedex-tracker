@@ -2,6 +2,7 @@ import { apiRequest } from "./client";
 import type {
     DexResponse,
     SaveProfileRecord,
+    UpdateSaveProfileRequest,
     UploadFlowResult,
     UploadRequestFields,
     UploadResponse
@@ -142,4 +143,25 @@ export const deleteSaveProfile = async (
     });
 
     return true;
+};
+
+// updateSaveProfileMetadata sends one saved-profile metadata edit for name and game.
+// App.tsx calls this when the dashboard edit dialog is submitted for a persisted profile.
+export const updateSaveProfileMetadata = async ({
+    saveProfileId,
+    patch,
+    currentUser
+}: {
+    saveProfileId: string;
+    patch: UpdateSaveProfileRequest;
+    currentUser: ApiClientUser;
+}) => {
+    return apiRequest<SaveProfileRecord>(`/uploads/profiles/${saveProfileId}`, {
+        method: "PATCH",
+        currentUser,
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(patch)
+    });
 };

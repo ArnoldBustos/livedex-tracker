@@ -5,8 +5,10 @@ import {
     createGuestUpload,
     createUpload,
     deleteSaveProfile,
+    getIsSupportedGame,
     getIsManualGen3GameOverride,
     getSaveProfileDetails,
+    updateSaveProfileMetadata,
     listSaveProfiles
 } from "./uploads.service";
 
@@ -118,6 +120,70 @@ export const getSaveProfileById = async (request: Request, response: Response) =
         });
 
         response.status(200).json(saveProfileDetails);
+    } catch (error) {
+        response.status(404).json({
+            error: error instanceof Error ? error.message : "Save profile not found"
+        });
+    }
+};
+
+// patchSaveProfileById updates one saved profile's editable name and game metadata.
+// the dashboard edit dialog calls this endpoint after the user changes profile details.
+export const patchSaveProfileById = async (request: Request, response: Response) => {
+    const userId = await resolveRequestUserId(request);
+
+    if (!userId) {
+        response.status(500).json({
+            error: "No request user found. Run the seed script first."
+        });
+        return;
+    }
+
+    const saveProfileId =
+        typeof request.params.saveProfileId === "string"
+            ? request.params.saveProfileId.trim()
+            : "";
+    const name =
+        typeof request.body.name === "string"
+            ? request.body.name.trim()
+            : "";
+    const rawGame =
+        typeof request.body.game === "string"
+            ? request.body.game.trim()
+            : request.body.game === null
+                ? null
+                : "";
+
+    if (!saveProfileId) {
+        response.status(400).json({
+            error: "Save profile id is required"
+        });
+        return;
+    }
+
+    if (!name) {
+        response.status(400).json({
+            error: "Save profile name is required"
+        });
+        return;
+    }
+
+    if (typeof rawGame === "string" && rawGame && !getIsSupportedGame(rawGame)) {
+        response.status(400).json({
+            error: "Game must be one of the supported titles or null"
+        });
+        return;
+    }
+
+    try {
+        const updatedSaveProfile = await updateSaveProfileMetadata({
+            userId,
+            saveProfileId,
+            name,
+            game: typeof rawGame === "string" ? rawGame || null : rawGame
+        });
+
+        response.status(200).json(updatedSaveProfile);
     } catch (error) {
         response.status(404).json({
             error: error instanceof Error ? error.message : "Save profile not found"

@@ -39,6 +39,13 @@ export type SaveProfileRecord = {
     updatedAt: string;
 };
 
+// UpdateSaveProfileRequest stores the editable metadata fields for one saved profile.
+// App.tsx and uploads API helpers use this so profile metadata edits stay separate from file uploads.
+export type UpdateSaveProfileRequest = {
+    name: string;
+    game: SupportedGame | null;
+};
+
 export type UploadRecord = {
     id: string;
     userId: string;
