@@ -11,7 +11,7 @@ type ExtractBoxPokemonParams = {
     sectionsById: Map<number, Gen3SaveSection>;
 };
 
-// Defines how many PC boxes Gen 3 FRLG exposes in save storage.
+// Defines how many PC boxes FRLG and Emerald expose in Gen 3 save storage.
 const BOX_COUNT = 14;
 // Defines how many stored Pokemon entries exist in each PC box.
 const SLOTS_PER_BOX = 30;

@@ -85,7 +85,8 @@ const resolveSaveProfile = async ({
     userId: string;
     saveProfileId?: string;
     saveProfileName?: string;
-    detectedGame?: "RUBY" | "SAPPHIRE" | "EMERALD" | "FIRERED" | "LEAFGREEN";
+    // detectedGame can stay null when the parser knows the FRLG layout but cannot prove FireRed vs LeafGreen.
+    detectedGame?: "RUBY" | "SAPPHIRE" | "EMERALD" | "FIRERED" | "LEAFGREEN" | null;
 }) => {
     if (saveProfileId) {
         const existingProfile = await prismaClient.saveProfile.findFirst({

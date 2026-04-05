@@ -1,3 +1,7 @@
+import {
+    detectGen3Game,
+    type DetectedGen3Game
+} from "./detectGen3Game";
 import { extractBoxPokemon } from "./extractBoxPokemon";
 import {
     extractPartyPokemon,
@@ -14,7 +18,7 @@ import {
 import { readGen3SaveSections } from "./readGen3SaveSections";
 
 export type ParsedGen3Save = {
-    detectedGame: "FIRERED" | "LEAFGREEN";
+    detectedGame: DetectedGen3Game;
     trainerInfo: ExtractedTrainerInfo;
     partyPokemon: ParsedGen3Pokemon[];
     boxPokemon: ParsedGen3Pokemon[];
@@ -34,17 +38,23 @@ export type ParsedGen3Save = {
         boxSpeciesIds: number[];
         livingNationalDexNumbers: number[];
         livingCount: number;
+        detectedLayout: "EMERALD" | "FRLG";
+        detectedGameReason: string;
     };
 };
 
+// parseGen3Save reads the active save slot, detects the correct Gen 3 layout, and extracts dashboard data.
 export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
     console.log("parseGen3Save entered");
 
     const { activeSaveIndex, sectionsById } = readGen3SaveSections(fileBuffer);
+    const detectedGameResult = detectGen3Game(sectionsById);
 
     console.log("parseGen3Save after readGen3SaveSections", {
         activeSaveIndex,
-        sectionCount: sectionsById.size
+        sectionCount: sectionsById.size,
+        detectedGame: detectedGameResult.detectedGame,
+        detectedLayout: detectedGameResult.layout
     });
 
     const trainerInfo = extractTrainerInfo({
@@ -52,10 +62,12 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
     });
 
     const pokedexFlags = extractPokedexFlags({
+        layout: detectedGameResult.layout,
         sectionsById
     });
 
     const partyPokemon = extractPartyPokemon({
+        layout: detectedGameResult.layout,
         sectionsById
     });
 
@@ -84,11 +96,14 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
     console.log("parseGen3Save trainer debug", {
         trainerName: trainerInfo.name,
         trainerGender: trainerInfo.gender,
-        livingNationalDexNumbers
+        livingNationalDexNumbers,
+        detectedGame: detectedGameResult.detectedGame,
+        detectedLayout: detectedGameResult.layout,
+        detectedGameReason: detectedGameResult.debug.detectionReason
     });
 
     return {
-        detectedGame: "FIRERED",
+        detectedGame: detectedGameResult.detectedGame,
         trainerInfo,
         partyPokemon,
         boxPokemon,
@@ -111,7 +126,9 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
                 return pokemon.speciesId;
             }),
             livingNationalDexNumbers,
-            livingCount: livingNationalDexNumbers.length
+            livingCount: livingNationalDexNumbers.length,
+            detectedLayout: detectedGameResult.layout,
+            detectedGameReason: detectedGameResult.debug.detectionReason
         }
     };
 };

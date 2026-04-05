@@ -1,3 +1,4 @@
+import type { Gen3Layout } from "./detectGen3Game";
 import type { Gen3SaveSection } from "./readGen3SaveSections";
 
 export type ExtractedPokedexFlags = {
@@ -6,15 +7,35 @@ export type ExtractedPokedexFlags = {
 };
 
 type ExtractPokedexFlagsParams = {
+    // layout selects the correct section 0 Pokedex offsets for FRLG versus Emerald parsing.
+    layout: Gen3Layout;
+    // sectionsById provides the active save sections needed to read section 0 Pokedex flags.
     sectionsById: Map<number, Gen3SaveSection>;
 };
 
-const POKEDEX_BASE_OFFSET = 0x18;
-const CAUGHT_OFFSET = POKEDEX_BASE_OFFSET + 0x10;
-const SEEN_OFFSET = POKEDEX_BASE_OFFSET + 0x44;
+// POKEDEX_LAYOUTS centralizes per-layout section 0 offsets so Gen 3 flag parsing stays modular.
+const POKEDEX_LAYOUTS: Record<
+    Gen3Layout,
+    {
+        caughtOffset: number;
+        seenOffset: number;
+    }
+> = {
+    EMERALD: {
+        caughtOffset: 0x0028,
+        seenOffset: 0x005c
+    },
+    FRLG: {
+        caughtOffset: 0x0028,
+        seenOffset: 0x005c
+    }
+};
+
+// MAX_SPECIES caps extracted flags to the Gen 3 National Dex range.
 const MAX_SPECIES = 386;
 
 export const extractPokedexFlags = ({
+    layout,
     sectionsById
 }: ExtractPokedexFlagsParams): ExtractedPokedexFlags => {
     const sectionZero = sectionsById.get(0);
@@ -24,7 +45,10 @@ export const extractPokedexFlags = ({
     }
 
     const small = sectionZero.data;
+    // pokedexLayout provides the section 0 offsets for the detected Gen 3 layout family.
+    const pokedexLayout = POKEDEX_LAYOUTS[layout];
 
+    // extractDexFlags reads one bitfield block into National Dex numbers for save sync and debug output.
     const extractDexFlags = (baseOffset: number): number[] => {
         const results: number[] = [];
 
@@ -43,8 +67,8 @@ export const extractPokedexFlags = ({
         return results;
     };
 
-    const seenNationalDexNumbers = extractDexFlags(SEEN_OFFSET);
-    const ownedNationalDexNumbers = extractDexFlags(CAUGHT_OFFSET);
+    const seenNationalDexNumbers = extractDexFlags(pokedexLayout.seenOffset);
+    const ownedNationalDexNumbers = extractDexFlags(pokedexLayout.caughtOffset);
 
     return {
         seenNationalDexNumbers,

@@ -2,6 +2,7 @@ import {
     decryptGen3StoredPokemon,
     readGen3SpeciesId
 } from "./gen3PokemonCrypto";
+import type { Gen3Layout } from "./detectGen3Game";
 import type { Gen3SaveSection } from "./readGen3SaveSections";
 
 export type ParsedGen3Pokemon = {
@@ -13,14 +14,36 @@ export type ParsedGen3Pokemon = {
 };
 
 type ExtractPartyPokemonParams = {
+    // layout selects the party offsets for FRLG versus Emerald parsing.
+    layout: Gen3Layout;
+    // sectionsById provides the active save sections needed to assemble the large data block.
     sectionsById: Map<number, Gen3SaveSection>;
 };
 
-const PARTY_COUNT_OFFSET = 0x034;
-const PARTY_BUFFER_OFFSET = 0x038;
+// PARTY_LAYOUTS centralizes per-game-family offsets so Emerald support does not fork the parser flow.
+const PARTY_LAYOUTS: Record<
+    Gen3Layout,
+    {
+        partyCountOffset: number;
+        partyBufferOffset: number;
+    }
+> = {
+    EMERALD: {
+        partyCountOffset: 0x0234,
+        partyBufferOffset: 0x0238
+    },
+    FRLG: {
+        partyCountOffset: 0x0034,
+        partyBufferOffset: 0x0038
+    }
+};
+
+// PARTY_SLOT_SIZE_BYTES is the full 100-byte in-party Pokemon structure size.
 const PARTY_SLOT_SIZE_BYTES = 100;
+// MAX_PARTY_COUNT caps the parser to the in-game six-Pokemon team limit.
 const MAX_PARTY_COUNT = 6;
 
+// getLargeBlock stitches sections 1-4 into the contiguous block used by party parsing.
 const getLargeBlock = (
     sectionsById: Map<number, Gen3SaveSection>
 ): Buffer => {
@@ -42,16 +65,19 @@ const getLargeBlock = (
 };
 
 export const extractPartyPokemon = ({
+    layout,
     sectionsById
 }: ExtractPartyPokemonParams): ParsedGen3Pokemon[] => {
+    // partyLayout provides the correct section 1 offsets for the detected Gen 3 layout family.
+    const partyLayout = PARTY_LAYOUTS[layout];
     const largeBlock = getLargeBlock(sectionsById);
-    const rawPartyCount = largeBlock.readUInt8(PARTY_COUNT_OFFSET);
+    const rawPartyCount = largeBlock.readUInt8(partyLayout.partyCountOffset);
     const partyCount = Math.min(rawPartyCount, MAX_PARTY_COUNT);
 
     const parsedPartyPokemon: ParsedGen3Pokemon[] = [];
 
     for (let slotIndex = 0; slotIndex < partyCount; slotIndex += 1) {
-        const slotStart = PARTY_BUFFER_OFFSET + (slotIndex * PARTY_SLOT_SIZE_BYTES);
+        const slotStart = partyLayout.partyBufferOffset + (slotIndex * PARTY_SLOT_SIZE_BYTES);
         const slotEnd = slotStart + PARTY_SLOT_SIZE_BYTES;
         const encryptedPartyPokemon = largeBlock.subarray(slotStart, slotEnd);
         const decryptedPartyPokemon = decryptGen3StoredPokemon(
