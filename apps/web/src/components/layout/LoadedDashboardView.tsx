@@ -95,7 +95,13 @@ const scopeControlOptions: Array<{
 
 // dexGridDensityOrder defines the density steps from fewest to most cards per row.
 // LoadedDashboardView uses this to disable the minus and plus controls at the bounds.
-const dexGridDensityOrder: DexGridDensity[] = ["comfortable", "default", "compact"];
+const dexGridDensityOrder: DexGridDensity[] = [
+    "extraComfortable",
+    "comfortable",
+    "default",
+    "compact",
+    "extraCompact"
+];
 
 // getDexEntryStatus returns the strongest collection state for one dex entry.
 // cards, filters, and summary counts use this so UI status rules stay aligned.
@@ -136,8 +142,16 @@ const getDexEntryStatusLabel = (status: DexDisplayStatus) => {
 // getDexGridSectionClassName chooses the grid sizing classes for the active density option.
 // LoadedDashboardView uses this to keep density layout mapping out of the JSX tree.
 const getDexGridSectionClassName = (selectedGridDensity: DexGridDensity) => {
+    if (selectedGridDensity === "extraComfortable") {
+        return "grid grid-cols-[repeat(auto-fill,minmax(192px,1fr))] gap-5";
+    }
+
     if (selectedGridDensity === "comfortable") {
         return "grid grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-4";
+    }
+
+    if (selectedGridDensity === "extraCompact") {
+        return "grid grid-cols-[repeat(auto-fill,minmax(108px,1fr))] gap-2";
     }
 
     if (selectedGridDensity === "compact") {
@@ -150,8 +164,16 @@ const getDexGridSectionClassName = (selectedGridDensity: DexGridDensity) => {
 // getDexCardImageClassName chooses sprite sizing for the active density option.
 // LoadedDashboardView uses this so compact and comfortable cards scale consistently with the grid.
 const getDexCardImageClassName = (selectedGridDensity: DexGridDensity) => {
+    if (selectedGridDensity === "extraComfortable") {
+        return "max-h-[88px] max-w-[88px] object-contain";
+    }
+
     if (selectedGridDensity === "comfortable") {
         return "max-h-[80px] max-w-[80px] object-contain";
+    }
+
+    if (selectedGridDensity === "extraCompact") {
+        return "max-h-[56px] max-w-[56px] object-contain";
     }
 
     if (selectedGridDensity === "compact") {
@@ -297,9 +319,15 @@ export const LoadedDashboardView = ({
     // pendingDeleteProfileId tracks which profile is showing inline delete confirmation
     // the profile list uses this to swap the Delete button into confirm/cancel actions
     const [pendingDeleteProfileId, setPendingDeleteProfileId] = useState<string | null>(null);
+    // selectedGridDensityIndex tracks the current density step within the ordered scale.
+    // LoadedDashboardView uses this so the minus and plus buttons disable at the correct reversed bounds.
     const selectedGridDensityIndex = dexGridDensityOrder.indexOf(selectedGridDensity);
-    const isDecreaseGridDensityDisabled = selectedGridDensityIndex === 0;
-    const isIncreaseGridDensityDisabled = selectedGridDensityIndex === dexGridDensityOrder.length - 1;
+    // isDecreaseGridDensityDisabled blocks the minus control at the smallest-card density bound.
+    // the reversed minus behavior uses this so users can always step back from larger card sizes.
+    const isDecreaseGridDensityDisabled = selectedGridDensityIndex === dexGridDensityOrder.length - 1;
+    // isIncreaseGridDensityDisabled blocks the plus control at the largest-card density bound.
+    // the reversed plus behavior uses this so users can always step back from smaller card sizes.
+    const isIncreaseGridDensityDisabled = selectedGridDensityIndex === 0;
 
     const trainerName =
         uploadResponse.trainerInfo && uploadResponse.trainerInfo.name
@@ -616,7 +644,7 @@ export const LoadedDashboardView = ({
                                             type="button"
                                             onClick={onDecreaseGridDensity}
                                             disabled={isDecreaseGridDensityDisabled}
-                                            aria-label="Show fewer cards per row"
+                                            aria-label="Show more cards per row with smaller cards"
                                         >
                                             -
                                         </button>
@@ -630,7 +658,7 @@ export const LoadedDashboardView = ({
                                             type="button"
                                             onClick={onIncreaseGridDensity}
                                             disabled={isIncreaseGridDensityDisabled}
-                                            aria-label="Show more cards per row"
+                                            aria-label="Show fewer cards per row with larger cards"
                                         >
                                             +
                                         </button>

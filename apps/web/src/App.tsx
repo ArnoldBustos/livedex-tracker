@@ -393,10 +393,38 @@ const App = () => {
     setErrorMessage("");
   };
 
-  // handleDecreaseGridDensity moves the dex grid toward fewer cards per row.
-  // LoadedDashboardView calls this from the minus control while keeping the default density unchanged on first load.
+  // handleDecreaseGridDensity moves the dex grid toward more cards per row and smaller cards.
+  // LoadedDashboardView calls this from the minus control so the symbol matches denser card layout.
   const handleDecreaseGridDensity = () => {
     setSelectedGridDensity((currentGridDensity) => {
+      if (currentGridDensity === "extraComfortable") {
+        return "comfortable";
+      }
+
+      if (currentGridDensity === "comfortable") {
+        return "default";
+      }
+
+      if (currentGridDensity === "default") {
+        return "compact";
+      }
+
+      if (currentGridDensity === "compact") {
+        return "extraCompact";
+      }
+
+      return currentGridDensity;
+    });
+  };
+
+  // handleIncreaseGridDensity moves the dex grid toward fewer cards per row and larger cards.
+  // LoadedDashboardView calls this from the plus control so the symbol matches roomier card layout.
+  const handleIncreaseGridDensity = () => {
+    setSelectedGridDensity((currentGridDensity) => {
+      if (currentGridDensity === "extraCompact") {
+        return "compact";
+      }
+
       if (currentGridDensity === "compact") {
         return "default";
       }
@@ -405,20 +433,8 @@ const App = () => {
         return "comfortable";
       }
 
-      return currentGridDensity;
-    });
-  };
-
-  // handleIncreaseGridDensity moves the dex grid toward more cards per row.
-  // LoadedDashboardView calls this from the plus control while capping the density at compact.
-  const handleIncreaseGridDensity = () => {
-    setSelectedGridDensity((currentGridDensity) => {
       if (currentGridDensity === "comfortable") {
-        return "default";
-      }
-
-      if (currentGridDensity === "default") {
-        return "compact";
+        return "extraComfortable";
       }
 
       return currentGridDensity;
