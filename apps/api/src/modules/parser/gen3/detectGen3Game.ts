@@ -1,10 +1,16 @@
 import type { Gen3SaveSection } from "./readGen3SaveSections";
 
 // DetectedGen3Game is the parser-facing title result that upload flows persist for the save.
-export type DetectedGen3Game = "EMERALD" | "FIRERED" | "LEAFGREEN" | null;
+export type DetectedGen3Game =
+    | "RUBY"
+    | "SAPPHIRE"
+    | "EMERALD"
+    | "FIRERED"
+    | "LEAFGREEN"
+    | null;
 
 // Gen3Layout identifies which save offsets the parser should use for Gen 3 extraction.
-export type Gen3Layout = "EMERALD" | "FRLG";
+export type Gen3Layout = "RUBY_SAPPHIRE" | "EMERALD" | "FRLG";
 
 // DetectGen3GameResult carries both the parser layout choice and the user-facing detected title.
 export type DetectGen3GameResult = {
@@ -15,7 +21,7 @@ export type DetectGen3GameResult = {
         emeraldSecurityKeyCopy: number;
         fireRedLeafGreenSecurityKeyCopy: number;
         partyCountAtFireRedLeafGreenOffset: number;
-        partyCountAtEmeraldOffset: number;
+        partyCountAtRubySapphireEmeraldOffset: number;
         detectionReason: string;
     };
 };
@@ -26,7 +32,7 @@ type DetectionDebugPayload = {
     emeraldSecurityKeyCopy: number;
     fireRedLeafGreenSecurityKeyCopy: number;
     partyCountAtFireRedLeafGreenOffset: number;
-    partyCountAtEmeraldOffset: number;
+    partyCountAtRubySapphireEmeraldOffset: number;
 };
 
 // TRAINER_INFO_SECTION_ID points at section 0, which contains the game-code/security-key marker area.
@@ -41,14 +47,19 @@ const EMERALD_SECURITY_KEY_COPY_OFFSET = 0x01f4;
 const FIRE_RED_LEAF_GREEN_SECURITY_KEY_COPY_OFFSET = 0x0f20;
 // FIRE_RED_LEAF_GREEN_PARTY_COUNT_OFFSET is the FRLG team size offset inside section 1.
 const FIRE_RED_LEAF_GREEN_PARTY_COUNT_OFFSET = 0x0034;
-// EMERALD_PARTY_COUNT_OFFSET is the Emerald team size offset inside section 1.
-const EMERALD_PARTY_COUNT_OFFSET = 0x0234;
+// RUBY_SAPPHIRE_EMERALD_PARTY_COUNT_OFFSET is the shared RS/Emerald team size offset inside section 1.
+const RUBY_SAPPHIRE_EMERALD_PARTY_COUNT_OFFSET = 0x0234;
 // MAX_PARTY_COUNT caps reasonable team sizes for layout heuristics.
 const MAX_PARTY_COUNT = 6;
 
 // isReasonablePartyCount checks whether one raw team-size byte could represent a real in-game party count.
 const isReasonablePartyCount = (partyCount: number): boolean => {
     return partyCount >= 0 && partyCount <= MAX_PARTY_COUNT;
+};
+
+// hasMeaningfulEmeraldSecurityKey checks whether the shared marker contains a non-zero Emerald-style key value.
+const hasMeaningfulEmeraldSecurityKey = (securityKey: number): boolean => {
+    return securityKey !== 0;
 };
 
 // createDetectionDebugResult combines raw marker values with a human-readable reason for logging and returns.
@@ -62,7 +73,8 @@ const createDetectionDebugResult = (
         fireRedLeafGreenSecurityKeyCopy: detectionDebugPayload.fireRedLeafGreenSecurityKeyCopy,
         partyCountAtFireRedLeafGreenOffset:
             detectionDebugPayload.partyCountAtFireRedLeafGreenOffset,
-        partyCountAtEmeraldOffset: detectionDebugPayload.partyCountAtEmeraldOffset,
+        partyCountAtRubySapphireEmeraldOffset:
+            detectionDebugPayload.partyCountAtRubySapphireEmeraldOffset,
         detectionReason
     };
 };
@@ -92,9 +104,9 @@ export const detectGen3Game = (
     const partyCountAtFireRedLeafGreenOffset = sectionOne.data.readUInt8(
         FIRE_RED_LEAF_GREEN_PARTY_COUNT_OFFSET
     );
-    // partyCountAtEmeraldOffset reads the Emerald team-size byte for layout detection.
-    const partyCountAtEmeraldOffset = sectionOne.data.readUInt8(
-        EMERALD_PARTY_COUNT_OFFSET
+    // partyCountAtRubySapphireEmeraldOffset reads the shared RS/Emerald team-size byte for layout detection.
+    const partyCountAtRubySapphireEmeraldOffset = sectionOne.data.readUInt8(
+        RUBY_SAPPHIRE_EMERALD_PARTY_COUNT_OFFSET
     );
     // detectionDebugPayload captures the raw marker and party-count values for layout debugging.
     const detectionDebugPayload = {
@@ -102,7 +114,7 @@ export const detectGen3Game = (
         emeraldSecurityKeyCopy,
         fireRedLeafGreenSecurityKeyCopy,
         partyCountAtFireRedLeafGreenOffset,
-        partyCountAtEmeraldOffset
+        partyCountAtRubySapphireEmeraldOffset
     };
 
     if (trainerSectionWordAt00AC === 1) {
@@ -123,8 +135,9 @@ export const detectGen3Game = (
     }
 
     if (
+        hasMeaningfulEmeraldSecurityKey(trainerSectionWordAt00AC) &&
         trainerSectionWordAt00AC === emeraldSecurityKeyCopy &&
-        isReasonablePartyCount(partyCountAtEmeraldOffset)
+        isReasonablePartyCount(partyCountAtRubySapphireEmeraldOffset)
     ) {
         const debugResult = createDetectionDebugResult(
             detectionDebugPayload,
@@ -138,6 +151,23 @@ export const detectGen3Game = (
         return {
             detectedGame: "EMERALD",
             layout: "EMERALD",
+            debug: debugResult
+        };
+    }
+
+    if (isReasonablePartyCount(partyCountAtRubySapphireEmeraldOffset)) {
+        const debugResult = createDetectionDebugResult(
+            detectionDebugPayload,
+            "Section 1 party count matched the Ruby/Sapphire/Emerald layout, but Emerald's security-key copy did not match"
+        );
+
+        console.log("detectGen3Game Ruby/Sapphire layout match", {
+            debug: debugResult
+        });
+
+        return {
+            detectedGame: null,
+            layout: "RUBY_SAPPHIRE",
             debug: debugResult
         };
     }
@@ -161,12 +191,14 @@ export const detectGen3Game = (
 
     const debugResult = createDetectionDebugResult(
         detectionDebugPayload,
-        "No FRLG or Emerald heuristic matched the active save sections"
+        "No FRLG, Emerald, or Ruby/Sapphire heuristic matched the active save sections"
     );
 
     console.log("detectGen3Game unsupported layout", {
         debug: debugResult
     });
 
-    throw new Error("Unsupported Gen 3 save layout: could not classify as FRLG or Emerald");
+    throw new Error(
+        "Unsupported Gen 3 save layout: could not classify as FRLG, Emerald, or Ruby/Sapphire"
+    );
 };

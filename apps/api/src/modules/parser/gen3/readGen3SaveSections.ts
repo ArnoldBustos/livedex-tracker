@@ -6,13 +6,17 @@ const SECTION_ID_OFFSET = 0x0ff4;
 const CHECKSUM_OFFSET = 0x0ff6;
 const SAVE_INDEX_OFFSET = 0x0ffc;
 const SECTION_DATA_END_OFFSET = 0x0ff4;
+// ERASED_SAVE_INDEX marks an uninitialized Gen 3 save footer that should never win active-slot selection.
+const ERASED_SAVE_INDEX = 0xffffffff;
 
+// Gen3SectionFooter stores the metadata footer read from one raw Gen 3 save section.
 type Gen3SectionFooter = {
     sectionId: number;
     checksum: number;
     saveIndex: number;
 };
 
+// Gen3SaveSection stores one parsed Gen 3 save section plus the footer values used during slot assembly.
 export type Gen3SaveSection = {
     sectionId: number;
     saveIndex: number;
@@ -20,10 +24,24 @@ export type Gen3SaveSection = {
     raw: Buffer;
 };
 
+// ReadGen3SaveSectionsResult exposes the chosen active save index and the assembled active sections map.
 export type ReadGen3SaveSectionsResult = {
     activeSaveIndex: number;
     sectionsById: Map<number, Gen3SaveSection>;
 };
+
+// SaveIndexCandidateSummary captures how one grouped save index scored during active-slot selection.
+type SaveIndexCandidateSummary = {
+    saveIndex: number;
+    count: number;
+    sectionIds: number[];
+    uniqueValidSectionIds: number[];
+    hasErasedSaveIndex: boolean;
+    hasOnlyValidSectionIds: boolean;
+    hasCompleteSectionSet: boolean;
+};
+
+// readSectionFooter reads the footer metadata used to group and rank Gen 3 save sections.
 const readSectionFooter = (sectionBuffer: Buffer): Gen3SectionFooter => {
     const sectionId = sectionBuffer.readUInt16LE(SECTION_ID_OFFSET);
     const checksum = sectionBuffer.readUInt16LE(CHECKSUM_OFFSET);
@@ -36,6 +54,7 @@ const readSectionFooter = (sectionBuffer: Buffer): Gen3SectionFooter => {
     };
 };
 
+// readSaveSlotSections reads all 14 raw sections from one physical save slot block.
 const readSaveSlotSections = (
     saveSlotBuffer: Buffer
 ): Gen3SaveSection[] => {
@@ -66,6 +85,7 @@ const readSaveSlotSections = (
     return sections;
 };
 
+// groupSectionsBySaveIndex merges both physical save slots into logical save-index groups for selection.
 const groupSectionsBySaveIndex = (
     firstSlotSections: Gen3SaveSection[],
     secondSlotSections: Gen3SaveSection[]
@@ -87,32 +107,70 @@ const groupSectionsBySaveIndex = (
     return sectionsBySaveIndex;
 };
 
+// getIsValidGen3SectionId checks whether one footer section id is in the real Gen 3 section range.
+const getIsValidGen3SectionId = (sectionId: number): boolean => {
+    return sectionId >= 0 && sectionId < SECTION_COUNT;
+};
+
+// getUniqueValidSectionIds collects deduplicated valid section ids so slot selection can require a full set.
+const getUniqueValidSectionIds = (sections: Gen3SaveSection[]): number[] => {
+    const uniqueSectionIds = new Set<number>();
+
+    for (const section of sections) {
+        if (getIsValidGen3SectionId(section.sectionId)) {
+            uniqueSectionIds.add(section.sectionId);
+        }
+    }
+
+    return Array.from(uniqueSectionIds).sort((leftSectionId, rightSectionId) => {
+        return leftSectionId - rightSectionId;
+    });
+};
+
+// summarizeSaveIndexCandidate derives the structural validity flags used to ignore erased and incomplete slots.
+const summarizeSaveIndexCandidate = (
+    saveIndex: number,
+    sections: Gen3SaveSection[]
+): SaveIndexCandidateSummary => {
+    const uniqueValidSectionIds = getUniqueValidSectionIds(sections);
+    const hasOnlyValidSectionIds = sections.every((section) => {
+        return getIsValidGen3SectionId(section.sectionId);
+    });
+
+    return {
+        saveIndex,
+        count: sections.length,
+        sectionIds: sections.map((section) => {
+            return section.sectionId;
+        }),
+        uniqueValidSectionIds,
+        hasErasedSaveIndex: saveIndex === ERASED_SAVE_INDEX,
+        hasOnlyValidSectionIds,
+        hasCompleteSectionSet: hasOnlyValidSectionIds && uniqueValidSectionIds.length === SECTION_COUNT
+    };
+};
+
+// getActiveSaveIndex picks the newest structurally valid Gen 3 save index and ignores erased slot footers.
 const getActiveSaveIndex = (
     sectionsBySaveIndex: Map<number, Gen3SaveSection[]>
 ): number => {
     const saveIndexSummary = Array.from(sectionsBySaveIndex.entries()).map(
         ([saveIndex, sections]) => {
-            return {
-                saveIndex,
-                count: sections.length,
-                sectionIds: sections.map((section) => section.sectionId)
-            };
+            return summarizeSaveIndexCandidate(saveIndex, sections);
         }
     );
 
     console.log("sectionsBySaveIndex summary", saveIndexSummary);
 
-    const candidateSaveIndexes = Array.from(sectionsBySaveIndex.keys()).filter(
-        (saveIndex) => {
-            const sections = sectionsBySaveIndex.get(saveIndex);
-
-            if (!sections) {
-                return false;
-            }
-
-            return sections.length >= SECTION_COUNT;
-        }
-    );
+    const candidateSaveIndexes = saveIndexSummary
+        .filter((saveIndexCandidateSummary) => {
+            return !saveIndexCandidateSummary.hasErasedSaveIndex &&
+                saveIndexCandidateSummary.hasOnlyValidSectionIds &&
+                saveIndexCandidateSummary.hasCompleteSectionSet;
+        })
+        .map((saveIndexCandidateSummary) => {
+            return saveIndexCandidateSummary.saveIndex;
+        });
 
     if (candidateSaveIndexes.length === 0) {
         throw new Error("No complete Gen 3 save slot found");
@@ -121,6 +179,7 @@ const getActiveSaveIndex = (
     return Math.max(...candidateSaveIndexes);
 };
 
+// readGen3SaveSections reads both physical Gen 3 slots, selects the active logical save, and assembles sections by id.
 export const readGen3SaveSections = (
     fileBuffer: Buffer
 ): ReadGen3SaveSectionsResult => {

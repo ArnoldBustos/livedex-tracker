@@ -76,8 +76,11 @@ export type DebugPayload = {
     partySpeciesIds?: number[];
     boxCount?: number;
     boxSpeciesIds?: number[];
-    detectedLayout?: "EMERALD" | "FRLG";
+    detectedLayout?: "RUBY_SAPPHIRE" | "EMERALD" | "FRLG";
     detectedGameReason?: string;
+    pokedexError?: string | null;
+    partyError?: string | null;
+    boxError?: string | null;
 };
 
 // UploadResponse stores the successful dashboard payload used for saved-profile reads and completed uploads.

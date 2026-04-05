@@ -13,6 +13,7 @@ import type {
 } from "../../types/save";
 import { getPokemonTypeBadgeStyle } from "../../lib/pokemonTypeStyles";
 import { getDexEntriesForScope } from "../../lib/dex";
+import { getDisplayGameLabel } from "../../lib/getDisplayGameLabel";
 
 type LoadedDashboardViewProps = {
     uploadResponse: UploadResponse;
@@ -342,6 +343,12 @@ export const LoadedDashboardView = ({
             : uploadResponse.debug && uploadResponse.debug.trainerGender
                 ? uploadResponse.debug.trainerGender
                 : "Unknown";
+    // displayGameLabel resolves one honest visible game label from exact-title detection or layout-family fallback.
+    const displayGameLabel = getDisplayGameLabel({
+        detectedGame: uploadResponse.upload.detectedGame,
+        detectedLayout: uploadResponse.debug ? uploadResponse.debug.detectedLayout : undefined,
+        saveProfileGame: uploadResponse.saveProfile.game
+    });
 
     const prettyResponse = useMemo(() => {
         return JSON.stringify(uploadResponse, null, 2);
@@ -443,7 +450,7 @@ export const LoadedDashboardView = ({
     return (
         <>
             <DashboardTopbar
-                gameLabel={uploadResponse.upload.detectedGame || "Gen 3 Save"}
+                gameLabel={displayGameLabel}
                 isUploading={isUploading}
                 isGuestMode={isGuestMode}
                 sessionLabel={sessionLabel}
@@ -495,7 +502,7 @@ export const LoadedDashboardView = ({
 
                                             <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#935600]">
                                                 {isActiveProfile
-                                                    ? uploadResponse.upload.detectedGame || "Unknown Game"
+                                                    ? displayGameLabel
                                                     : saveProfile.game || "Unknown Game"}
                                             </div>
 
@@ -579,7 +586,7 @@ export const LoadedDashboardView = ({
                     <DashboardSummary
                         saveProfileName={uploadResponse.saveProfile.name}
                         trainerName={trainerName}
-                        gameLabel={uploadResponse.upload.detectedGame || "Unknown Game"}
+                        gameLabel={displayGameLabel}
                         totalCount={dashboardSummary.totalCount}
                         seenCount={dashboardSummary.seenCount}
                         caughtCount={dashboardSummary.caughtCount}

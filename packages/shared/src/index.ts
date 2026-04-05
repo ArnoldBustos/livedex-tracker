@@ -20,7 +20,7 @@ export const MANUAL_GEN3_GAME_OVERRIDES = [
 export type ManualGen3GameOverride = (typeof MANUAL_GEN3_GAME_OVERRIDES)[number];
 
 // SharedGen3Layout stores the Gen 3 parser layout family exposed to upload orchestration code.
-export type SharedGen3Layout = "EMERALD" | "FRLG";
+export type SharedGen3Layout = "RUBY_SAPPHIRE" | "EMERALD" | "FRLG";
 
 // UploadRequestFields stores the multipart text fields shared by frontend and backend upload requests.
 export type UploadRequestFields = {

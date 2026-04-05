@@ -179,7 +179,7 @@ const getRequiresManualGameSelection = ({
     manualGameOverride
 }: {
     detectedGame: SupportedGame | null;
-    detectedLayout: "EMERALD" | "FRLG";
+    detectedLayout: "RUBY_SAPPHIRE" | "EMERALD" | "FRLG";
     manualGameOverride?: ManualGen3GameOverride;
 }): boolean => {
     return detectedLayout === "FRLG" &&
@@ -205,7 +205,7 @@ const resolveUploadDetectedGame = ({
     manualGameOverride
 }: {
     detectedGame: SupportedGame | null;
-    detectedLayout: "EMERALD" | "FRLG";
+    detectedLayout: "RUBY_SAPPHIRE" | "EMERALD" | "FRLG";
     manualGameOverride?: ManualGen3GameOverride;
 }): SupportedGame | null => {
     if (getRequiresManualGameSelection({

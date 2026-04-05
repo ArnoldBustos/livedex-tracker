@@ -18,6 +18,12 @@ import {
 } from "./extractTrainerInfo";
 import { readGen3SaveSections } from "./readGen3SaveSections";
 
+// OptionalGen3ExtractionResult stores one best-effort parser step so minimally valid saves can still upload.
+type OptionalGen3ExtractionResult<T> = {
+    value: T;
+    error: string | null;
+};
+
 export type ParsedGen3Save = {
     detectedGame: DetectedGen3Game;
     detectedLayout: Gen3Layout;
@@ -40,9 +46,44 @@ export type ParsedGen3Save = {
         boxSpeciesIds: number[];
         livingNationalDexNumbers: number[];
         livingCount: number;
-        detectedLayout: "EMERALD" | "FRLG";
+        detectedLayout: Gen3Layout;
         detectedGameReason: string;
+        pokedexError: string | null;
+        partyError: string | null;
+        boxError: string | null;
     };
+};
+
+// extractOptionalGen3Data runs one non-critical parser step and falls back when Ruby/Sapphire support is incomplete.
+const extractOptionalGen3Data = <T>({
+    label,
+    extractValue,
+    fallbackValue
+}: {
+    // label identifies the optional parser step in logs and debug payloads.
+    label: string;
+    // extractValue executes the actual parser step while preserving the original thrown error.
+    extractValue: () => T;
+    // fallbackValue keeps the upload parse alive when the optional step is not supported yet.
+    fallbackValue: T;
+}): OptionalGen3ExtractionResult<T> => {
+    try {
+        return {
+            value: extractValue(),
+            error: null
+        };
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+
+        console.warn(`parseGen3Save optional ${label} extraction failed`, {
+            error: errorMessage
+        });
+
+        return {
+            value: fallbackValue,
+            error: errorMessage
+        };
+    }
 };
 
 // parseGen3Save reads the active save slot, detects the correct Gen 3 layout, and extracts dashboard data.
@@ -63,19 +104,46 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
         sectionsById
     });
 
-    const pokedexFlags = extractPokedexFlags({
-        layout: detectedGameResult.layout,
-        sectionsById
-    });
+    // emptyPokedexFlags preserves a valid parse result when one layout does not expose supported dex offsets yet.
+    const emptyPokedexFlags: ExtractedPokedexFlags = {
+        seenNationalDexNumbers: [],
+        ownedNationalDexNumbers: []
+    };
 
-    const partyPokemon = extractPartyPokemon({
-        layout: detectedGameResult.layout,
-        sectionsById
+    const pokedexExtractionResult = extractOptionalGen3Data({
+        label: "pokedex",
+        extractValue: () => {
+            return extractPokedexFlags({
+                layout: detectedGameResult.layout,
+                sectionsById
+            });
+        },
+        fallbackValue: emptyPokedexFlags
     });
+    const pokedexFlags = pokedexExtractionResult.value;
 
-    const boxPokemon = extractBoxPokemon({
-        sectionsById
+    const partyExtractionResult = extractOptionalGen3Data({
+        label: "party",
+        extractValue: () => {
+            return extractPartyPokemon({
+                layout: detectedGameResult.layout,
+                sectionsById
+            });
+        },
+        fallbackValue: []
     });
+    const partyPokemon = partyExtractionResult.value;
+
+    const boxExtractionResult = extractOptionalGen3Data({
+        label: "box",
+        extractValue: () => {
+            return extractBoxPokemon({
+                sectionsById
+            });
+        },
+        fallbackValue: []
+    });
+    const boxPokemon = boxExtractionResult.value;
 
     const livingNationalDexNumbers = Array.from(
         new Set(
@@ -101,7 +169,10 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
         livingNationalDexNumbers,
         detectedGame: detectedGameResult.detectedGame,
         detectedLayout: detectedGameResult.layout,
-        detectedGameReason: detectedGameResult.debug.detectionReason
+        detectedGameReason: detectedGameResult.debug.detectionReason,
+        pokedexError: pokedexExtractionResult.error,
+        partyError: partyExtractionResult.error,
+        boxError: boxExtractionResult.error
     });
 
     return {
@@ -131,7 +202,10 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
             livingNationalDexNumbers,
             livingCount: livingNationalDexNumbers.length,
             detectedLayout: detectedGameResult.layout,
-            detectedGameReason: detectedGameResult.debug.detectionReason
+            detectedGameReason: detectedGameResult.debug.detectionReason,
+            pokedexError: pokedexExtractionResult.error,
+            partyError: partyExtractionResult.error,
+            boxError: boxExtractionResult.error
         }
     };
 };

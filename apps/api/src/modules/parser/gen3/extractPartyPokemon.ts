@@ -21,12 +21,14 @@ type ExtractPartyPokemonParams = {
 };
 
 // PARTY_LAYOUTS centralizes per-game-family offsets so Emerald support does not fork the parser flow.
-const PARTY_LAYOUTS: Record<
-    Gen3Layout,
-    {
-        partyCountOffset: number;
-        partyBufferOffset: number;
-    }
+const PARTY_LAYOUTS: Partial<
+    Record<
+        Gen3Layout,
+        {
+            partyCountOffset: number;
+            partyBufferOffset: number;
+        }
+    >
 > = {
     EMERALD: {
         partyCountOffset: 0x0234,
@@ -70,6 +72,11 @@ export const extractPartyPokemon = ({
 }: ExtractPartyPokemonParams): ParsedGen3Pokemon[] => {
     // partyLayout provides the correct section 1 offsets for the detected Gen 3 layout family.
     const partyLayout = PARTY_LAYOUTS[layout];
+
+    if (!partyLayout) {
+        throw new Error(`Gen 3 ${layout} party offsets are not implemented`);
+    }
+
     const largeBlock = getLargeBlock(sectionsById);
     const rawPartyCount = largeBlock.readUInt8(partyLayout.partyCountOffset);
     const partyCount = Math.min(rawPartyCount, MAX_PARTY_COUNT);
