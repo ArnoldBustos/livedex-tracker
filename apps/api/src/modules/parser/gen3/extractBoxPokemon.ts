@@ -1,5 +1,6 @@
 import {
     decryptGen3StoredPokemon,
+    isPresentGen3StoredPokemon,
     isValidGen3StoredPokemon,
     readGen3SpeciesId
 } from "./gen3PokemonCrypto";
@@ -67,14 +68,14 @@ export const extractBoxPokemon = ({
             // Tracks the absolute slot index across all PC boxes for UI/debug references.
             const absoluteSlotIndex = (boxIndex * SLOTS_PER_BOX) + slotIndex;
 
-            // Reads the personality value from the slot header to detect obviously empty slots early.
+            // Reads the personality value from the slot header for checksum-failure logging context.
             const personalityValue = encryptedStoredPokemon.readUInt32LE(0);
 
             // Reads the original trainer ID value from the slot header for debugging storage decoding.
             const originalTrainerId = encryptedStoredPokemon.readUInt32LE(4);
 
-            // Skips empty PC slots before trying to decrypt garbage data.
-            if (personalityValue === 0 && originalTrainerId === 0) {
+            // Skips raw PC slots that do not advertise a present Gen 3 Pokemon before decryption.
+            if (!isPresentGen3StoredPokemon(encryptedStoredPokemon)) {
                 continue;
             }
 

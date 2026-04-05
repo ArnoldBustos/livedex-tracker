@@ -1,8 +1,19 @@
+// STORED_SLOT_SIZE_BYTES describes the full boxed/shared Gen 3 Pokemon structure size.
 const STORED_SLOT_SIZE_BYTES = 80;
+// STORED_HEADER_SIZE_BYTES marks where the encrypted 48-byte payload begins in the structure.
 const STORED_HEADER_SIZE_BYTES = 32;
+// STORED_BLOCK_SIZE_BYTES describes one 12-byte substructure inside the shuffled payload.
 const STORED_BLOCK_SIZE_BYTES = 12;
+// STORED_CHECKSUM_OFFSET points at the checksum field in the Gen 3 Pokemon header.
 const STORED_CHECKSUM_OFFSET = 28;
+// STORED_PRESENT_FLAG_OFFSET points at the raw header byte PKHeX uses for Gen 3 slot presence checks.
+const STORED_PRESENT_FLAG_OFFSET = 0x13;
+// STORED_PRESENT_FLAG_MASK clears the unsupported bits before comparing the Gen 3 presence state.
+const STORED_PRESENT_FLAG_MASK = 0xfb;
+// STORED_PRESENT_FLAG_VALUE is the raw flag value that marks a Gen 3 stored slot as occupied.
+const STORED_PRESENT_FLAG_VALUE = 2;
 
+// BLOCK_POSITION stores the Gen 3 shuffle permutations used to reorder the four encrypted substructures.
 const BLOCK_POSITION = [
     0, 1, 2, 3, 0, 1, 3, 2, 0, 2, 1, 3, 0, 3, 1, 2,
     0, 2, 3, 1, 0, 3, 2, 1, 1, 0, 2, 3, 1, 0, 3, 2,
@@ -80,6 +91,12 @@ export const decryptGen3StoredPokemon = (pokemonData: Buffer): Buffer => {
     );
 
     return decryptedPokemon;
+};
+
+export const isPresentGen3StoredPokemon = (pokemonData: Buffer): boolean => {
+    // Matches PKHeX's raw Gen 3 slot presence check before decrypting boxed Pokemon data.
+    return (pokemonData[STORED_PRESENT_FLAG_OFFSET] & STORED_PRESENT_FLAG_MASK) ===
+        STORED_PRESENT_FLAG_VALUE;
 };
 
 export const readGen3SpeciesId = (decryptedPokemon: Buffer): number => {

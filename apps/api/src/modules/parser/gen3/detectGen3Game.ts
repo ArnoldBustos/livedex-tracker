@@ -20,6 +20,15 @@ export type DetectGen3GameResult = {
     };
 };
 
+// DetectionDebugPayload captures the raw marker values that the layout heuristic compares.
+type DetectionDebugPayload = {
+    trainerSectionWordAt00AC: number;
+    emeraldSecurityKeyCopy: number;
+    fireRedLeafGreenSecurityKeyCopy: number;
+    partyCountAtFireRedLeafGreenOffset: number;
+    partyCountAtEmeraldOffset: number;
+};
+
 // TRAINER_INFO_SECTION_ID points at section 0, which contains the game-code/security-key marker area.
 const TRAINER_INFO_SECTION_ID = 0;
 // SECTION_ONE_ID points at section 1, which exposes different party offsets for FRLG vs Emerald.
@@ -40,6 +49,22 @@ const MAX_PARTY_COUNT = 6;
 // isReasonablePartyCount checks whether one raw team-size byte could represent a real in-game party count.
 const isReasonablePartyCount = (partyCount: number): boolean => {
     return partyCount >= 0 && partyCount <= MAX_PARTY_COUNT;
+};
+
+// createDetectionDebugResult combines raw marker values with a human-readable reason for logging and returns.
+const createDetectionDebugResult = (
+    detectionDebugPayload: DetectionDebugPayload,
+    detectionReason: string
+): DetectGen3GameResult["debug"] => {
+    return {
+        trainerSectionWordAt00AC: detectionDebugPayload.trainerSectionWordAt00AC,
+        emeraldSecurityKeyCopy: detectionDebugPayload.emeraldSecurityKeyCopy,
+        fireRedLeafGreenSecurityKeyCopy: detectionDebugPayload.fireRedLeafGreenSecurityKeyCopy,
+        partyCountAtFireRedLeafGreenOffset:
+            detectionDebugPayload.partyCountAtFireRedLeafGreenOffset,
+        partyCountAtEmeraldOffset: detectionDebugPayload.partyCountAtEmeraldOffset,
+        detectionReason
+    };
 };
 
 // detectGen3Game picks the parsing layout first, then exposes a specific title only when the save proves it.
@@ -71,19 +96,29 @@ export const detectGen3Game = (
     const partyCountAtEmeraldOffset = sectionOne.data.readUInt8(
         EMERALD_PARTY_COUNT_OFFSET
     );
+    // detectionDebugPayload captures the raw marker and party-count values for layout debugging.
+    const detectionDebugPayload = {
+        trainerSectionWordAt00AC,
+        emeraldSecurityKeyCopy,
+        fireRedLeafGreenSecurityKeyCopy,
+        partyCountAtFireRedLeafGreenOffset,
+        partyCountAtEmeraldOffset
+    };
 
     if (trainerSectionWordAt00AC === 1) {
+        const debugResult = createDetectionDebugResult(
+            detectionDebugPayload,
+            "Section 0 offset 0x00AC matched the FRLG game code marker"
+        );
+
+        console.log("detectGen3Game FRLG marker match", {
+            debug: debugResult
+        });
+
         return {
             detectedGame: null,
             layout: "FRLG",
-            debug: {
-                trainerSectionWordAt00AC,
-                emeraldSecurityKeyCopy,
-                fireRedLeafGreenSecurityKeyCopy,
-                partyCountAtFireRedLeafGreenOffset,
-                partyCountAtEmeraldOffset,
-                detectionReason: "Section 0 offset 0x00AC matched the FRLG game code marker"
-            }
+            debug: debugResult
         };
     }
 
@@ -91,34 +126,47 @@ export const detectGen3Game = (
         trainerSectionWordAt00AC === emeraldSecurityKeyCopy &&
         isReasonablePartyCount(partyCountAtEmeraldOffset)
     ) {
+        const debugResult = createDetectionDebugResult(
+            detectionDebugPayload,
+            "Section 0 security key matched Emerald's known copy location"
+        );
+
+        console.log("detectGen3Game Emerald marker match", {
+            debug: debugResult
+        });
+
         return {
             detectedGame: "EMERALD",
             layout: "EMERALD",
-            debug: {
-                trainerSectionWordAt00AC,
-                emeraldSecurityKeyCopy,
-                fireRedLeafGreenSecurityKeyCopy,
-                partyCountAtFireRedLeafGreenOffset,
-                partyCountAtEmeraldOffset,
-                detectionReason: "Section 0 security key matched Emerald's known copy location"
-            }
+            debug: debugResult
         };
     }
 
     if (isReasonablePartyCount(partyCountAtFireRedLeafGreenOffset)) {
+        const debugResult = createDetectionDebugResult(
+            detectionDebugPayload,
+            "Fell back to FRLG layout because the section 1 party count matched FRLG offsets"
+        );
+
+        console.log("detectGen3Game FRLG fallback", {
+            debug: debugResult
+        });
+
         return {
             detectedGame: null,
             layout: "FRLG",
-            debug: {
-                trainerSectionWordAt00AC,
-                emeraldSecurityKeyCopy,
-                fireRedLeafGreenSecurityKeyCopy,
-                partyCountAtFireRedLeafGreenOffset,
-                partyCountAtEmeraldOffset,
-                detectionReason: "Fell back to FRLG layout because the section 1 party count matched FRLG offsets"
-            }
+            debug: debugResult
         };
     }
+
+    const debugResult = createDetectionDebugResult(
+        detectionDebugPayload,
+        "No FRLG or Emerald heuristic matched the active save sections"
+    );
+
+    console.log("detectGen3Game unsupported layout", {
+        debug: debugResult
+    });
 
     throw new Error("Unsupported Gen 3 save layout: could not classify as FRLG or Emerald");
 };
