@@ -139,26 +139,26 @@ const getDexEntryStatusLabel = (status: DexDisplayStatus) => {
     return "Missing";
 };
 
-// getDexGridSectionClassName chooses the grid sizing classes for the active density option.
-// LoadedDashboardView uses this to keep density layout mapping out of the JSX tree.
+// getDexGridSectionClassName maps density to explicit guest and signed-in column counts.
+// LoadedDashboardView uses this so each density step changes the visible card count predictably with no duplicate density stages.
 const getDexGridSectionClassName = (selectedGridDensity: DexGridDensity) => {
     if (selectedGridDensity === "extraComfortable") {
-        return "grid grid-cols-[repeat(auto-fill,minmax(192px,1fr))] gap-5";
+        return "grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5";
     }
 
     if (selectedGridDensity === "comfortable") {
-        return "grid grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-4";
+        return "grid grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4";
     }
 
-    if (selectedGridDensity === "extraCompact") {
-        return "grid grid-cols-[repeat(auto-fill,minmax(108px,1fr))] gap-2";
+    if (selectedGridDensity === "default") {
+        return "grid grid-cols-4 md:grid-cols-5 xl:grid-cols-6 gap-3";
     }
 
     if (selectedGridDensity === "compact") {
-        return "grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3";
+        return "grid grid-cols-5 md:grid-cols-6 xl:grid-cols-7 gap-3";
     }
 
-    return "grid grid-cols-[repeat(auto-fill,minmax(132px,1fr))] gap-3";
+    return "grid grid-cols-6 md:grid-cols-7 xl:grid-cols-8 gap-2";
 };
 
 // getDexCardImageClassName chooses sprite sizing for the active density option.
@@ -269,7 +269,7 @@ const SidebarToggleButton = ({
     onToggle: () => void;
 }) => {
     return (
-        <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+        <div className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2.5">
             <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
                 {label}
             </span>
@@ -457,12 +457,12 @@ export const LoadedDashboardView = ({
             <div
                 className={
                     isGuestMode
-                        ? "grid min-h-[calc(100vh-84px)] grid-cols-[minmax(0,1fr)_288px] gap-4 bg-[#f3f4f6] px-4 py-4"
-                        : "grid min-h-[calc(100vh-84px)] grid-cols-[248px_minmax(0,1fr)_288px] gap-4 bg-[#f3f4f6] px-4 py-4"
+                        ? "grid min-h-[calc(100vh-84px)] grid-cols-1 gap-4 bg-[#f3f4f6] px-4 py-4 xl:grid-cols-[minmax(0,1fr)_240px]"
+                        : "grid min-h-[calc(100vh-84px)] grid-cols-1 gap-4 bg-[#f3f4f6] px-4 py-4 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_240px]"
                 }
             >
                 {!isGuestMode ? (
-                    <aside className="flex flex-col gap-4 rounded-2xl bg-white p-4 shadow-sm">
+                    <aside className="sticky top-4 self-start max-h-[calc(100vh-32px)] overflow-y-auto rounded-2xl bg-white p-4 shadow-sm flex flex-col gap-4">
                         <div className="rounded-xl bg-gray-50 p-4">
                             <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#656554]">
                                 Profiles
@@ -755,154 +755,156 @@ export const LoadedDashboardView = ({
                     </details>
                 </main>
 
-                <aside className="flex flex-col gap-4 rounded-2xl bg-white p-4 shadow-sm">
-                    <div className="flex items-center justify-center rounded-xl bg-gray-100 p-4">
-                        <div className="flex h-32 w-32 items-center justify-center rounded-full bg-white shadow">
-                            {selectedDexEntry ? (
-                                <img
-                                    src={getPokemonArtworkUrl(selectedDexEntry.dexNumber)}
-                                    alt={selectedDexEntry.name}
-                                    className="max-h-full max-w-full object-contain"
-                                />
-                            ) : (
-                                <span className="text-2xl font-bold text-gray-300">?</span>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="grid gap-4">
-                        <p className="text-center text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
-                            {selectedDexEntry
-                                ? `Dex No. ${selectedDexEntry.dexNumber.toString().padStart(3, "0")}`
-                                : "No Selection"}
-                        </p>
-
-                        <h3 className="text-center text-3xl font-extrabold tracking-tight text-gray-900">
-                            {selectedDexEntry ? selectedDexEntry.name : "Choose a Pokémon"}
-                        </h3>
-
-                        {selectedDexEntry ? (
-                            <div className="grid gap-2">
-                                <a
-                                    className="rounded-xl border border-[rgba(130,129,111,0.18)] bg-gray-50 px-4 py-3 text-center text-xs font-semibold text-[#38392a] hover:bg-gray-100"
-                                    href={getBulbapediaUrl(selectedDexEntry.name)}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                >
-                                    Open in Bulbapedia
-                                </a>
-
-                                <a
-                                    className="rounded-xl border border-[rgba(130,129,111,0.18)] bg-gray-50 px-4 py-3 text-center text-xs font-semibold text-[#38392a] hover:bg-gray-100"
-                                    href={getPokemonDbUrl(selectedDexEntry.name)}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                >
-                                    Open in Pokémon DB
-                                </a>
-
-                                <a
-                                    className="rounded-xl border border-[rgba(130,129,111,0.18)] bg-gray-50 px-4 py-3 text-center text-xs font-semibold text-[#38392a] hover:bg-gray-100"
-                                    href={getSerebiiUrl(selectedDexEntry.dexNumber)}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                >
-                                    Open in Serebii
-                                </a>
+                <aside className="sticky top-4 hidden self-start rounded-2xl bg-white p-3 shadow-sm xl:flex xl:flex-col">
+                    <div className="flex max-h-[calc(100vh-32px)] flex-col gap-3 overflow-y-auto pr-1">
+                        <div className="flex items-center justify-center rounded-xl bg-gray-100 p-3">
+                            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-white shadow">
+                                {selectedDexEntry ? (
+                                    <img
+                                        src={getPokemonArtworkUrl(selectedDexEntry.dexNumber)}
+                                        alt={selectedDexEntry.name}
+                                        className="max-h-full max-w-full object-contain"
+                                    />
+                                ) : (
+                                    <span className="text-2xl font-bold text-gray-300">?</span>
+                                )}
                             </div>
-                        ) : null}
+                        </div>
 
                         <div className="grid gap-3">
-                            {selectedDexEntry ? (
-                                <>
-                                    <SidebarToggleButton
-                                        label="In Living Dex"
-                                        value={selectedDexEntry.hasLivingEntry}
-                                        onToggle={() => {
-                                            onUpdateDexEntry({
-                                                pokemonSpeciesId: selectedDexEntry.pokemonSpeciesId,
-                                                patch: {
-                                                    hasLivingEntry: !selectedDexEntry.hasLivingEntry
-                                                }
-                                            });
-                                        }}
-                                    />
-
-                                    <SidebarToggleButton
-                                        label="Caught"
-                                        value={selectedDexEntry.caught}
-                                        onToggle={() => {
-                                            onUpdateDexEntry({
-                                                pokemonSpeciesId: selectedDexEntry.pokemonSpeciesId,
-                                                patch: {
-                                                    caught: !selectedDexEntry.caught
-                                                }
-                                            });
-                                        }}
-                                    />
-
-                                    <SidebarToggleButton
-                                        label="Seen"
-                                        value={selectedDexEntry.seen}
-                                        onToggle={() => {
-                                            onUpdateDexEntry({
-                                                pokemonSpeciesId: selectedDexEntry.pokemonSpeciesId,
-                                                patch: {
-                                                    seen: !selectedDexEntry.seen
-                                                }
-                                            });
-                                        }}
-                                    />
-                                </>
-                            ) : (
-                                <>
-                                    <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
-                                        <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
-                                            In Living Dex
-                                        </span>
-                                        <strong className="text-sm font-extrabold uppercase text-gray-400">
-                                            No
-                                        </strong>
-                                    </div>
-
-                                    <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
-                                        <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
-                                            Caught
-                                        </span>
-                                        <strong className="text-sm font-extrabold uppercase text-gray-400">
-                                            No
-                                        </strong>
-                                    </div>
-
-                                    <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
-                                        <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
-                                            Seen
-                                        </span>
-                                        <strong className="text-sm font-extrabold uppercase text-gray-400">
-                                            No
-                                        </strong>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-
-                        <div className="rounded-xl bg-gray-50 p-4">
-                            <p className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.12em] text-gray-500">
-                                Collection Analysis
+                            <p className="text-center text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
+                                {selectedDexEntry
+                                    ? `Dex No. ${selectedDexEntry.dexNumber.toString().padStart(3, "0")}`
+                                    : "No Selection"}
                             </p>
 
-                            <div className="mb-2 flex items-center justify-between text-sm font-semibold text-gray-700">
-                                <span>Total Completion</span>
-                                <span>{completionPercentage}%</span>
+                            <h3 className="text-center text-2xl font-extrabold tracking-tight text-gray-900">
+                                {selectedDexEntry ? selectedDexEntry.name : "Choose a Pokémon"}
+                            </h3>
+
+                            {selectedDexEntry ? (
+                                <div className="grid gap-2">
+                                    <a
+                                        className="rounded-xl border border-[rgba(130,129,111,0.18)] bg-gray-50 px-3 py-2.5 text-center text-xs font-semibold text-[#38392a] hover:bg-gray-100"
+                                        href={getBulbapediaUrl(selectedDexEntry.name)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                    >
+                                        Open in Bulbapedia
+                                    </a>
+
+                                    <a
+                                        className="rounded-xl border border-[rgba(130,129,111,0.18)] bg-gray-50 px-3 py-2.5 text-center text-xs font-semibold text-[#38392a] hover:bg-gray-100"
+                                        href={getPokemonDbUrl(selectedDexEntry.name)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                    >
+                                        Open in Pokémon DB
+                                    </a>
+
+                                    <a
+                                        className="rounded-xl border border-[rgba(130,129,111,0.18)] bg-gray-50 px-3 py-2.5 text-center text-xs font-semibold text-[#38392a] hover:bg-gray-100"
+                                        href={getSerebiiUrl(selectedDexEntry.dexNumber)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                    >
+                                        Open in Serebii
+                                    </a>
+                                </div>
+                            ) : null}
+
+                            <div className="grid gap-3">
+                                {selectedDexEntry ? (
+                                    <>
+                                        <SidebarToggleButton
+                                            label="In Living Dex"
+                                            value={selectedDexEntry.hasLivingEntry}
+                                            onToggle={() => {
+                                                onUpdateDexEntry({
+                                                    pokemonSpeciesId: selectedDexEntry.pokemonSpeciesId,
+                                                    patch: {
+                                                        hasLivingEntry: !selectedDexEntry.hasLivingEntry
+                                                    }
+                                                });
+                                            }}
+                                        />
+
+                                        <SidebarToggleButton
+                                            label="Caught"
+                                            value={selectedDexEntry.caught}
+                                            onToggle={() => {
+                                                onUpdateDexEntry({
+                                                    pokemonSpeciesId: selectedDexEntry.pokemonSpeciesId,
+                                                    patch: {
+                                                        caught: !selectedDexEntry.caught
+                                                    }
+                                                });
+                                            }}
+                                        />
+
+                                        <SidebarToggleButton
+                                            label="Seen"
+                                            value={selectedDexEntry.seen}
+                                            onToggle={() => {
+                                                onUpdateDexEntry({
+                                                    pokemonSpeciesId: selectedDexEntry.pokemonSpeciesId,
+                                                    patch: {
+                                                        seen: !selectedDexEntry.seen
+                                                    }
+                                                });
+                                            }}
+                                        />
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2.5">
+                                            <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
+                                                In Living Dex
+                                            </span>
+                                            <strong className="text-sm font-extrabold uppercase text-gray-400">
+                                                No
+                                            </strong>
+                                        </div>
+
+                                        <div className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2.5">
+                                            <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
+                                                Caught
+                                            </span>
+                                            <strong className="text-sm font-extrabold uppercase text-gray-400">
+                                                No
+                                            </strong>
+                                        </div>
+
+                                        <div className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2.5">
+                                            <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
+                                                Seen
+                                            </span>
+                                            <strong className="text-sm font-extrabold uppercase text-gray-400">
+                                                No
+                                            </strong>
+                                        </div>
+                                    </>
+                                )}
                             </div>
 
-                            <div className="h-2 overflow-hidden rounded-full bg-gray-200">
-                                <div
-                                    className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-400"
-                                    style={{
-                                        width: `${completionPercentage}%`
-                                    }}
-                                />
+                            <div className="rounded-xl bg-gray-50 p-4">
+                                <p className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.12em] text-gray-500">
+                                    Collection Analysis
+                                </p>
+
+                                <div className="mb-2 flex items-center justify-between text-sm font-semibold text-gray-700">
+                                    <span>Total Completion</span>
+                                    <span>{completionPercentage}%</span>
+                                </div>
+
+                                <div className="h-2 overflow-hidden rounded-full bg-gray-200">
+                                    <div
+                                        className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-400"
+                                        style={{
+                                            width: `${completionPercentage}%`
+                                        }}
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
