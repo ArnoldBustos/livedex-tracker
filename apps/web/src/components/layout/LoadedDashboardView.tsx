@@ -403,6 +403,8 @@ export const LoadedDashboardView = ({
         return filteredDexEntries[0];
     }, [filteredDexEntries, selectedDexNumber]);
 
+    // dashboardSummary derives the active scope counts used by the summary cards and progress labels.
+    // DashboardSummary and the completion bar both read this object so count logic stays centralized.
     const dashboardSummary = useMemo(() => {
         const seenCount = dexEntries.filter((dexEntry) => {
             return dexEntry.seen;
@@ -425,6 +427,7 @@ export const LoadedDashboardView = ({
         }).length;
 
         return {
+            totalCount: dexEntries.length,
             seenCount,
             caughtCount,
             livingCount,
@@ -577,6 +580,8 @@ export const LoadedDashboardView = ({
                         saveProfileName={uploadResponse.saveProfile.name}
                         trainerName={trainerName}
                         gameLabel={uploadResponse.upload.detectedGame || "Unknown Game"}
+                        totalCount={dashboardSummary.totalCount}
+                        seenCount={dashboardSummary.seenCount}
                         caughtCount={dashboardSummary.caughtCount}
                         livingCount={dashboardSummary.livingCount}
                         missingCount={dashboardSummary.missingCount}
