@@ -12,6 +12,34 @@ type DisplayGameLabelParams = {
     unknownLabel?: string;
 };
 
+// getFormattedSupportedGameLabel converts one supported-game enum value into the UI label used across profile and upload surfaces.
+// getDisplayGameLabel uses this so saved-profile rows and exact detected games share the same display formatting.
+const getFormattedSupportedGameLabel = (
+    supportedGame: UploadResponse["saveProfile"]["game"]
+) => {
+    if (supportedGame === "RUBY") {
+        return "Ruby";
+    }
+
+    if (supportedGame === "SAPPHIRE") {
+        return "Sapphire";
+    }
+
+    if (supportedGame === "EMERALD") {
+        return "Emerald";
+    }
+
+    if (supportedGame === "FIRERED") {
+        return "FireRed";
+    }
+
+    if (supportedGame === "LEAFGREEN") {
+        return "LeafGreen";
+    }
+
+    return null;
+};
+
 // getDisplayGameLabel maps exact games and layout-family fallbacks into one consistent dashboard label.
 export const getDisplayGameLabel = ({
     detectedGame,
@@ -19,44 +47,16 @@ export const getDisplayGameLabel = ({
     saveProfileGame,
     unknownLabel = "Unknown Game"
 }: DisplayGameLabelParams): string => {
-    if (saveProfileGame === "RUBY") {
-        return "Ruby";
+    const formattedSaveProfileGameLabel = getFormattedSupportedGameLabel(saveProfileGame);
+
+    if (formattedSaveProfileGameLabel) {
+        return formattedSaveProfileGameLabel;
     }
 
-    if (saveProfileGame === "SAPPHIRE") {
-        return "Sapphire";
-    }
+    const formattedDetectedGameLabel = getFormattedSupportedGameLabel(detectedGame);
 
-    if (saveProfileGame === "EMERALD") {
-        return "Emerald";
-    }
-
-    if (saveProfileGame === "FIRERED") {
-        return "FireRed";
-    }
-
-    if (saveProfileGame === "LEAFGREEN") {
-        return "LeafGreen";
-    }
-
-    if (detectedGame === "RUBY") {
-        return "Ruby";
-    }
-
-    if (detectedGame === "SAPPHIRE") {
-        return "Sapphire";
-    }
-
-    if (detectedGame === "EMERALD") {
-        return "Emerald";
-    }
-
-    if (detectedGame === "FIRERED") {
-        return "FireRed";
-    }
-
-    if (detectedGame === "LEAFGREEN") {
-        return "LeafGreen";
+    if (formattedDetectedGameLabel) {
+        return formattedDetectedGameLabel;
     }
 
     if (detectedLayout === "RUBY_SAPPHIRE") {

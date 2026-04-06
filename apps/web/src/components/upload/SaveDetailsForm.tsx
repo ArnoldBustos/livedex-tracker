@@ -42,7 +42,7 @@ const gameSelectionOptions: Array<{
 });
 
 // SaveDetailsForm renders the shared save identity dialog used by setup flows.
-// App.tsx opens this for manual entry now and for upload naming so setup logic stays centralized.
+// App.tsx opens this for manual entry, upload naming, and profile edits so setup logic stays centralized in one dashboard-aligned modal.
 export const SaveDetailsForm = ({
     isOpen,
     title,
@@ -97,17 +97,17 @@ export const SaveDetailsForm = ({
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#202018]/60 px-4">
-            <div className="w-full max-w-[560px] rounded-3xl bg-[#fbf8df] p-6 text-[#38392a] shadow-[0_24px_80px_rgba(32,32,24,0.28)]">
-                <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#7a7b5c]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(17,24,39,0.42)] px-4 backdrop-blur-[2px]">
+            <div className="w-full max-w-[560px] rounded-3xl border border-gray-200 bg-white p-6 text-[#38392a] shadow-[0_24px_80px_rgba(15,23,42,0.18)]">
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
                     Save Setup
                 </p>
 
-                <h2 className="mt-3 text-3xl font-extrabold tracking-tight">
+                <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-gray-900">
                     {title}
                 </h2>
 
-                <p className="mt-3 text-[15px] leading-6 text-[#56573f]">
+                <p className="mt-3 text-[15px] leading-6 text-gray-600">
                     {description}
                 </p>
 
@@ -115,14 +115,14 @@ export const SaveDetailsForm = ({
                     <div className="grid gap-2">
                         <label
                             htmlFor="save-details-display-name"
-                            className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-[#6a6b4d]"
+                            className="text-[13px] font-semibold text-gray-700"
                         >
-                            Save Name
+                            Save name
                         </label>
 
                         <input
                             id="save-details-display-name"
-                            className="min-h-[48px] rounded-xl border border-[#d7d3ae] bg-white px-4 text-[14px] text-[#30311f] outline-none transition focus:border-[#91945c]"
+                            className="min-h-[48px] rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-gray-900 outline-none transition focus:border-[#6b7a34] focus:ring-2 focus:ring-[rgba(107,122,52,0.14)]"
                             type="text"
                             value={draftIdentity.displayName}
                             onChange={(event) => {
@@ -140,14 +140,14 @@ export const SaveDetailsForm = ({
                         <div className="grid gap-2">
                             <label
                                 htmlFor="save-details-trainer-name"
-                                className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-[#6a6b4d]"
+                                className="text-[13px] font-semibold text-gray-700"
                             >
                                 Trainer Name
                             </label>
 
                             <input
                                 id="save-details-trainer-name"
-                                className="min-h-[48px] rounded-xl border border-[#d7d3ae] bg-white px-4 text-[14px] text-[#30311f] outline-none transition focus:border-[#91945c]"
+                                className="min-h-[48px] rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-gray-900 outline-none transition focus:border-[#6b7a34] focus:ring-2 focus:ring-[rgba(107,122,52,0.14)]"
                                 type="text"
                                 value={draftIdentity.trainerName}
                                 onChange={(event) => {
@@ -166,14 +166,14 @@ export const SaveDetailsForm = ({
                         <div className="grid gap-2">
                             <label
                                 htmlFor="save-details-game"
-                                className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-[#6a6b4d]"
+                                className="text-[13px] font-semibold text-gray-700"
                             >
                                 Game
                             </label>
 
                             <select
                                 id="save-details-game"
-                                className="min-h-[48px] rounded-xl border border-[#d7d3ae] bg-white px-4 text-[14px] text-[#30311f] outline-none transition focus:border-[#91945c]"
+                                className="min-h-[48px] rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-gray-900 outline-none transition focus:border-[#6b7a34] focus:ring-2 focus:ring-[rgba(107,122,52,0.14)]"
                                 value={draftIdentity.game ? draftIdentity.game : ""}
                                 onChange={(event) => {
                                     setDraftIdentity(
@@ -207,7 +207,7 @@ export const SaveDetailsForm = ({
                     <div className="mt-2 flex justify-end gap-3">
                         <button
                             type="button"
-                            className="rounded-full border border-[#c8c49a] px-4 py-2 text-[13px] font-bold uppercase tracking-[0.08em] text-[#5b5c43] transition hover:border-[#8d8e62] hover:text-[#38392a] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-[14px] font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
                             onClick={onCancel}
                             disabled={isSubmitting}
                         >
@@ -216,7 +216,7 @@ export const SaveDetailsForm = ({
 
                         <button
                             type="submit"
-                            className="rounded-full bg-[#6b7a34] px-5 py-2 text-[13px] font-bold uppercase tracking-[0.08em] text-white transition hover:bg-[#5a672b] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-xl bg-[#6b7a34] px-5 py-2.5 text-[14px] font-semibold text-white transition hover:bg-[#5a672b] disabled:cursor-not-allowed disabled:opacity-60"
                             disabled={isSubmitting}
                         >
                             {isSubmitting ? "Working..." : confirmLabel}

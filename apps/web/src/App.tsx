@@ -304,6 +304,8 @@ const App = () => {
   const [selectedGridDensity, setSelectedGridDensity] = useState<DexGridDensity>("default");
   const [selectedDexNumber, setSelectedDexNumber] = useState<number | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoadingSaveProfiles, setIsLoadingSaveProfiles] = useState(false);
+  const [openingSaveProfileId, setOpeningSaveProfileId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [currentUser, setCurrentUser] = useState<StoredUser | null>(restoredSession.user);
   const [sessionMode, setSessionMode] = useState<SessionMode>(restoredSession.mode);
@@ -613,15 +615,19 @@ const App = () => {
     if (!currentUser || sessionMode !== "user") {
       setSaveProfiles([]);
       setActiveSaveProfileId(null);
+      setIsLoadingSaveProfiles(false);
       return;
     }
 
     const loadSaveProfiles = async () => {
       try {
+        setIsLoadingSaveProfiles(true);
         const parsedSaveProfiles = await fetchSaveProfiles(currentUser);
         setSaveProfiles(parsedSaveProfiles);
       } catch (error) {
         console.error("Failed to fetch save profiles", error);
+      } finally {
+        setIsLoadingSaveProfiles(false);
       }
     };
 
@@ -635,6 +641,7 @@ const App = () => {
     setDexResponse(null);
     setGuestDexOverrides({});
     setActiveSaveProfileId(null);
+    setOpeningSaveProfileId(null);
     setPendingManualGameSelection(null);
     setPendingSaveSetup(null);
     setPendingSaveProfileEdit(null);
@@ -643,6 +650,49 @@ const App = () => {
     setSelectedScope("regional");
     setIsUploading(false);
     setErrorMessage("");
+  };
+
+  // loadSaveProfileIntoDashboard loads one persisted save profile into the main dashboard state.
+  // EmptyStateView and LoadedDashboardView call through this so signed-in save opening stays in one modular path.
+  const loadSaveProfileIntoDashboard = async (saveProfileId: string) => {
+    if (!currentUser) {
+      setErrorMessage("No user is currently signed in.");
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      setOpeningSaveProfileId(saveProfileId);
+      setErrorMessage("");
+      setPendingManualGameSelection(null);
+      setPendingSaveSetup(null);
+
+      const nextUploadResponse = await fetchSaveProfileById(saveProfileId, currentUser);
+      const nextDexResponse = nextUploadResponse.dex
+        ? nextUploadResponse.dex
+        : await fetchDexBySaveProfileId(saveProfileId, currentUser);
+
+      setUploadResponse(getUploadResponseWithIdentity(nextUploadResponse));
+      setDexResponse(nextDexResponse);
+      setGuestDexOverrides({});
+      setActiveSaveProfileId(saveProfileId);
+      setSelectedFilter("all");
+      setSelectedScope(getDefaultDexScopeFromUploadResponse(nextUploadResponse));
+
+      if (nextDexResponse.entries.length > 0) {
+        setSelectedDexNumber(nextDexResponse.entries[0].dexNumber);
+      } else {
+        setSelectedDexNumber(null);
+      }
+    } catch (error) {
+      console.error("Failed to load save profile", error);
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to load save profile"
+      );
+    } finally {
+      setOpeningSaveProfileId(null);
+      setIsUploading(false);
+    }
   };
 
   // handleUploadSuccess finalizes one completed upload and moves the app into the loaded dashboard state.
@@ -1069,40 +1119,7 @@ const App = () => {
       return;
     }
 
-    if (!currentUser) {
-      setErrorMessage("No user is currently signed in.");
-      return;
-    }
-
-    try {
-      setIsUploading(true);
-      setErrorMessage("");
-
-      const nextUploadResponse = await fetchSaveProfileById(saveProfileId, currentUser);
-      const nextDexResponse = nextUploadResponse.dex
-        ? nextUploadResponse.dex
-        : await fetchDexBySaveProfileId(saveProfileId, currentUser);
-
-      setUploadResponse(getUploadResponseWithIdentity(nextUploadResponse));
-      setDexResponse(nextDexResponse);
-      setGuestDexOverrides({});
-      setActiveSaveProfileId(saveProfileId);
-      setSelectedFilter("all");
-      setSelectedScope(getDefaultDexScopeFromUploadResponse(nextUploadResponse));
-
-      if (nextDexResponse.entries.length > 0) {
-        setSelectedDexNumber(nextDexResponse.entries[0].dexNumber);
-      } else {
-        setSelectedDexNumber(null);
-      }
-    } catch (error) {
-      console.error("Failed to switch save profile", error);
-      setErrorMessage(
-        error instanceof Error ? error.message : "Failed to switch save profile"
-      );
-    } finally {
-      setIsUploading(false);
-    }
+    await loadSaveProfileIntoDashboard(saveProfileId);
   };
 
   // handleDeleteProfile removes one persisted profile and clears the dashboard if it was active.
@@ -1333,12 +1350,17 @@ const App = () => {
   if (!uploadResponse || !displayedDexResponse) {
     return (
       <>
-        <div className="min-h-screen bg-[#f6f5dc] text-[#38392a]">
+        <div className="min-h-screen bg-[#f3f4f6] text-[#38392a]">
           <EmptyStateView
+            isSignedIn={!isGuestMode}
             isUploading={isUploading}
+            isLoadingSaveProfiles={isLoadingSaveProfiles}
+            openingSaveProfileId={openingSaveProfileId}
             errorMessage={errorMessage}
+            saveProfiles={saveProfiles}
             onSelectUploadFile={handleSelectUploadFile}
             onCreateManualEntry={handleCreateManualEntry}
+            onOpenExistingSave={loadSaveProfileIntoDashboard}
             onUploadError={handleUploadError}
           />
         </div>
@@ -1346,17 +1368,17 @@ const App = () => {
           isOpen={pendingSaveSetup !== null}
           title={
             pendingSaveSetup && pendingSaveSetup.file
-              ? "Name this uploaded save"
+              ? "Name your save"
               : "Create a manual save shell"
           }
           description={
             pendingSaveSetup && pendingSaveSetup.file
-              ? "Confirm the save label before the upload starts. Game detection still comes from the uploaded file."
+              ? "Choose a name for this uploaded save file."
               : "Choose the game and identity details for a blank tracker shell."
           }
           confirmLabel={
             pendingSaveSetup && pendingSaveSetup.file
-              ? "Start Upload"
+              ? "Start upload"
               : "Create Save"
           }
           isSubmitting={isUploading}
