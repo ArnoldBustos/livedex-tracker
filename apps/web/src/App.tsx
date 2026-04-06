@@ -326,7 +326,7 @@ const App = () => {
     );
 
   // getCollectionLayerPatchValues reads one layer's visible booleans before a manual edit is normalized.
-  // App.tsx uses this so standard and shiny edits share the stricter toggle rules without duplicating branch logic.
+  // App.tsx uses this so standard and shiny edits share the same living -> caught -> seen -> missing tier rules.
   const getCollectionLayerPatchValues = ({
     currentEntry,
     layerKey,
@@ -356,31 +356,21 @@ const App = () => {
       nextLayerState.hasLivingEntry = patchLayer.hasLivingEntry;
     }
 
-    if (nextLayerState.hasLivingEntry) {
-      nextLayerState.seen = true;
-      nextLayerState.caught = true;
-    }
-
-    if (nextLayerState.caught) {
-      nextLayerState.seen = true;
-    }
-
     if (patchLayer && patchLayer.seen === false) {
       nextLayerState.caught = false;
       nextLayerState.hasLivingEntry = false;
     }
 
     if (patchLayer && patchLayer.caught === false) {
-      nextLayerState.seen = false;
       nextLayerState.hasLivingEntry = false;
     }
 
-    if (nextLayerState.hasLivingEntry && !nextLayerState.caught) {
+    if (nextLayerState.hasLivingEntry) {
       nextLayerState.caught = true;
       nextLayerState.seen = true;
     }
 
-    if (nextLayerState.caught && !nextLayerState.seen) {
+    if (nextLayerState.caught) {
       nextLayerState.seen = true;
     }
 
@@ -528,7 +518,7 @@ const App = () => {
       ? getMergedGuestDexResponse(dexResponse, guestDexOverrides)
       : dexResponse;
 
-  // getNormalizedDexEntryPatch applies the dex hierarchy before any guest or backend update is saved.
+  // getNormalizedDexEntryPatch applies the dex tier hierarchy before any guest or backend update is saved.
   // handleUpdateDexEntry uses this so seen, caught, and living stay consistent across both edit paths.
   const getNormalizedDexEntryPatch = ({
     pokemonSpeciesId,

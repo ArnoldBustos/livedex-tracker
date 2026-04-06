@@ -167,139 +167,120 @@ const buildLayeredDexSummary = (layeredEntries: Array<{
     };
 };
 
-// normalizeDexOverrideState enforces the manual toggle rules for one nullable override layer.
-// updateSaveProfileDexOverride uses this so signed-in standard and shiny writes follow the same state transitions as the dashboard.
-const normalizeDexOverrideState = ({
-    overrideState,
+// normalizeDexLayerState enforces the manual toggle rules for one resolved collection layer.
+// updateSaveProfileDexOverride uses this so signed-in standard and shiny writes follow the same living -> caught -> seen -> missing tier transitions as the dashboard.
+const normalizeDexLayerState = ({
+    layerState,
     overridePatch
 }: {
-    overrideState: DexOverrideState;
+    layerState: DexState;
     overridePatch?: SaveProfileDexOverridePatch["standard"];
-}): DexOverrideState => {
-    const nextOverrideState = {
-        seen: overrideState.seen,
-        caught: overrideState.caught,
-        hasLivingEntry: overrideState.hasLivingEntry
+}): DexState => {
+    const nextLayerState = {
+        seen: layerState.seen,
+        caught: layerState.caught,
+        hasLivingEntry: layerState.hasLivingEntry
     };
 
-    if (nextOverrideState.hasLivingEntry === true) {
-        nextOverrideState.seen = true;
-        nextOverrideState.caught = true;
+    if (overridePatch && typeof overridePatch.seen === "boolean") {
+        nextLayerState.seen = overridePatch.seen;
     }
 
-    if (nextOverrideState.caught === true) {
-        nextOverrideState.seen = true;
+    if (overridePatch && typeof overridePatch.caught === "boolean") {
+        nextLayerState.caught = overridePatch.caught;
+    }
+
+    if (overridePatch && typeof overridePatch.hasLivingEntry === "boolean") {
+        nextLayerState.hasLivingEntry = overridePatch.hasLivingEntry;
     }
 
     if (overridePatch && overridePatch.seen === false) {
-        nextOverrideState.caught = false;
-        nextOverrideState.hasLivingEntry = false;
+        nextLayerState.caught = false;
+        nextLayerState.hasLivingEntry = false;
     }
 
     if (overridePatch && overridePatch.caught === false) {
-        nextOverrideState.seen = false;
-        nextOverrideState.hasLivingEntry = false;
+        nextLayerState.hasLivingEntry = false;
     }
 
-    if (nextOverrideState.hasLivingEntry === true && nextOverrideState.caught !== true) {
-        nextOverrideState.caught = true;
-        nextOverrideState.seen = true;
+    if (nextLayerState.hasLivingEntry) {
+        nextLayerState.caught = true;
+        nextLayerState.seen = true;
     }
 
-    if (nextOverrideState.caught === true && nextOverrideState.seen !== true) {
-        nextOverrideState.seen = true;
+    if (nextLayerState.caught) {
+        nextLayerState.seen = true;
     }
 
-    return nextOverrideState;
+    return nextLayerState;
 };
 
-// getNextOverrideFieldValue resolves one nullable override field from one layer patch and any stored override row.
-// updateSaveProfileDexOverride uses this so standard and shiny override writes share the same field merge logic.
-const getNextOverrideFieldValue = ({
-    overridePatch,
-    existingOverride,
-    fieldName
+// getOverrideFieldValue converts one resolved boolean back into a nullable override field.
+// getLayeredOverrideState uses this so stored override rows only keep values that differ from imported dex state.
+const getOverrideFieldValue = ({
+    importedValue,
+    nextValue
 }: {
-    overridePatch?: SaveProfileDexOverridePatch["standard"];
-    existingOverride?: DexOverrideState | null;
-    fieldName: keyof DexOverrideState;
+    importedValue: boolean;
+    nextValue: boolean;
 }) => {
-    if (overridePatch && Object.prototype.hasOwnProperty.call(overridePatch, fieldName)) {
-        const nextFieldValue = overridePatch[fieldName];
-
-        return nextFieldValue === undefined ? null : nextFieldValue;
-    }
-
-    if (existingOverride) {
-        return existingOverride[fieldName];
-    }
-
-    return null;
+    return importedValue === nextValue ? null : nextValue;
 };
 
 // getLayeredOverrideState builds the next normalized standard and shiny override rows from one layered patch.
-// updateSaveProfileDexOverride uses this so both collection layers stay modular and structurally parallel.
+// updateSaveProfileDexOverride uses this so both collection layers stay modular and store only deltas from imported state.
 const getLayeredOverrideState = ({
     overridePatch,
-    existingOverride
+    currentLayeredState,
+    importedState
 }: {
     overridePatch: SaveProfileDexOverridePatch;
-    existingOverride?: {
-        seen: boolean | null;
-        caught: boolean | null;
-        hasLivingEntry: boolean | null;
-        shinySeen: boolean | null;
-        shinyCaught: boolean | null;
-        shinyLiving: boolean | null;
-    } | null;
+    currentLayeredState: LayeredDexState;
+    importedState?: ImportedDexEntryState;
 }): LayeredDexOverrideState => {
-    const getExistingLayerOverrideState = (layerKey: "standard" | "shiny"): DexOverrideState => {
-        if (!existingOverride) {
-            return {
-                seen: null,
-                caught: null,
-                hasLivingEntry: null
-            };
-        }
-
+    // getImportedLayerState reads one layer's imported booleans so override storage can stay minimal.
+    // getLayeredOverrideState uses this to null out fields that match the underlying imported dex state.
+    const getImportedLayerState = (layerKey: "standard" | "shiny"): DexState => {
         if (layerKey === "standard") {
             return {
-                seen: existingOverride.seen,
-                caught: existingOverride.caught,
-                hasLivingEntry: existingOverride.hasLivingEntry
+                seen: importedState ? importedState.seen : false,
+                caught: importedState ? importedState.caught : false,
+                hasLivingEntry: importedState ? importedState.hasLivingEntry : false
             };
         }
 
         return {
-            seen: existingOverride.shinySeen,
-            caught: existingOverride.shinyCaught,
-            hasLivingEntry: existingOverride.shinyLiving
+            seen: importedState ? importedState.shinySeen : false,
+            caught: importedState ? importedState.shinyCaught : false,
+            hasLivingEntry: importedState ? importedState.shinyLiving : false
         };
     };
+
+    // getNextLayerOverrideState normalizes one visible layer and reduces it back to imported-relative override fields.
+    // getLayeredOverrideState uses this so standard and shiny persistence stay structurally parallel.
     const getNextLayerOverrideState = (layerKey: "standard" | "shiny"): DexOverrideState => {
         const layerPatch = overridePatch[layerKey];
-        const existingLayerOverrideState = getExistingLayerOverrideState(layerKey);
-
-        return normalizeDexOverrideState({
-            overrideState: {
-                seen: getNextOverrideFieldValue({
-                    overridePatch: layerPatch,
-                    existingOverride: existingLayerOverrideState,
-                    fieldName: "seen"
-                }),
-                caught: getNextOverrideFieldValue({
-                    overridePatch: layerPatch,
-                    existingOverride: existingLayerOverrideState,
-                    fieldName: "caught"
-                }),
-                hasLivingEntry: getNextOverrideFieldValue({
-                    overridePatch: layerPatch,
-                    existingOverride: existingLayerOverrideState,
-                    fieldName: "hasLivingEntry"
-                })
-            },
+        const importedLayerState = getImportedLayerState(layerKey);
+        const currentLayerState = currentLayeredState[layerKey];
+        const nextLayerState = normalizeDexLayerState({
+            layerState: currentLayerState,
             overridePatch: layerPatch
         });
+
+        return {
+            seen: getOverrideFieldValue({
+                importedValue: importedLayerState.seen,
+                nextValue: nextLayerState.seen
+            }),
+            caught: getOverrideFieldValue({
+                importedValue: importedLayerState.caught,
+                nextValue: nextLayerState.caught
+            }),
+            hasLivingEntry: getOverrideFieldValue({
+                importedValue: importedLayerState.hasLivingEntry,
+                nextValue: nextLayerState.hasLivingEntry
+            })
+        };
     };
 
     return {
@@ -702,6 +683,25 @@ export const updateSaveProfileDexOverride = async ({
     await assertOwnedSaveProfile(userId, saveProfileId);
     await assertExistingPokemonSpecies(pokemonSpeciesId);
 
+    const importedState = await prismaClient.saveProfileDexEntry.findUnique({
+        where: {
+            saveProfileId_pokemonSpeciesId: {
+                saveProfileId,
+                pokemonSpeciesId
+            }
+        },
+        select: {
+            seen: true,
+            caught: true,
+            hasLivingEntry: true,
+            shinySeen: true,
+            shinyCaught: true,
+            shinyLiving: true,
+            totalOwnedCount: true,
+            shinyOwnedCount: true
+        }
+    });
+
     const existingOverride = await prismaClient.saveProfileDexOverride.findUnique({
         where: {
             saveProfileId_pokemonSpeciesId: {
@@ -720,9 +720,17 @@ export const updateSaveProfileDexOverride = async ({
         }
     });
 
+    // currentLayeredState resolves the visible booleans before applying the next patch.
+    // updateSaveProfileDexOverride uses this so one click can demote from living to seen or missing without stale override-only baselines.
+    const currentLayeredState = getResolvedLayeredDexEntryState({
+        importedState: importedState ? importedState : undefined,
+        overrideState: existingOverride ? existingOverride : undefined
+    });
+
     const nextLayeredOverrideState = getLayeredOverrideState({
         overridePatch,
-        existingOverride
+        currentLayeredState,
+        importedState: importedState ? importedState : undefined
     });
 
     if (!hasAnyLayeredOverrideValue(nextLayeredOverrideState)) {
