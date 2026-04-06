@@ -38,6 +38,11 @@ type DexOverrideState = {
     hasLivingEntry: boolean | null;
 };
 
+type LayeredDexOverrideState = {
+    standard: DexOverrideState;
+    shiny: DexOverrideState;
+};
+
 type LayeredDexState = {
     standard: DexState;
     shiny: DexState;
@@ -107,6 +112,34 @@ const buildDefaultOwnershipState = (): DexOwnershipState => {
     };
 };
 
+// getResolvedOwnershipState projects visible owned counters from imported ownership and resolved collection state.
+// getSaveProfileDex uses this so sidebar ownership counts stay aligned with manual standard and shiny overrides.
+const getResolvedOwnershipState = ({
+    importedOwnershipState,
+    resolvedLayeredState
+}: {
+    importedOwnershipState?: DexOwnershipState;
+    resolvedLayeredState: LayeredDexState;
+}): DexOwnershipState => {
+    const importedTotalOwnedCount = importedOwnershipState ? importedOwnershipState.totalOwnedCount : 0;
+    const importedShinyOwnedCount = importedOwnershipState ? importedOwnershipState.shinyOwnedCount : 0;
+    const hasResolvedStandardOwnership =
+        resolvedLayeredState.standard.caught || resolvedLayeredState.standard.hasLivingEntry;
+    const hasResolvedShinyOwnership =
+        resolvedLayeredState.shiny.caught || resolvedLayeredState.shiny.hasLivingEntry;
+    const resolvedShinyOwnedCount = hasResolvedShinyOwnership
+        ? Math.max(importedShinyOwnedCount, 1)
+        : 0;
+    const resolvedStandardOwnedCount = hasResolvedStandardOwnership
+        ? Math.max(importedTotalOwnedCount, 1)
+        : 0;
+
+    return {
+        totalOwnedCount: Math.max(resolvedStandardOwnedCount, resolvedShinyOwnedCount),
+        shinyOwnedCount: resolvedShinyOwnedCount
+    };
+};
+
 // buildLayeredDexSummary creates the layered summary payload from separated collection and ownership layers.
 // getEmptyDex and getSaveProfileDex use this so summary generation matches the imported snapshot model.
 const buildLayeredDexSummary = (layeredEntries: Array<{
@@ -134,9 +167,15 @@ const buildLayeredDexSummary = (layeredEntries: Array<{
     };
 };
 
-// normalizeDexOverrideState enforces the seen -> caught -> living hierarchy for nullable override rows.
-// updateSaveProfileDexOverride uses this so API writes match the dashboard's manual edit rules.
-const normalizeDexOverrideState = (overrideState: DexOverrideState): DexOverrideState => {
+// normalizeDexOverrideState enforces the manual toggle rules for one nullable override layer.
+// updateSaveProfileDexOverride uses this so signed-in standard and shiny writes follow the same state transitions as the dashboard.
+const normalizeDexOverrideState = ({
+    overrideState,
+    overridePatch
+}: {
+    overrideState: DexOverrideState;
+    overridePatch?: SaveProfileDexOverridePatch["standard"];
+}): DexOverrideState => {
     const nextOverrideState = {
         seen: overrideState.seen,
         caught: overrideState.caught,
@@ -152,20 +191,30 @@ const normalizeDexOverrideState = (overrideState: DexOverrideState): DexOverride
         nextOverrideState.seen = true;
     }
 
-    if (nextOverrideState.seen === false) {
+    if (overridePatch && overridePatch.seen === false) {
         nextOverrideState.caught = false;
         nextOverrideState.hasLivingEntry = false;
     }
 
-    if (nextOverrideState.caught === false) {
+    if (overridePatch && overridePatch.caught === false) {
+        nextOverrideState.seen = false;
         nextOverrideState.hasLivingEntry = false;
+    }
+
+    if (nextOverrideState.hasLivingEntry === true && nextOverrideState.caught !== true) {
+        nextOverrideState.caught = true;
+        nextOverrideState.seen = true;
+    }
+
+    if (nextOverrideState.caught === true && nextOverrideState.seen !== true) {
+        nextOverrideState.seen = true;
     }
 
     return nextOverrideState;
 };
 
-// getNextOverrideFieldValue resolves one nullable override field from a layered patch and any stored override row.
-// updateSaveProfileDexOverride uses this so standard override writes stay centralized and layered-ready.
+// getNextOverrideFieldValue resolves one nullable override field from one layer patch and any stored override row.
+// updateSaveProfileDexOverride uses this so standard and shiny override writes share the same field merge logic.
 const getNextOverrideFieldValue = ({
     overridePatch,
     existingOverride,
@@ -186,6 +235,77 @@ const getNextOverrideFieldValue = ({
     }
 
     return null;
+};
+
+// getLayeredOverrideState builds the next normalized standard and shiny override rows from one layered patch.
+// updateSaveProfileDexOverride uses this so both collection layers stay modular and structurally parallel.
+const getLayeredOverrideState = ({
+    overridePatch,
+    existingOverride
+}: {
+    overridePatch: SaveProfileDexOverridePatch;
+    existingOverride?: {
+        seen: boolean | null;
+        caught: boolean | null;
+        hasLivingEntry: boolean | null;
+        shinySeen: boolean | null;
+        shinyCaught: boolean | null;
+        shinyLiving: boolean | null;
+    } | null;
+}): LayeredDexOverrideState => {
+    const getExistingLayerOverrideState = (layerKey: "standard" | "shiny"): DexOverrideState => {
+        if (!existingOverride) {
+            return {
+                seen: null,
+                caught: null,
+                hasLivingEntry: null
+            };
+        }
+
+        if (layerKey === "standard") {
+            return {
+                seen: existingOverride.seen,
+                caught: existingOverride.caught,
+                hasLivingEntry: existingOverride.hasLivingEntry
+            };
+        }
+
+        return {
+            seen: existingOverride.shinySeen,
+            caught: existingOverride.shinyCaught,
+            hasLivingEntry: existingOverride.shinyLiving
+        };
+    };
+    const getNextLayerOverrideState = (layerKey: "standard" | "shiny"): DexOverrideState => {
+        const layerPatch = overridePatch[layerKey];
+        const existingLayerOverrideState = getExistingLayerOverrideState(layerKey);
+
+        return normalizeDexOverrideState({
+            overrideState: {
+                seen: getNextOverrideFieldValue({
+                    overridePatch: layerPatch,
+                    existingOverride: existingLayerOverrideState,
+                    fieldName: "seen"
+                }),
+                caught: getNextOverrideFieldValue({
+                    overridePatch: layerPatch,
+                    existingOverride: existingLayerOverrideState,
+                    fieldName: "caught"
+                }),
+                hasLivingEntry: getNextOverrideFieldValue({
+                    overridePatch: layerPatch,
+                    existingOverride: existingLayerOverrideState,
+                    fieldName: "hasLivingEntry"
+                })
+            },
+            overridePatch: layerPatch
+        });
+    };
+
+    return {
+        standard: getNextLayerOverrideState("standard"),
+        shiny: getNextLayerOverrideState("shiny")
+    };
 };
 
 // syncSaveProfileDexFromParse stores the imported save snapshot for one profile.
@@ -392,7 +512,10 @@ const getOverrideDexEntryMap = async (saveProfileId: string) => {
             pokemonSpeciesId: true,
             seen: true,
             caught: true,
-            hasLivingEntry: true
+            hasLivingEntry: true,
+            shinySeen: true,
+            shinyCaught: true,
+            shinyLiving: true
         }
     });
 
@@ -410,7 +533,14 @@ const getResolvedLayeredDexEntryState = ({
     overrideState
 }: {
     importedState?: ImportedDexEntryState;
-    overrideState?: DexOverrideState;
+    overrideState?: {
+        seen: boolean | null;
+        caught: boolean | null;
+        hasLivingEntry: boolean | null;
+        shinySeen: boolean | null;
+        shinyCaught: boolean | null;
+        shinyLiving: boolean | null;
+    };
 }): LayeredDexState => {
     const baseState: DexState = {
         seen: importedState ? importedState.seen : false,
@@ -432,7 +562,14 @@ const getResolvedLayeredDexEntryState = ({
                 overrideState ? overrideState.hasLivingEntry : undefined
             )
         },
-        shiny: shinyState
+        shiny: {
+            seen: resolveOverrideValue(shinyState.seen, overrideState ? overrideState.shinySeen : undefined),
+            caught: resolveOverrideValue(shinyState.caught, overrideState ? overrideState.shinyCaught : undefined),
+            hasLivingEntry: resolveOverrideValue(
+                shinyState.hasLivingEntry,
+                overrideState ? overrideState.shinyLiving : undefined
+            )
+        }
     };
 };
 
@@ -471,14 +608,20 @@ const assertExistingPokemonSpecies = async (pokemonSpeciesId: number) => {
     }
 };
 
-// hasAnyOverrideValue checks whether a patch still contains at least one persisted override field.
-// updateSaveProfileDexOverride uses this to delete empty override rows instead of storing null-only rows.
+// hasAnyOverrideValue checks whether one override layer still contains at least one persisted field.
+// updateSaveProfileDexOverride uses this so null-only standard or shiny layers do not count as stored overrides.
 const hasAnyOverrideValue = (overrideState: DexOverrideState) => {
     return (
         typeof overrideState.seen === "boolean" ||
         typeof overrideState.caught === "boolean" ||
         typeof overrideState.hasLivingEntry === "boolean"
     );
+};
+
+// hasAnyLayeredOverrideValue checks whether either override layer still contains a persisted field.
+// updateSaveProfileDexOverride uses this to delete empty override rows instead of storing null-only standard and shiny state.
+const hasAnyLayeredOverrideValue = (layeredOverrideState: LayeredDexOverrideState) => {
+    return hasAnyOverrideValue(layeredOverrideState.standard) || hasAnyOverrideValue(layeredOverrideState.shiny);
 };
 
 // getSaveProfileDex returns the resolved dex payload for one save profile.
@@ -495,16 +638,20 @@ export const getSaveProfileDex = async (saveProfileId: string) => {
             importedState: importedDexEntry,
             overrideState: overrideDexEntryBySpeciesId.get(species.id)
         });
-
-        return {
-            species,
-            collectionState: resolvedLayeredState,
-            ownershipState: importedDexEntry
+        const resolvedOwnershipState = getResolvedOwnershipState({
+            importedOwnershipState: importedDexEntry
                 ? {
                     totalOwnedCount: importedDexEntry.totalOwnedCount,
                     shinyOwnedCount: importedDexEntry.shinyOwnedCount
                 }
-                : buildDefaultOwnershipState()
+                : undefined,
+            resolvedLayeredState
+        });
+
+        return {
+            species,
+            collectionState: resolvedLayeredState,
+            ownershipState: resolvedOwnershipState
         };
     });
 
@@ -566,29 +713,19 @@ export const updateSaveProfileDexOverride = async ({
             id: true,
             seen: true,
             caught: true,
-            hasLivingEntry: true
+            hasLivingEntry: true,
+            shinySeen: true,
+            shinyCaught: true,
+            shinyLiving: true
         }
     });
 
-    const nextOverrideState = normalizeDexOverrideState({
-        seen: getNextOverrideFieldValue({
-            overridePatch: overridePatch.standard,
-            existingOverride,
-            fieldName: "seen"
-        }),
-        caught: getNextOverrideFieldValue({
-            overridePatch: overridePatch.standard,
-            existingOverride,
-            fieldName: "caught"
-        }),
-        hasLivingEntry: getNextOverrideFieldValue({
-            overridePatch: overridePatch.standard,
-            existingOverride,
-            fieldName: "hasLivingEntry"
-        })
+    const nextLayeredOverrideState = getLayeredOverrideState({
+        overridePatch,
+        existingOverride
     });
 
-    if (!hasAnyOverrideValue(nextOverrideState)) {
+    if (!hasAnyLayeredOverrideValue(nextLayeredOverrideState)) {
         if (existingOverride) {
             await prismaClient.saveProfileDexOverride.delete({
                 where: {
@@ -607,13 +744,23 @@ export const updateSaveProfileDexOverride = async ({
                 pokemonSpeciesId
             }
         },
-        update: nextOverrideState,
+        update: {
+            seen: nextLayeredOverrideState.standard.seen,
+            caught: nextLayeredOverrideState.standard.caught,
+            hasLivingEntry: nextLayeredOverrideState.standard.hasLivingEntry,
+            shinySeen: nextLayeredOverrideState.shiny.seen,
+            shinyCaught: nextLayeredOverrideState.shiny.caught,
+            shinyLiving: nextLayeredOverrideState.shiny.hasLivingEntry
+        },
         create: {
             saveProfileId,
             pokemonSpeciesId,
-            seen: nextOverrideState.seen,
-            caught: nextOverrideState.caught,
-            hasLivingEntry: nextOverrideState.hasLivingEntry
+            seen: nextLayeredOverrideState.standard.seen,
+            caught: nextLayeredOverrideState.standard.caught,
+            hasLivingEntry: nextLayeredOverrideState.standard.hasLivingEntry,
+            shinySeen: nextLayeredOverrideState.shiny.seen,
+            shinyCaught: nextLayeredOverrideState.shiny.caught,
+            shinyLiving: nextLayeredOverrideState.shiny.hasLivingEntry
         }
     });
 

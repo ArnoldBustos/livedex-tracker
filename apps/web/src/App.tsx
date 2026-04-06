@@ -326,7 +326,7 @@ const App = () => {
     );
 
   // getCollectionLayerPatchValues reads one layer's visible booleans before a manual edit is normalized.
-  // App.tsx uses this so standard and shiny edits share the same hierarchy rules without duplicating branch logic.
+  // App.tsx uses this so standard and shiny edits share the stricter toggle rules without duplicating branch logic.
   const getCollectionLayerPatchValues = ({
     currentEntry,
     layerKey,
@@ -365,32 +365,38 @@ const App = () => {
       nextLayerState.seen = true;
     }
 
-    if (!nextLayerState.seen) {
+    if (patchLayer && patchLayer.seen === false) {
       nextLayerState.caught = false;
       nextLayerState.hasLivingEntry = false;
     }
 
-    if (!nextLayerState.caught) {
+    if (patchLayer && patchLayer.caught === false) {
+      nextLayerState.seen = false;
       nextLayerState.hasLivingEntry = false;
+    }
+
+    if (nextLayerState.hasLivingEntry && !nextLayerState.caught) {
+      nextLayerState.caught = true;
+      nextLayerState.seen = true;
+    }
+
+    if (nextLayerState.caught && !nextLayerState.seen) {
+      nextLayerState.seen = true;
     }
 
     return nextLayerState;
   };
 
-  // hasDexCollectionPatchValues checks whether one layer patch actually writes any dex booleans.
-  // normalization and guest overrides use this so empty standard or shiny patch objects are removed consistently.
-  const hasDexCollectionPatchValues = (
+  // hasDexCollectionPatchObject checks whether one layer patch object exists with any own keys.
+  // App.tsx uses this so guest overrides preserve explicit standard or shiny layer intent even when values normalize to false.
+  const hasDexCollectionPatchObject = (
     layerPatch: UpdateDexEntryRequest[DexCollectionLayerKey] | undefined
   ) => {
     if (!layerPatch) {
       return false;
     }
 
-    return (
-      typeof layerPatch.seen === "boolean" ||
-      typeof layerPatch.caught === "boolean" ||
-      typeof layerPatch.hasLivingEntry === "boolean"
-    );
+    return Object.keys(layerPatch).length > 0;
   };
 
   // buildDexSummary recalculates summary totals from a dex entry list.
@@ -429,6 +435,32 @@ const App = () => {
           return currentTotal + entry.ownership.shinyOwnedCount;
         }, 0)
       }
+    };
+  };
+
+  // getResolvedOwnershipState projects visible owned counters from imported ownership and resolved collection state.
+  // guest merged dex state uses this so manual standard and shiny edits keep sidebar ownership counts in sync.
+  const getResolvedOwnershipState = ({
+    ownership,
+    standard,
+    shiny
+  }: {
+    ownership: DexResponse["entries"][number]["ownership"];
+    standard: DexResponse["entries"][number]["standard"];
+    shiny: DexResponse["entries"][number]["shiny"];
+  }) => {
+    const hasResolvedStandardOwnership = standard.caught || standard.hasLivingEntry;
+    const hasResolvedShinyOwnership = shiny.caught || shiny.hasLivingEntry;
+    const resolvedShinyOwnedCount = hasResolvedShinyOwnership
+      ? Math.max(ownership.shinyOwnedCount, 1)
+      : 0;
+    const resolvedStandardOwnedCount = hasResolvedStandardOwnership
+      ? Math.max(ownership.totalOwnedCount, 1)
+      : 0;
+
+    return {
+      totalOwnedCount: Math.max(resolvedStandardOwnedCount, resolvedShinyOwnedCount),
+      shinyOwnedCount: resolvedShinyOwnedCount
     };
   };
 
@@ -475,6 +507,11 @@ const App = () => {
 
       nextEntry.standard = nextStandard;
       nextEntry.shiny = nextShiny;
+      nextEntry.ownership = getResolvedOwnershipState({
+        ownership: entry.ownership,
+        standard: nextStandard,
+        shiny: nextShiny
+      });
       return nextEntry;
     });
 
@@ -511,33 +548,29 @@ const App = () => {
       return patch;
     }
 
-    const normalizedPatch: UpdateDexEntryRequest = Object.assign({}, patch);
-    const nextStandardState = getCollectionLayerPatchValues({
-      currentEntry,
-      layerKey: "standard",
-      patch
-    });
-    const nextShinyState = getCollectionLayerPatchValues({
-      currentEntry,
-      layerKey: "shiny",
-      patch
-    });
+    const normalizedPatch: UpdateDexEntryRequest = {};
+    const applyNormalizedLayerPatch = (layerKey: DexCollectionLayerKey) => {
+      const patchLayer = patch[layerKey];
 
-    if (hasDexCollectionPatchValues(patch.standard)) {
-      normalizedPatch.standard = {
-        seen: nextStandardState.seen,
-        caught: nextStandardState.caught,
-        hasLivingEntry: nextStandardState.hasLivingEntry
-      };
-    }
+      if (!hasDexCollectionPatchObject(patchLayer)) {
+        return;
+      }
 
-    if (hasDexCollectionPatchValues(patch.shiny)) {
-      normalizedPatch.shiny = {
-        seen: nextShinyState.seen,
-        caught: nextShinyState.caught,
-        hasLivingEntry: nextShinyState.hasLivingEntry
+      const nextLayerState = getCollectionLayerPatchValues({
+        currentEntry,
+        layerKey,
+        patch
+      });
+
+      normalizedPatch[layerKey] = {
+        seen: nextLayerState.seen,
+        caught: nextLayerState.caught,
+        hasLivingEntry: nextLayerState.hasLivingEntry
       };
-    }
+    };
+
+    applyNormalizedLayerPatch("standard");
+    applyNormalizedLayerPatch("shiny");
 
     return normalizedPatch;
   };
@@ -1139,6 +1172,11 @@ const App = () => {
         // handleUpdateDexEntry uses this so standard and shiny frontend-only edits stay structurally parallel.
         const applyLayerOverride = (layerKey: DexCollectionLayerKey) => {
           const normalizedLayerPatch = normalizedPatch[layerKey];
+
+          if (!hasDexCollectionPatchObject(normalizedLayerPatch)) {
+            return;
+          }
+
           const currentLayerOverride =
             currentOverride && currentOverride[layerKey]
               ? currentOverride[layerKey]
@@ -1186,11 +1224,11 @@ const App = () => {
 
         const nextOverrides = Object.assign({}, currentOverrides);
 
-        if (!hasDexCollectionPatchValues(nextOverride.standard)) {
+        if (!hasDexCollectionPatchObject(nextOverride.standard)) {
           delete nextOverride.standard;
         }
 
-        if (!hasDexCollectionPatchValues(nextOverride.shiny)) {
+        if (!hasDexCollectionPatchObject(nextOverride.shiny)) {
           delete nextOverride.shiny;
         }
 

@@ -1,6 +1,6 @@
 import { computeDexProgress } from "../../lib/dex/computeDexProgress";
 
-// DashboardSummaryProps defines the scoped standard and shiny summary counts plus identity details shown in the dashboard header.
+// DashboardSummaryProps defines the scoped standard summary counts plus identity details shown in the dashboard header.
 // LoadedDashboardView builds these values from the active dex scope and passes them into this summary component.
 type DashboardSummaryProps = {
     saveProfileName: string;
@@ -13,9 +13,6 @@ type DashboardSummaryProps = {
     livingCount: number;
     missingCount: number;
     seenOnlyCount: number;
-    shinySeenCount: number;
-    shinyCaughtCount: number;
-    shinyLivingCount: number;
 };
 
 // SummaryStatCardProps defines one summary card label, value, and percentage accent styling.
@@ -68,24 +65,13 @@ export const DashboardSummary = ({
     caughtCount,
     livingCount,
     missingCount,
-    seenOnlyCount,
-    shinySeenCount,
-    shinyCaughtCount,
-    shinyLivingCount
+    seenOnlyCount
 }: DashboardSummaryProps) => {
     const dexProgress = computeDexProgress({
         total: totalCount,
         seen: seenCount,
         caught: caughtCount,
         living: livingCount
-    });
-    // shinyDexProgress converts the visible shiny totals into the same percentage labels used for the standard summary.
-    // DashboardSummary renders this beside the existing standard progress so imported shiny coverage is visible without a mode switch.
-    const shinyDexProgress = computeDexProgress({
-        total: totalCount,
-        seen: shinySeenCount,
-        caught: shinyCaughtCount,
-        living: shinyLivingCount
     });
 
     return (
@@ -145,12 +131,6 @@ export const DashboardSummary = ({
                         <span>Standard Seen {dexProgress.seenPercent}%</span>
                         <span>Standard Caught {dexProgress.caughtPercent}%</span>
                         <span>Standard Living {dexProgress.livingPercent}%</span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-3">
-                        <span>Shiny Seen {shinyDexProgress.seenPercent}%</span>
-                        <span>Shiny Caught {shinyDexProgress.caughtPercent}%</span>
-                        <span>Shiny Living {shinyDexProgress.livingPercent}%</span>
                     </div>
                 </div>
             </div>

@@ -16,6 +16,7 @@ import { getPokemonTypeBadgeStyle } from "../../lib/pokemonTypeStyles";
 import { getDexEntriesForScope } from "../../lib/dex";
 import { computeDexProgress } from "../../lib/dex/computeDexProgress";
 import { getDisplayGameLabel } from "../../lib/getDisplayGameLabel";
+import shinyStarIcon from "../../assets/shiny-star.png";
 
 type LoadedDashboardViewProps = {
     uploadResponse: UploadResponse;
@@ -164,6 +165,26 @@ const getDexEntryStatusLabel = (status: DexDisplayStatus) => {
     }
 
     return "Missing";
+};
+
+// getHasShinyCardIndicator decides whether one card should show the display-only shiny marker.
+// LoadedDashboardView uses this so shiny presence appears in the middle grid without adding shiny edit behavior there.
+const getHasShinyCardIndicator = (dexEntry: DexEntry) => {
+    return dexEntry.shiny.caught || dexEntry.shiny.hasLivingEntry;
+};
+
+// getShinyIndicatorClassName maps shiny marker context to stronger contrast styles.
+// LoadedDashboardView uses this so the display-only shiny icon stays legible on cards and in the selected-Pokemon sidebar.
+const getShinyIndicatorClassName = (indicatorLocation: "card" | "artwork" | "title") => {
+    if (indicatorLocation === "artwork") {
+        return "inline-flex items-center justify-center rounded-full border-2 border-amber-300 bg-gradient-to-br from-amber-50 via-yellow-100 to-amber-200 shadow-sm";
+    }
+
+    if (indicatorLocation === "title") {
+        return "inline-flex items-center justify-center rounded-full border border-amber-300 bg-gradient-to-br from-amber-50 via-yellow-100 to-amber-200 shadow-sm";
+    }
+
+    return "inline-flex items-center justify-center rounded-full border border-amber-200 bg-gradient-to-br from-amber-50 via-yellow-100 to-amber-200 shadow-sm";
 };
 
 // getDashboardLayerSummary derives the visible counts for one collection layer in the active scope.
@@ -588,17 +609,6 @@ export const LoadedDashboardView = ({
         });
     }, [dexEntries, dexResponse.summary.standard, selectedScope]);
 
-    // shinyDashboardSummary derives the active scope counts for the shiny collection layer.
-    // DashboardSummary uses this so imported shiny totals are visible without adding a full dex view switch yet.
-    const shinyDashboardSummary = useMemo(() => {
-        return getDashboardLayerSummary({
-            entries: dexEntries,
-            scope: selectedScope,
-            layerKey: "shiny",
-            summary: dexResponse.summary.shiny
-        });
-    }, [dexEntries, dexResponse.summary.shiny, selectedScope]);
-
     // completionPercentage keeps the sidebar progress bar aligned with the shared standard summary percentage logic.
     const completionPercentage = computeDexProgress({
         total: dashboardSummary.totalCount,
@@ -754,9 +764,6 @@ export const LoadedDashboardView = ({
                         livingCount={dashboardSummary.livingCount}
                         missingCount={dashboardSummary.missingCount}
                         seenOnlyCount={dashboardSummary.seenOnlyCount}
-                        shinySeenCount={shinyDashboardSummary.seenCount}
-                        shinyCaughtCount={shinyDashboardSummary.caughtCount}
-                        shinyLivingCount={shinyDashboardSummary.livingCount}
                     />
 
                     <section className="flex flex-wrap items-end justify-between gap-4">
@@ -847,6 +854,7 @@ export const LoadedDashboardView = ({
                     <section className={getDexGridSectionClassName(selectedGridDensity)}>
                         {filteredDexEntries.map((dexEntry) => {
                             const status = getDexEntryStatus(dexEntry);
+                            const hasShinyCardIndicator = getHasShinyCardIndicator(dexEntry);
                             const imageToneClassName = getDexEntryImageToneClassName(status);
                             const isSelected = selectedDexEntry
                                 ? selectedDexEntry.dexNumber === dexEntry.dexNumber
@@ -893,11 +901,23 @@ export const LoadedDashboardView = ({
                                         />
                                     </div>
 
-                                    <div className="mt-2 text-sm font-extrabold tracking-[0.01em] text-gray-900">
-                                        {dexEntry.name}
+                                    <div className="mt-2 min-w-0 text-sm font-extrabold tracking-[0.01em] text-gray-900">
+                                        <div className="truncate">
+                                            {dexEntry.name}
+                                        </div>
                                     </div>
 
-                                    <div className="mt-2 flex flex-wrap gap-1">
+                                    <div className="mt-2 flex flex-wrap items-center gap-1">
+                                        {hasShinyCardIndicator ? (
+                                            <span className={`${getShinyIndicatorClassName("card")} h-6 w-6`}>
+                                                <img
+                                                    src={shinyStarIcon}
+                                                    alt="Shiny collected"
+                                                    className="h-4 w-4 shrink-0 opacity-100 drop-shadow-[0_1px_1px_rgba(120,53,15,0.2)]"
+                                                />
+                                            </span>
+                                        ) : null}
+
                                         <span
                                             className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${getPokemonTypeBadgeStyle(dexEntry.primaryType).containerClassName}`}
                                         >
@@ -926,7 +946,7 @@ export const LoadedDashboardView = ({
                 <aside className="sticky top-4 hidden self-start rounded-2xl bg-white p-3 shadow-sm xl:flex xl:flex-col">
                     <div className="flex max-h-[calc(100vh-32px)] flex-col gap-3 overflow-y-auto pr-1">
                         <div className="flex items-center justify-center rounded-xl bg-gray-100 p-3">
-                            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-white shadow">
+                            <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-white shadow">
                                 {selectedDexEntry ? (
                                     <img
                                         src={getPokemonArtworkUrl(selectedDexEntry.dexNumber)}
@@ -936,6 +956,16 @@ export const LoadedDashboardView = ({
                                 ) : (
                                     <span className="text-2xl font-bold text-gray-300">?</span>
                                 )}
+
+                                {selectedDexEntry && getHasShinyCardIndicator(selectedDexEntry) ? (
+                                    <span className={`${getShinyIndicatorClassName("artwork")} absolute right-0 bottom-0 h-8 w-8`}>
+                                        <img
+                                            src={shinyStarIcon}
+                                            alt="Shiny collected"
+                                            className="h-5 w-5 drop-shadow-[0_1px_1px_rgba(120,53,15,0.2)]"
+                                        />
+                                    </span>
+                                ) : null}
                             </div>
                         </div>
 
@@ -946,9 +976,21 @@ export const LoadedDashboardView = ({
                                     : "No Selection"}
                             </p>
 
-                            <h3 className="text-center text-2xl font-extrabold tracking-tight text-gray-900">
-                                {selectedDexEntry ? selectedDexEntry.name : "Choose a Pokémon"}
-                            </h3>
+                            <div className="flex items-center justify-center gap-2">
+                                <h3 className="text-center text-2xl font-extrabold tracking-tight text-gray-900">
+                                    {selectedDexEntry ? selectedDexEntry.name : "Choose a Pokémon"}
+                                </h3>
+
+                                {selectedDexEntry && getHasShinyCardIndicator(selectedDexEntry) ? (
+                                    <span className={`${getShinyIndicatorClassName("title")} h-7 w-7 shrink-0`}>
+                                        <img
+                                            src={shinyStarIcon}
+                                            alt="Shiny collected"
+                                            className="h-4.5 w-4.5 drop-shadow-[0_1px_1px_rgba(120,53,15,0.2)]"
+                                        />
+                                    </span>
+                                ) : null}
+                            </div>
 
                             {selectedDexEntry ? (
                                 <div className="grid gap-2">
