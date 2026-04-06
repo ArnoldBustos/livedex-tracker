@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { DashboardTopbar } from "../dashboard/DashboardTopbar";
 import { DashboardSummary } from "../dashboard/DashboardSummary";
 import type {
+    DexCollectionLayerKey,
     DexDisplayStatus,
     DexEntry,
     DexFilter,
@@ -59,6 +60,17 @@ type LoadedDashboardViewProps = {
     onGoToRegister: () => void;
 };
 
+// DashboardLayerSummary stores the visible totals for one collection layer in the active scope.
+// LoadedDashboardView builds this for standard and shiny so summary cards and sidebar metrics stay aligned.
+type DashboardLayerSummary = {
+    totalCount: number;
+    seenCount: number;
+    caughtCount: number;
+    livingCount: number;
+    missingCount: number;
+    seenOnlyCount: number;
+};
+
 // filterControlOptions lists the available content filters for the dashboard controls.
 // LoadedDashboardView maps this so filter layout stays modular when options change.
 const filterControlOptions: Array<{
@@ -113,18 +125,23 @@ const dexGridDensityOrder: DexGridDensity[] = [
     "extraCompact"
 ];
 
-// getDexEntryStatus returns the strongest collection state for one dex entry.
-// cards, filters, and summary counts use this so UI status rules stay aligned.
-const getDexEntryStatus = (dexEntry: DexEntry): DexDisplayStatus => {
-    if (dexEntry.standard.hasLivingEntry) {
+// getDexEntryStatus returns the strongest collection state for one dex layer on one dex entry.
+// cards, filters, summaries, and sidebar badges use this so standard and shiny status rules stay aligned.
+const getDexEntryStatus = (
+    dexEntry: DexEntry,
+    layerKey: DexCollectionLayerKey = "standard"
+): DexDisplayStatus => {
+    const collectionState = dexEntry[layerKey];
+
+    if (collectionState.hasLivingEntry) {
         return "living";
     }
 
-    if (dexEntry.standard.caught) {
+    if (collectionState.caught) {
         return "caught";
     }
 
-    if (dexEntry.standard.seen) {
+    if (collectionState.seen) {
         return "seen";
     }
 
@@ -147,6 +164,59 @@ const getDexEntryStatusLabel = (status: DexDisplayStatus) => {
     }
 
     return "Missing";
+};
+
+// getDashboardLayerSummary derives the visible counts for one collection layer in the active scope.
+// LoadedDashboardView uses this so standard and shiny summary totals stay parallel without separate implementations.
+const getDashboardLayerSummary = ({
+    entries,
+    scope,
+    layerKey,
+    summary
+}: {
+    entries: DexEntry[];
+    scope: DexScope;
+    layerKey: DexCollectionLayerKey;
+    summary: DexResponse["summary"][DexCollectionLayerKey];
+}): DashboardLayerSummary => {
+    if (scope === "national") {
+        const missingCount = summary.totalEntries - summary.seenCount;
+        const seenOnlyCount = summary.seenCount - summary.caughtCount;
+
+        return {
+            totalCount: summary.totalEntries,
+            seenCount: summary.seenCount,
+            caughtCount: summary.caughtCount,
+            livingCount: summary.livingCount,
+            missingCount,
+            seenOnlyCount
+        };
+    }
+
+    const seenCount = entries.filter((dexEntry) => {
+        return dexEntry[layerKey].seen;
+    }).length;
+    const caughtCount = entries.filter((dexEntry) => {
+        return dexEntry[layerKey].caught;
+    }).length;
+    const livingCount = entries.filter((dexEntry) => {
+        return dexEntry[layerKey].hasLivingEntry;
+    }).length;
+    const missingCount = entries.filter((dexEntry) => {
+        return getDexEntryStatus(dexEntry, layerKey) === "missing";
+    }).length;
+    const seenOnlyCount = entries.filter((dexEntry) => {
+        return getDexEntryStatus(dexEntry, layerKey) === "seen";
+    }).length;
+
+    return {
+        totalCount: entries.length,
+        seenCount,
+        caughtCount,
+        livingCount,
+        missingCount,
+        seenOnlyCount
+    };
 };
 
 // getDexGridSectionClassName maps density to explicit guest and signed-in column counts.
@@ -278,7 +348,7 @@ const ControlChipButton = ({
 };
 
 // SidebarToggleButton renders one yes/no action button for a selected dex flag.
-// LoadedDashboardView uses this in the right sidebar for seen, caught, and living manual edits.
+// LoadedDashboardView uses this in the right sidebar for both standard and shiny seen, caught, and living edits.
 const SidebarToggleButton = ({
     label,
     value,
@@ -305,6 +375,83 @@ const SidebarToggleButton = ({
             >
                 {value ? "Yes" : "No"}
             </button>
+        </div>
+    );
+};
+
+// SelectedDexCollectionSection renders one manual edit block for either the standard or shiny collection layer.
+// LoadedDashboardView uses this so the selected-Pokemon sidebar keeps both layers parallel and independently editable.
+const SelectedDexCollectionSection = ({
+    title,
+    accentClassName,
+    dexEntry,
+    layerKey,
+    onUpdateDexEntry
+}: {
+    title: string;
+    accentClassName: string;
+    dexEntry: DexEntry;
+    layerKey: DexCollectionLayerKey;
+    onUpdateDexEntry: LoadedDashboardViewProps["onUpdateDexEntry"];
+}) => {
+    const collectionState = dexEntry[layerKey];
+
+    return (
+        <div className="grid gap-2 rounded-xl bg-gray-50 p-3">
+            <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-gray-500">
+                    {title}
+                </span>
+
+                <span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${accentClassName}`}>
+                    {getDexEntryStatusLabel(getDexEntryStatus(dexEntry, layerKey))}
+                </span>
+            </div>
+
+            <SidebarToggleButton
+                label="In Living Dex"
+                value={collectionState.hasLivingEntry}
+                onToggle={() => {
+                    onUpdateDexEntry({
+                        pokemonSpeciesId: dexEntry.pokemonSpeciesId,
+                        patch: {
+                            [layerKey]: {
+                                hasLivingEntry: !collectionState.hasLivingEntry
+                            }
+                        }
+                    });
+                }}
+            />
+
+            <SidebarToggleButton
+                label="Caught"
+                value={collectionState.caught}
+                onToggle={() => {
+                    onUpdateDexEntry({
+                        pokemonSpeciesId: dexEntry.pokemonSpeciesId,
+                        patch: {
+                            [layerKey]: {
+                                caught: !collectionState.caught
+                            }
+                        }
+                    });
+                }}
+            />
+
+            <SidebarToggleButton
+                label="Seen"
+                value={collectionState.seen}
+                onToggle={() => {
+                    onUpdateDexEntry({
+                        pokemonSpeciesId: dexEntry.pokemonSpeciesId,
+                        patch: {
+                            [layerKey]: {
+                                seen: !collectionState.seen
+                            }
+                        }
+                    });
+                }}
+            />
         </div>
     );
 };
@@ -430,56 +577,29 @@ export const LoadedDashboardView = ({
         return filteredDexEntries[0];
     }, [dexEntries, filteredDexEntries, selectedDexNumber]);
 
-    // dashboardSummary derives the active scope counts used by the summary cards and progress labels.
-    // DashboardSummary and the completion bar both read this object so count logic stays centralized.
+    // dashboardSummary derives the active scope counts used by the standard summary cards and progress labels.
+    // DashboardSummary and the completion bar read this object so existing standard dashboard behavior stays unchanged.
     const dashboardSummary = useMemo(() => {
-        const standardSummary = dexResponse.summary.standard;
-
-        if (selectedScope === "national") {
-            const missingCount = standardSummary.totalEntries - standardSummary.seenCount;
-            const seenOnlyCount = standardSummary.seenCount - standardSummary.caughtCount;
-
-            return {
-                totalCount: standardSummary.totalEntries,
-                seenCount: standardSummary.seenCount,
-                caughtCount: standardSummary.caughtCount,
-                livingCount: standardSummary.livingCount,
-                missingCount,
-                seenOnlyCount
-            };
-        }
-
-        const seenCount = dexEntries.filter((dexEntry) => {
-            return dexEntry.standard.seen;
-        }).length;
-
-        const caughtCount = dexEntries.filter((dexEntry) => {
-            return dexEntry.standard.caught;
-        }).length;
-
-        const livingCount = dexEntries.filter((dexEntry) => {
-            return dexEntry.standard.hasLivingEntry;
-        }).length;
-
-        const missingCount = dexEntries.filter((dexEntry) => {
-            return getDexEntryStatus(dexEntry) === "missing";
-        }).length;
-
-        const seenOnlyCount = dexEntries.filter((dexEntry) => {
-            return getDexEntryStatus(dexEntry) === "seen";
-        }).length;
-
-        return {
-            totalCount: dexEntries.length,
-            seenCount,
-            caughtCount,
-            livingCount,
-            missingCount,
-            seenOnlyCount
-        };
+        return getDashboardLayerSummary({
+            entries: dexEntries,
+            scope: selectedScope,
+            layerKey: "standard",
+            summary: dexResponse.summary.standard
+        });
     }, [dexEntries, dexResponse.summary.standard, selectedScope]);
 
-    // completionPercentage keeps the sidebar progress bar aligned with the shared dashboard summary percentage logic.
+    // shinyDashboardSummary derives the active scope counts for the shiny collection layer.
+    // DashboardSummary uses this so imported shiny totals are visible without adding a full dex view switch yet.
+    const shinyDashboardSummary = useMemo(() => {
+        return getDashboardLayerSummary({
+            entries: dexEntries,
+            scope: selectedScope,
+            layerKey: "shiny",
+            summary: dexResponse.summary.shiny
+        });
+    }, [dexEntries, dexResponse.summary.shiny, selectedScope]);
+
+    // completionPercentage keeps the sidebar progress bar aligned with the shared standard summary percentage logic.
     const completionPercentage = computeDexProgress({
         total: dashboardSummary.totalCount,
         seen: dashboardSummary.seenCount,
@@ -634,6 +754,9 @@ export const LoadedDashboardView = ({
                         livingCount={dashboardSummary.livingCount}
                         missingCount={dashboardSummary.missingCount}
                         seenOnlyCount={dashboardSummary.seenOnlyCount}
+                        shinySeenCount={shinyDashboardSummary.seenCount}
+                        shinyCaughtCount={shinyDashboardSummary.caughtCount}
+                        shinyLivingCount={shinyDashboardSummary.livingCount}
                     />
 
                     <section className="flex flex-wrap items-end justify-between gap-4">
@@ -861,80 +984,62 @@ export const LoadedDashboardView = ({
                             <div className="grid gap-3">
                                 {selectedDexEntry ? (
                                     <>
-                                        <SidebarToggleButton
-                                            label="In Living Dex"
-                                            value={selectedDexEntry.standard.hasLivingEntry}
-                                            onToggle={() => {
-                                                onUpdateDexEntry({
-                                                    pokemonSpeciesId: selectedDexEntry.pokemonSpeciesId,
-                                                    patch: {
-                                                        standard: {
-                                                            hasLivingEntry: !selectedDexEntry.standard.hasLivingEntry
-                                                        }
-                                                    }
-                                                });
-                                            }}
+                                        <div className="grid grid-cols-2 gap-2 rounded-xl bg-gray-50 p-3">
+                                            <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
+                                                <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-gray-500">
+                                                    Owned
+                                                </div>
+                                                <div className="mt-1 text-lg font-extrabold text-gray-900">
+                                                    {selectedDexEntry.ownership.totalOwnedCount}
+                                                </div>
+                                            </div>
+
+                                            <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
+                                                <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-gray-500">
+                                                    Shiny Owned
+                                                </div>
+                                                <div className="mt-1 text-lg font-extrabold text-gray-900">
+                                                    {selectedDexEntry.ownership.shinyOwnedCount}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <SelectedDexCollectionSection
+                                            title="Standard Collection"
+                                            accentClassName="bg-emerald-100 text-emerald-700"
+                                            dexEntry={selectedDexEntry}
+                                            layerKey="standard"
+                                            onUpdateDexEntry={onUpdateDexEntry}
                                         />
 
-                                        <SidebarToggleButton
-                                            label="Caught"
-                                            value={selectedDexEntry.standard.caught}
-                                            onToggle={() => {
-                                                onUpdateDexEntry({
-                                                    pokemonSpeciesId: selectedDexEntry.pokemonSpeciesId,
-                                                    patch: {
-                                                        standard: {
-                                                            caught: !selectedDexEntry.standard.caught
-                                                        }
-                                                    }
-                                                });
-                                            }}
-                                        />
-
-                                        <SidebarToggleButton
-                                            label="Seen"
-                                            value={selectedDexEntry.standard.seen}
-                                            onToggle={() => {
-                                                onUpdateDexEntry({
-                                                    pokemonSpeciesId: selectedDexEntry.pokemonSpeciesId,
-                                                    patch: {
-                                                        standard: {
-                                                            seen: !selectedDexEntry.standard.seen
-                                                        }
-                                                    }
-                                                });
-                                            }}
+                                        <SelectedDexCollectionSection
+                                            title="Shiny Collection"
+                                            accentClassName="bg-amber-100 text-amber-700"
+                                            dexEntry={selectedDexEntry}
+                                            layerKey="shiny"
+                                            onUpdateDexEntry={onUpdateDexEntry}
                                         />
                                     </>
                                 ) : (
-                                    <>
-                                        <div className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2.5">
+                                    <div className="grid gap-2 rounded-xl bg-gray-50 p-3">
+                                        <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2 shadow-sm">
                                             <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
-                                                In Living Dex
+                                                Standard Collection
                                             </span>
                                             <strong className="text-sm font-extrabold uppercase text-gray-400">
-                                                No
+                                                Missing
                                             </strong>
                                         </div>
 
-                                        <div className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2.5">
+                                        <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2 shadow-sm">
                                             <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
-                                                Caught
+                                                Shiny Collection
                                             </span>
                                             <strong className="text-sm font-extrabold uppercase text-gray-400">
-                                                No
+                                                Missing
                                             </strong>
                                         </div>
-
-                                        <div className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2.5">
-                                            <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
-                                                Seen
-                                            </span>
-                                            <strong className="text-sm font-extrabold uppercase text-gray-400">
-                                                No
-                                            </strong>
-                                        </div>
-                                    </>
+                                    </div>
                                 )}
                             </div>
 

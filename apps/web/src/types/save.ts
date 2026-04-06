@@ -202,6 +202,10 @@ export type DexFilter =
 
 export type DexScope = "national" | "regional";
 
+// DexCollectionLayerKey identifies the parallel dex data layers exposed by the API.
+// App.tsx and dashboard components use this so standard and shiny logic can share helpers without collapsing together.
+export type DexCollectionLayerKey = "standard" | "shiny";
+
 // DexGridDensity defines the five dashboard card density options for the dex grid.
 // App.tsx stores this selection and LoadedDashboardView uses it to choose grid sizing.
 export type DexGridDensity =

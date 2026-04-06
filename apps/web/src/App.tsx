@@ -9,6 +9,7 @@ import { ManualGameOverridePrompt } from "./components/upload/ManualGameOverride
 import { SaveDetailsForm } from "./components/upload/SaveDetailsForm"; // shared save setup dialog
 
 import type {
+  DexCollectionLayerKey,
   DexFilter,
   DexGridDensity,
   DexResponse,
@@ -324,6 +325,74 @@ const App = () => {
         : false
     );
 
+  // getCollectionLayerPatchValues reads one layer's visible booleans before a manual edit is normalized.
+  // App.tsx uses this so standard and shiny edits share the same hierarchy rules without duplicating branch logic.
+  const getCollectionLayerPatchValues = ({
+    currentEntry,
+    layerKey,
+    patch
+  }: {
+    currentEntry: DexResponse["entries"][number];
+    layerKey: DexCollectionLayerKey;
+    patch: UpdateDexEntryRequest;
+  }) => {
+    const currentLayer = currentEntry[layerKey];
+    const patchLayer = patch[layerKey];
+    const nextLayerState = {
+      seen: currentLayer.seen,
+      caught: currentLayer.caught,
+      hasLivingEntry: currentLayer.hasLivingEntry
+    };
+
+    if (patchLayer && typeof patchLayer.seen === "boolean") {
+      nextLayerState.seen = patchLayer.seen;
+    }
+
+    if (patchLayer && typeof patchLayer.caught === "boolean") {
+      nextLayerState.caught = patchLayer.caught;
+    }
+
+    if (patchLayer && typeof patchLayer.hasLivingEntry === "boolean") {
+      nextLayerState.hasLivingEntry = patchLayer.hasLivingEntry;
+    }
+
+    if (nextLayerState.hasLivingEntry) {
+      nextLayerState.seen = true;
+      nextLayerState.caught = true;
+    }
+
+    if (nextLayerState.caught) {
+      nextLayerState.seen = true;
+    }
+
+    if (!nextLayerState.seen) {
+      nextLayerState.caught = false;
+      nextLayerState.hasLivingEntry = false;
+    }
+
+    if (!nextLayerState.caught) {
+      nextLayerState.hasLivingEntry = false;
+    }
+
+    return nextLayerState;
+  };
+
+  // hasDexCollectionPatchValues checks whether one layer patch actually writes any dex booleans.
+  // normalization and guest overrides use this so empty standard or shiny patch objects are removed consistently.
+  const hasDexCollectionPatchValues = (
+    layerPatch: UpdateDexEntryRequest[DexCollectionLayerKey] | undefined
+  ) => {
+    if (!layerPatch) {
+      return false;
+    }
+
+    return (
+      typeof layerPatch.seen === "boolean" ||
+      typeof layerPatch.caught === "boolean" ||
+      typeof layerPatch.hasLivingEntry === "boolean"
+    );
+  };
+
   // buildDexSummary recalculates summary totals from a dex entry list.
   // guest merged dex state uses this so frontend-only overrides stay consistent with the sidebar and cards.
   const buildDexSummary = (entries: DexResponse["entries"]) => {
@@ -378,6 +447,7 @@ const App = () => {
 
       const nextEntry = Object.assign({}, entry);
       const nextStandard = Object.assign({}, entry.standard);
+      const nextShiny = Object.assign({}, entry.shiny);
 
       if (override.standard && typeof override.standard.seen === "boolean") {
         nextStandard.seen = override.standard.seen;
@@ -391,7 +461,20 @@ const App = () => {
         nextStandard.hasLivingEntry = override.standard.hasLivingEntry;
       }
 
+      if (override.shiny && typeof override.shiny.seen === "boolean") {
+        nextShiny.seen = override.shiny.seen;
+      }
+
+      if (override.shiny && typeof override.shiny.caught === "boolean") {
+        nextShiny.caught = override.shiny.caught;
+      }
+
+      if (override.shiny && typeof override.shiny.hasLivingEntry === "boolean") {
+        nextShiny.hasLivingEntry = override.shiny.hasLivingEntry;
+      }
+
       nextEntry.standard = nextStandard;
+      nextEntry.shiny = nextShiny;
       return nextEntry;
     });
 
@@ -429,58 +512,31 @@ const App = () => {
     }
 
     const normalizedPatch: UpdateDexEntryRequest = Object.assign({}, patch);
-    const nextEntryState = {
-      seen: currentEntry.standard.seen,
-      caught: currentEntry.standard.caught,
-      hasLivingEntry: currentEntry.standard.hasLivingEntry
-    };
+    const nextStandardState = getCollectionLayerPatchValues({
+      currentEntry,
+      layerKey: "standard",
+      patch
+    });
+    const nextShinyState = getCollectionLayerPatchValues({
+      currentEntry,
+      layerKey: "shiny",
+      patch
+    });
 
-    if (patch.standard && typeof patch.standard.seen === "boolean") {
-      nextEntryState.seen = patch.standard.seen;
-    }
-
-    if (patch.standard && typeof patch.standard.caught === "boolean") {
-      nextEntryState.caught = patch.standard.caught;
-    }
-
-    if (patch.standard && typeof patch.standard.hasLivingEntry === "boolean") {
-      nextEntryState.hasLivingEntry = patch.standard.hasLivingEntry;
-    }
-
-    if (nextEntryState.hasLivingEntry) {
-      nextEntryState.seen = true;
-      nextEntryState.caught = true;
-    }
-
-    if (nextEntryState.caught) {
-      nextEntryState.seen = true;
-    }
-
-    if (!nextEntryState.seen) {
-      nextEntryState.caught = false;
-      nextEntryState.hasLivingEntry = false;
-    }
-
-    if (!nextEntryState.caught) {
-      nextEntryState.hasLivingEntry = false;
-    }
-
-    if (
-      patch.standard && (
-        typeof patch.standard.seen === "boolean" ||
-        typeof patch.standard.caught === "boolean" ||
-        typeof patch.standard.hasLivingEntry === "boolean"
-      )
-    ) {
+    if (hasDexCollectionPatchValues(patch.standard)) {
       normalizedPatch.standard = {
-        seen: nextEntryState.seen,
-        caught: nextEntryState.caught,
-        hasLivingEntry: nextEntryState.hasLivingEntry
+        seen: nextStandardState.seen,
+        caught: nextStandardState.caught,
+        hasLivingEntry: nextStandardState.hasLivingEntry
       };
     }
 
-    if (patch.shiny) {
-      normalizedPatch.shiny = Object.assign({}, patch.shiny);
+    if (hasDexCollectionPatchValues(patch.shiny)) {
+      normalizedPatch.shiny = {
+        seen: nextShinyState.seen,
+        caught: nextShinyState.caught,
+        hasLivingEntry: nextShinyState.hasLivingEntry
+      };
     }
 
     return normalizedPatch;
@@ -1079,72 +1135,62 @@ const App = () => {
       setGuestDexOverrides((currentOverrides) => {
         const currentOverride = currentOverrides[pokemonSpeciesId];
         const nextOverride = currentOverride ? Object.assign({}, currentOverride) : {};
-        const currentStandardOverride =
-          currentOverride && currentOverride.standard
-            ? currentOverride.standard
-            : {};
-        const nextStandardOverride = Object.assign({}, currentStandardOverride);
+        // applyLayerOverride writes one normalized layer patch into the guest override map.
+        // handleUpdateDexEntry uses this so standard and shiny frontend-only edits stay structurally parallel.
+        const applyLayerOverride = (layerKey: DexCollectionLayerKey) => {
+          const normalizedLayerPatch = normalizedPatch[layerKey];
+          const currentLayerOverride =
+            currentOverride && currentOverride[layerKey]
+              ? currentOverride[layerKey]
+              : {};
+          const nextLayerOverride = Object.assign({}, currentLayerOverride);
 
-        if (
-          normalizedPatch.standard &&
-          Object.prototype.hasOwnProperty.call(normalizedPatch.standard, "seen")
-        ) {
-          if (normalizedPatch.standard.seen === null) {
-            delete nextStandardOverride.seen;
-          } else {
-            nextStandardOverride.seen = normalizedPatch.standard.seen;
+          if (
+            normalizedLayerPatch &&
+            Object.prototype.hasOwnProperty.call(normalizedLayerPatch, "seen")
+          ) {
+            if (normalizedLayerPatch.seen === null) {
+              delete nextLayerOverride.seen;
+            } else {
+              nextLayerOverride.seen = normalizedLayerPatch.seen;
+            }
           }
-        }
 
-        if (
-          normalizedPatch.standard &&
-          Object.prototype.hasOwnProperty.call(normalizedPatch.standard, "caught")
-        ) {
-          if (normalizedPatch.standard.caught === null) {
-            delete nextStandardOverride.caught;
-          } else {
-            nextStandardOverride.caught = normalizedPatch.standard.caught;
+          if (
+            normalizedLayerPatch &&
+            Object.prototype.hasOwnProperty.call(normalizedLayerPatch, "caught")
+          ) {
+            if (normalizedLayerPatch.caught === null) {
+              delete nextLayerOverride.caught;
+            } else {
+              nextLayerOverride.caught = normalizedLayerPatch.caught;
+            }
           }
-        }
 
-        if (
-          normalizedPatch.standard &&
-          Object.prototype.hasOwnProperty.call(normalizedPatch.standard, "hasLivingEntry")
-        ) {
-          if (normalizedPatch.standard.hasLivingEntry === null) {
-            delete nextStandardOverride.hasLivingEntry;
-          } else {
-            nextStandardOverride.hasLivingEntry = normalizedPatch.standard.hasLivingEntry;
+          if (
+            normalizedLayerPatch &&
+            Object.prototype.hasOwnProperty.call(normalizedLayerPatch, "hasLivingEntry")
+          ) {
+            if (normalizedLayerPatch.hasLivingEntry === null) {
+              delete nextLayerOverride.hasLivingEntry;
+            } else {
+              nextLayerOverride.hasLivingEntry = normalizedLayerPatch.hasLivingEntry;
+            }
           }
-        }
 
-        nextOverride.standard = nextStandardOverride;
+          nextOverride[layerKey] = nextLayerOverride;
+        };
+
+        applyLayerOverride("standard");
+        applyLayerOverride("shiny");
 
         const nextOverrides = Object.assign({}, currentOverrides);
 
-        if (
-          !nextOverride.standard &&
-          !nextOverride.shiny
-        ) {
-          delete nextOverrides[pokemonSpeciesId];
-          return nextOverrides;
-        }
-
-        if (
-          nextOverride.standard &&
-          typeof nextOverride.standard.seen !== "boolean" &&
-          typeof nextOverride.standard.caught !== "boolean" &&
-          typeof nextOverride.standard.hasLivingEntry !== "boolean"
-        ) {
+        if (!hasDexCollectionPatchValues(nextOverride.standard)) {
           delete nextOverride.standard;
         }
 
-        if (
-          nextOverride.shiny &&
-          typeof nextOverride.shiny.seen !== "boolean" &&
-          typeof nextOverride.shiny.caught !== "boolean" &&
-          typeof nextOverride.shiny.hasLivingEntry !== "boolean"
-        ) {
+        if (!hasDexCollectionPatchValues(nextOverride.shiny)) {
           delete nextOverride.shiny;
         }
 
