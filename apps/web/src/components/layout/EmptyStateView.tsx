@@ -96,6 +96,7 @@ export const EmptyStateView = ({
                 <div className="grid min-w-0 gap-6">
                     <UploadHero
                         isUploading={isUploading}
+                        showsReplacementCopy={false}
                         errorMessage={errorMessage}
                         onSelectUploadFile={onSelectUploadFile}
                         onUploadError={onUploadError}

@@ -2,6 +2,7 @@ import { useState } from "react";
 
 type UploadHeroProps = {
     isUploading: boolean;
+    showsReplacementCopy: boolean;
     errorMessage: string;
     onSelectUploadFile: (file: File) => void;
     onUploadError: (errorMessage: string) => void;
@@ -23,10 +24,11 @@ const getIsSupportedSaveFile = (file: File) => {
     return false;
 };
 
-// UploadHero renders the empty-state upload picker and status copy.
-// EmptyStateView uses this so the primary upload action stays separate from the saved-profile rail and manual-entry card.
+// UploadHero renders upload picker copy for either a neutral entry flow or an active-save replacement flow.
+// EmptyStateView and any future replacement surfaces use this so upload wording is controlled by props instead of route-specific checks.
 export const UploadHero = ({
     isUploading,
+    showsReplacementCopy,
     errorMessage,
     onSelectUploadFile,
     onUploadError
@@ -150,7 +152,9 @@ export const UploadHero = ({
                             {isDragging
                                 ? "Drop your save file here"
                                 : selectedFile
-                                    ? "Replace selected save file"
+                                    ? showsReplacementCopy
+                                        ? "Replace selected save file"
+                                        : "Choose or drag a save file"
                                     : "Choose or drag a save file"}
                         </div>
                         <div className="text-[14px] text-gray-600">

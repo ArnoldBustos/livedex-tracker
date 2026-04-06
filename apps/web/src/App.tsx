@@ -2,9 +2,8 @@ import { useEffect, useState } from "react"; // React hooks used throughout App
 
 import "./App.css";
 
-import { EmptyStateView } from "./components/layout/EmptyStateView"; // empty upload screen
+import { EntryView } from "./components/layout/EntryView"; // unified pre-dashboard entry layout
 import { LoadedDashboardView } from "./components/layout/LoadedDashboardView"; // main dashboard
-import { LoginView } from "./components/auth/LoginView"; // login / guest entry screen
 import { ManualGameOverridePrompt } from "./components/upload/ManualGameOverridePrompt"; // FRLG manual title chooser
 import { SaveDetailsForm } from "./components/upload/SaveDetailsForm"; // shared save setup dialog
 
@@ -589,8 +588,8 @@ const App = () => {
     }
   };
 
-  // handleContinueAsGuest creates a guest session and switches the app into guest mode
-  // LoginView calls this to enter guest mode without account-backed persistence
+  // handleContinueAsGuest creates a guest session and switches the app into guest mode.
+  // AuthPanel calls this so users can explicitly enter a temporary local session from the unified entry screen.
   const handleContinueAsGuest = () => {
     setCurrentUser({
       id: "guest",
@@ -598,6 +597,24 @@ const App = () => {
       username: "Guest"
     });
     setSessionMode("guest");
+  };
+
+  // ensureGuestSession creates or reuses the temporary local guest user for unified entry actions.
+  // EntryView wrappers call this before upload or manual setup so the pre-dashboard screen no longer depends on auth-first gating.
+  const ensureGuestSession = () => {
+    if (currentUser) {
+      return currentUser;
+    }
+
+    const nextGuestUser = {
+      id: "guest",
+      email: "guest",
+      username: "Guest"
+    };
+
+    setCurrentUser(nextGuestUser);
+    setSessionMode("guest");
+    return nextGuestUser;
   };
 
   // Persists the current user session only when the app is in user or guest mode
@@ -784,33 +801,58 @@ const App = () => {
   };
 
   // handleSelectUploadFile opens shared save setup for the chosen upload file.
-  // EmptyStateView calls this so upload naming stays outside UploadHero and out of the main dashboard tree.
-  const handleSelectUploadFile = (file: File) => {
+  // Entry wrappers and empty-state flows call this so upload naming stays outside UploadHero and out of the main dashboard tree.
+  const handleSelectUploadFile = ({
+    file,
+    isGuestSession
+  }: {
+    file: File;
+    isGuestSession: boolean;
+  }) => {
     setErrorMessage("");
     setPendingManualGameSelection(null);
     setPendingSaveSetup({
       file,
       identity: getInitialSaveSetupIdentity({
         sourceType: "upload",
-        isGuestSession: isGuestMode,
+        isGuestSession,
         file
       })
     });
   };
 
+  // handleEntryUploadFile ensures a temporary guest session exists before opening upload setup.
+  // EntryView calls this so first-load uploads work without requiring auth as a separate screen.
+  const handleEntryUploadFile = (file: File) => {
+    const ensuredUser = ensureGuestSession();
+
+    handleSelectUploadFile({
+      file,
+      isGuestSession: ensuredUser.id === "guest"
+    });
+  };
+
   // handleCreateManualEntry opens shared save setup for a new manual save shell.
-  // EmptyStateView calls this so manual creation reuses the same identity model as uploads.
-  const handleCreateManualEntry = () => {
+  // Entry wrappers and empty-state flows call this so manual creation reuses the same identity model as uploads.
+  const handleCreateManualEntry = (isGuestSession: boolean) => {
     setErrorMessage("");
     setPendingManualGameSelection(null);
     setPendingSaveSetup({
       file: null,
       identity: getInitialSaveSetupIdentity({
         sourceType: "manual",
-        isGuestSession: isGuestMode,
+        isGuestSession,
         file: null
       })
     });
+  };
+
+  // handleEntryCreateManual ensures a temporary guest session exists before opening manual setup.
+  // EntryView calls this so first-load manual tracking works before the user chooses auth.
+  const handleEntryCreateManual = () => {
+    const ensuredUser = ensureGuestSession();
+
+    handleCreateManualEntry(ensuredUser.id === "guest");
   };
 
   // handleCancelSaveSetup closes the shared save setup dialog without mutating the current loaded save state.
@@ -1316,17 +1358,24 @@ const App = () => {
     setSessionMode("auth");
   };
 
-  if (sessionMode === "auth" || !currentUser) {
+  if (!uploadResponse || !displayedDexResponse) {
     return (
       <>
-        <LoginView
+        <EntryView
+          isSignedIn={sessionMode === "user" && currentUser !== null}
+          currentUserEmail={currentUser ? currentUser.email : ""}
+          isUploading={isUploading}
+          isLoadingSaveProfiles={isLoadingSaveProfiles}
+          openingSaveProfileId={openingSaveProfileId}
+          errorMessage={errorMessage}
+          saveProfiles={saveProfiles}
           authMode={authMode}
           email={loginEmail}
-          isSubmitting={isLoggingIn}
-          errorMessage={errorMessage}
+          isSubmittingAuth={isLoggingIn}
           onChangeEmail={setLoginEmail}
-          onSubmit={handleLogin}
+          onSubmitAuth={handleLogin}
           onContinueAsGuest={handleContinueAsGuest}
+          onLogout={handleLogout}
           onSwitchToLogin={() => {
             setAuthMode("login");
             setErrorMessage("");
@@ -1335,35 +1384,11 @@ const App = () => {
             setAuthMode("register");
             setErrorMessage("");
           }}
+          onSelectUploadFile={handleEntryUploadFile}
+          onCreateManualEntry={handleEntryCreateManual}
+          onOpenExistingSave={loadSaveProfileIntoDashboard}
+          onUploadError={handleUploadError}
         />
-        <ManualGameOverridePrompt
-          isOpen={false}
-          isSubmitting={false}
-          message=""
-          onSelectGame={handleSubmitManualGameOverride}
-          onCancel={handleCancelManualGameOverride}
-        />
-      </>
-    );
-  }
-
-  if (!uploadResponse || !displayedDexResponse) {
-    return (
-      <>
-        <div className="min-h-screen bg-[#f3f4f6] text-[#38392a]">
-          <EmptyStateView
-            isSignedIn={!isGuestMode}
-            isUploading={isUploading}
-            isLoadingSaveProfiles={isLoadingSaveProfiles}
-            openingSaveProfileId={openingSaveProfileId}
-            errorMessage={errorMessage}
-            saveProfiles={saveProfiles}
-            onSelectUploadFile={handleSelectUploadFile}
-            onCreateManualEntry={handleCreateManualEntry}
-            onOpenExistingSave={loadSaveProfileIntoDashboard}
-            onUploadError={handleUploadError}
-          />
-        </div>
         <SaveDetailsForm
           isOpen={pendingSaveSetup !== null}
           title={
@@ -1414,7 +1439,9 @@ const App = () => {
 
   const sessionLabel = isGuestMode
     ? "Temporary local session"
-    : currentUser.email;
+    : currentUser
+      ? currentUser.email
+      : "Temporary local session";
 
   return (
     <>
