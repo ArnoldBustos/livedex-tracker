@@ -7,6 +7,7 @@ import type {
     DexEntry,
     DexFilter,
     DexGridDensity,
+    DexListDensity,
     DexResponse,
     DexScope,
     DexViewMode,
@@ -28,6 +29,7 @@ type LoadedDashboardViewProps = {
     selectedCollectionLayer: DexCollectionLayerKey;
     selectedScope: DexScope;
     selectedGridDensity: DexGridDensity;
+    selectedListDensity: DexListDensity;
     selectedViewMode: DexViewMode;
     selectedDexNumber: number | null;
     errorMessage: string;
@@ -38,8 +40,8 @@ type LoadedDashboardViewProps = {
     onChangeCollectionLayer: (nextLayer: DexCollectionLayerKey) => void;
     onChangeScope: (nextScope: DexScope) => void;
     onChangeViewMode: (nextViewMode: DexViewMode) => void;
-    onDecreaseGridDensity: () => void;
-    onIncreaseGridDensity: () => void;
+    onDecreaseDisplayDensity: () => void;
+    onIncreaseDisplayDensity: () => void;
     onSelectDexNumber: (nextDexNumber: number) => void;
     onSelectSaveProfile: (saveProfileId: string) => void;
     onDeleteProfile: (saveProfileId: string) => Promise<void>;
@@ -145,6 +147,14 @@ const dexGridDensityOrder: DexGridDensity[] = [
     "default",
     "compact",
     "extraCompact"
+];
+
+// dexListDensityOrder defines the density steps from roomiest to densest list rows.
+// LoadedDashboardView uses this to disable the shared minus and plus controls against the active list bounds.
+const dexListDensityOrder: DexListDensity[] = [
+    "comfortable",
+    "default",
+    "compact"
 ];
 
 // getDexEntryStatus returns the strongest collection state for one dex layer on one dex entry.
@@ -387,7 +397,7 @@ const SidebarSnapshotStat = ({
 };
 
 // CollectionLayerToggleButton renders the dashboard layer switch between standard and shiny evaluation.
-// LoadedDashboardView uses this so filter logic can swap layers without duplicating the filter row.
+// LoadedDashboardView uses this inside the unlabeled control row so the unique icon and button treatment still signal the shiny group.
 const CollectionLayerToggleButton = ({
     selectedCollectionLayer,
     onClick
@@ -401,8 +411,8 @@ const CollectionLayerToggleButton = ({
         <button
             className={
                 isShinySelected
-                    ? "flex min-h-[40px] items-center gap-2 rounded-lg border-2 border-slate-800 bg-[linear-gradient(135deg,#243345_0%,#2f455f_52%,#4c6a8a_100%)] px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:border-slate-700"
-                    : "flex min-h-[40px] items-center gap-2 rounded-lg border-2 border-transparent bg-white px-3 py-2 text-sm font-semibold text-gray-600 shadow-sm transition hover:bg-gray-50"
+                    ? "flex min-h-[40px] items-center gap-2 rounded-lg border border-slate-700 bg-[linear-gradient(135deg,#314156_0%,#43556d_55%,#5a708e_100%)] px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:border-slate-600"
+                    : "flex min-h-[40px] items-center gap-2 rounded-lg border border-transparent bg-white px-3 py-2 text-sm font-semibold text-gray-600 shadow-sm transition hover:bg-gray-50"
             }
             type="button"
             aria-pressed={isShinySelected}
@@ -411,7 +421,7 @@ const CollectionLayerToggleButton = ({
             <span
                 className={
                     isShinySelected
-                        ? "inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/30 bg-white/12"
+                        ? "inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/25 bg-white/10"
                         : "inline-flex h-6 w-6 items-center justify-center rounded-full border border-gray-300 bg-white"
                 }
             >
@@ -514,6 +524,7 @@ export const LoadedDashboardView = ({
     selectedCollectionLayer,
     selectedScope,
     selectedGridDensity,
+    selectedListDensity,
     selectedViewMode,
     selectedDexNumber,
     errorMessage,
@@ -524,8 +535,8 @@ export const LoadedDashboardView = ({
     onChangeCollectionLayer,
     onChangeScope,
     onChangeViewMode,
-    onDecreaseGridDensity,
-    onIncreaseGridDensity,
+    onDecreaseDisplayDensity,
+    onIncreaseDisplayDensity,
     onSelectDexNumber,
     onSelectSaveProfile,
     onResetToEmptyState,
@@ -540,15 +551,22 @@ export const LoadedDashboardView = ({
     // pendingDeleteProfileId tracks which profile is showing inline delete confirmation
     // the profile list uses this to swap the Delete button into confirm/cancel actions
     const [pendingDeleteProfileId, setPendingDeleteProfileId] = useState<string | null>(null);
-    // selectedGridDensityIndex tracks the current density step within the ordered scale.
-    // LoadedDashboardView uses this so the minus and plus buttons disable at the correct reversed bounds.
+    // selectedGridDensityIndex tracks the current grid density step within the ordered scale.
+    // LoadedDashboardView uses this so grid mode can disable the shared minus and plus buttons at the correct bounds.
     const selectedGridDensityIndex = dexGridDensityOrder.indexOf(selectedGridDensity);
-    // isDecreaseGridDensityDisabled blocks the minus control at the smallest-card density bound.
-    // the reversed minus behavior uses this so users can always step back from larger card sizes.
-    const isDecreaseGridDensityDisabled = selectedGridDensityIndex === dexGridDensityOrder.length - 1;
-    // isIncreaseGridDensityDisabled blocks the plus control at the largest-card density bound.
-    // the reversed plus behavior uses this so users can always step back from smaller card sizes.
-    const isIncreaseGridDensityDisabled = selectedGridDensityIndex === 0;
+    // selectedListDensityIndex tracks the current list density step within the ordered scale.
+    // LoadedDashboardView uses this so list mode can disable the shared minus and plus buttons at the correct bounds.
+    const selectedListDensityIndex = dexListDensityOrder.indexOf(selectedListDensity);
+    // isDecreaseDisplayDensityDisabled blocks the minus control when the active view is already at its densest setting.
+    // the shared header buttons use this so grid and list keep the same minus-means-denser behavior.
+    const isDecreaseDisplayDensityDisabled = selectedViewMode === "list"
+        ? selectedListDensityIndex === dexListDensityOrder.length - 1
+        : selectedGridDensityIndex === dexGridDensityOrder.length - 1;
+    // isIncreaseDisplayDensityDisabled blocks the plus control when the active view is already at its roomiest setting.
+    // the shared header buttons use this so grid and list keep the same plus-means-roomier behavior.
+    const isIncreaseDisplayDensityDisabled = selectedViewMode === "list"
+        ? selectedListDensityIndex === 0
+        : selectedGridDensityIndex === 0;
 
     const trainerName =
         uploadResponse.trainerInfo && uploadResponse.trainerInfo.name
@@ -824,46 +842,48 @@ export const LoadedDashboardView = ({
                                     );
                                 })}
 
-                                {selectedViewMode === "grid" ? (
-                                    <div className="ml-1 flex min-h-[40px] items-center gap-1 rounded-lg border border-white/80 bg-white px-1 py-1 shadow-sm">
-                                        <button
-                                            className={
-                                                isDecreaseGridDensityDisabled
-                                                    ? "rounded-md px-2 py-1 text-sm font-extrabold text-gray-300"
-                                                    : "rounded-md px-2 py-1 text-sm font-extrabold text-gray-600 hover:bg-gray-100"
-                                            }
-                                            type="button"
-                                            onClick={onDecreaseGridDensity}
-                                            disabled={isDecreaseGridDensityDisabled}
-                                            aria-label="Show more cards per row with smaller cards"
-                                        >
-                                            -
-                                        </button>
+                                <div className="ml-1 flex min-h-[40px] items-center gap-1 rounded-lg border border-white/80 bg-white px-1 py-1 shadow-sm">
+                                    <button
+                                        className={
+                                            isDecreaseDisplayDensityDisabled
+                                                ? "rounded-md px-2 py-1 text-sm font-extrabold text-gray-300"
+                                                : "rounded-md px-2 py-1 text-sm font-extrabold text-gray-600 hover:bg-gray-100"
+                                        }
+                                        type="button"
+                                        onClick={onDecreaseDisplayDensity}
+                                        disabled={isDecreaseDisplayDensityDisabled}
+                                        aria-label={
+                                            selectedViewMode === "grid"
+                                                ? "Show more cards per row with smaller cards"
+                                                : "Show more list rows with denser spacing"
+                                        }
+                                    >
+                                        -
+                                    </button>
 
-                                        <button
-                                            className={
-                                                isIncreaseGridDensityDisabled
-                                                    ? "rounded-md px-2 py-1 text-sm font-extrabold text-gray-300"
-                                                    : "rounded-md px-2 py-1 text-sm font-extrabold text-gray-600 hover:bg-gray-100"
-                                            }
-                                            type="button"
-                                            onClick={onIncreaseGridDensity}
-                                            disabled={isIncreaseGridDensityDisabled}
-                                            aria-label="Show fewer cards per row with larger cards"
-                                        >
-                                            +
-                                        </button>
-                                    </div>
-                                ) : null}
+                                    <button
+                                        className={
+                                            isIncreaseDisplayDensityDisabled
+                                                ? "rounded-md px-2 py-1 text-sm font-extrabold text-gray-300"
+                                                : "rounded-md px-2 py-1 text-sm font-extrabold text-gray-600 hover:bg-gray-100"
+                                        }
+                                        type="button"
+                                        onClick={onIncreaseDisplayDensity}
+                                        disabled={isIncreaseDisplayDensityDisabled}
+                                        aria-label={
+                                            selectedViewMode === "grid"
+                                                ? "Show fewer cards per row with larger cards"
+                                                : "Show fewer list rows with roomier spacing"
+                                        }
+                                    >
+                                        +
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="flex w-full flex-wrap items-start gap-3 rounded-2xl border border-[rgba(130,129,111,0.18)] bg-white/80 px-3 py-3 shadow-sm xl:flex-nowrap xl:items-start">
+                        <div className="flex w-full flex-wrap items-center gap-4 rounded-2xl border border-[rgba(130,129,111,0.18)] bg-white/80 px-3 py-3 shadow-sm xl:flex-nowrap">
                             <div className="min-w-0 xl:flex-1">
-                                <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
-                                    Filter
-                                </p>
-
                                 <div className="flex flex-wrap items-stretch gap-2 rounded-xl bg-gray-100 p-1 xl:flex-nowrap">
                                     {filterControlOptions.map((filterOption) => {
                                         return (
@@ -881,10 +901,6 @@ export const LoadedDashboardView = ({
                             </div>
 
                             <div className="min-w-0 xl:shrink-0">
-                                <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
-                                    Shiny
-                                </p>
-
                                 <div className="rounded-xl bg-gray-100 p-1">
                                     <CollectionLayerToggleButton
                                         selectedCollectionLayer={selectedCollectionLayer}
@@ -898,10 +914,6 @@ export const LoadedDashboardView = ({
                             </div>
 
                             <div className="min-w-0 xl:shrink-0">
-                                <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
-                                    Scope
-                                </p>
-
                                 <div className="flex flex-wrap items-stretch gap-2 rounded-xl bg-gray-100 p-1 sm:flex-nowrap">
                                     {scopeControlOptions.map((scopeOption) => {
                                         return (
@@ -925,6 +937,7 @@ export const LoadedDashboardView = ({
                         selectedDexEntry={selectedDexEntry}
                         selectedCollectionLayer={selectedCollectionLayer}
                         selectedGridDensity={selectedGridDensity}
+                        selectedListDensity={selectedListDensity}
                         selectedViewMode={selectedViewMode}
                         onSelectDexNumber={onSelectDexNumber}
                     />

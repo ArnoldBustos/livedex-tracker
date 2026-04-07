@@ -11,6 +11,7 @@ import type {
   DexCollectionLayerKey,
   DexFilter,
   DexGridDensity,
+  DexListDensity,
   DexResponse,
   DexScope,
   DexViewMode,
@@ -310,7 +311,12 @@ const App = () => {
   // App.tsx owns this so uploads, resets, and future dashboard views can share one layout selection source.
   const [selectedViewMode, setSelectedViewMode] = useState<DexViewMode>("grid");
   const [selectedScope, setSelectedScope] = useState<DexScope>("regional");
+  // selectedGridDensity stores the five card-density steps used only by grid mode.
+  // App.tsx owns this separately so grid sizing can stay independent from list row spacing.
   const [selectedGridDensity, setSelectedGridDensity] = useState<DexGridDensity>("default");
+  // selectedListDensity stores the three row-density steps used only by list mode.
+  // App.tsx owns this separately so list spacing can evolve without forcing grid and list into the same enum.
+  const [selectedListDensity, setSelectedListDensity] = useState<DexListDensity>("default");
   const [selectedDexNumber, setSelectedDexNumber] = useState<number | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isLoadingSaveProfiles, setIsLoadingSaveProfiles] = useState(false);
@@ -1071,9 +1077,24 @@ const App = () => {
     setErrorMessage("");
   };
 
-  // handleDecreaseGridDensity moves the dex grid toward more cards per row and smaller cards.
-  // LoadedDashboardView calls this from the minus control so the symbol matches denser card layout.
-  const handleDecreaseGridDensity = () => {
+  // handleDecreaseDisplayDensity moves the active view toward denser content, meaning more visible cards or rows.
+  // LoadedDashboardView calls this from the minus control so grid and list modes share one density affordance.
+  const handleDecreaseDisplayDensity = () => {
+    if (selectedViewMode === "list") {
+      setSelectedListDensity((currentListDensity) => {
+        if (currentListDensity === "comfortable") {
+          return "default";
+        }
+
+        if (currentListDensity === "default") {
+          return "compact";
+        }
+
+        return currentListDensity;
+      });
+      return;
+    }
+
     setSelectedGridDensity((currentGridDensity) => {
       if (currentGridDensity === "extraComfortable") {
         return "comfortable";
@@ -1095,9 +1116,24 @@ const App = () => {
     });
   };
 
-  // handleIncreaseGridDensity moves the dex grid toward fewer cards per row and larger cards.
-  // LoadedDashboardView calls this from the plus control so the symbol matches roomier card layout.
-  const handleIncreaseGridDensity = () => {
+  // handleIncreaseDisplayDensity moves the active view toward roomier content, meaning fewer visible cards or rows.
+  // LoadedDashboardView calls this from the plus control so grid and list modes share one density affordance.
+  const handleIncreaseDisplayDensity = () => {
+    if (selectedViewMode === "list") {
+      setSelectedListDensity((currentListDensity) => {
+        if (currentListDensity === "compact") {
+          return "default";
+        }
+
+        if (currentListDensity === "default") {
+          return "comfortable";
+        }
+
+        return currentListDensity;
+      });
+      return;
+    }
+
     setSelectedGridDensity((currentGridDensity) => {
       if (currentGridDensity === "extraCompact") {
         return "compact";
@@ -1469,6 +1505,7 @@ const App = () => {
           selectedCollectionLayer={selectedCollectionLayer}
           selectedScope={selectedScope}
           selectedGridDensity={selectedGridDensity}
+          selectedListDensity={selectedListDensity}
           selectedViewMode={selectedViewMode}
           selectedDexNumber={selectedDexNumber}
           errorMessage={errorMessage}
@@ -1479,8 +1516,8 @@ const App = () => {
           onChangeCollectionLayer={setSelectedCollectionLayer}
           onChangeScope={setSelectedScope}
           onChangeViewMode={setSelectedViewMode}
-          onDecreaseGridDensity={handleDecreaseGridDensity}
-          onIncreaseGridDensity={handleIncreaseGridDensity}
+          onDecreaseDisplayDensity={handleDecreaseDisplayDensity}
+          onIncreaseDisplayDensity={handleIncreaseDisplayDensity}
           onSelectDexNumber={setSelectedDexNumber}
           onSelectSaveProfile={handleSelectSaveProfile}
           onUpdateSave={handleUpdateActiveProfileSave}

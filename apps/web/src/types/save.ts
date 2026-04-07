@@ -219,4 +219,8 @@ export type DexGridDensity =
     | "compact"
     | "extraCompact";
 
+// DexListDensity defines the three dashboard row density options for the dex list view.
+// App.tsx stores this selection and DexEntryDisplay uses it to scale list row spacing without affecting the grid.
+export type DexListDensity = "comfortable" | "default" | "compact";
+
 export type DexDisplayStatus = "living" | "caught" | "seen" | "missing";

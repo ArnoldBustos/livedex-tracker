@@ -3,6 +3,7 @@ import type {
     DexDisplayStatus,
     DexEntry,
     DexGridDensity,
+    DexListDensity,
     DexViewMode
 } from "../../types/save";
 import { getPokemonTypeBadgeStyle } from "../../lib/pokemonTypeStyles";
@@ -15,6 +16,7 @@ type DexEntryDisplayProps = {
     selectedDexEntry: DexEntry | null;
     selectedCollectionLayer: DexCollectionLayerKey;
     selectedGridDensity: DexGridDensity;
+    selectedListDensity: DexListDensity;
     selectedViewMode: DexViewMode;
     onSelectDexNumber: (nextDexNumber: number) => void;
 };
@@ -60,8 +62,8 @@ const getDexEntryStatusLabel = (status: DexDisplayStatus) => {
     return "Missing";
 };
 
-// getDexEntryStatusBadgeClassName maps one status to the shared badge treatment used by grid cards and list rows.
-// DexEntryDisplay uses this so both layouts keep the same color language for dex progress.
+// getDexEntryStatusBadgeClassName maps one status to the shared badge treatment used by grid cards.
+// DexEntryDisplay uses this so the grid keeps the same color language for dex progress.
 const getDexEntryStatusBadgeClassName = (status: DexDisplayStatus) => {
     if (status === "living") {
         return "rounded-full bg-green-100 px-2 py-1 text-[10px] font-bold uppercase text-green-700";
@@ -76,6 +78,34 @@ const getDexEntryStatusBadgeClassName = (status: DexDisplayStatus) => {
     }
 
     return "rounded-full bg-gray-100 px-2 py-1 text-[10px] font-bold uppercase text-gray-500";
+};
+
+// getDexListStatusBadgeClassName maps list density and status to tighter list-row pills.
+// ListDexEntryDisplay uses this so compact rows can reduce pill height and padding without affecting the grid cards.
+const getDexListStatusBadgeClassName = ({
+    status,
+    selectedListDensity
+}: {
+    status: DexDisplayStatus;
+    selectedListDensity: DexListDensity;
+}) => {
+    const baseClassName = status === "living"
+        ? "bg-green-100 text-green-700"
+        : status === "caught"
+            ? "bg-yellow-100 text-yellow-700"
+            : status === "seen"
+                ? "bg-purple-100 text-purple-700"
+                : "bg-gray-100 text-gray-500";
+
+    if (selectedListDensity === "comfortable") {
+        return `rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${baseClassName}`;
+    }
+
+    if (selectedListDensity === "compact") {
+        return `rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase ${baseClassName}`;
+    }
+
+    return `rounded-full px-2 py-0.75 text-[10px] font-bold uppercase ${baseClassName}`;
 };
 
 // getHasShinyCardIndicator decides whether one dex entry should show the display-only shiny marker.
@@ -160,10 +190,158 @@ const formatPokemonTypeLabel = (pokemonType: string) => {
     return `${pokemonType.charAt(0)}${pokemonType.slice(1).toLowerCase()}`;
 };
 
-// getDexListSectionClassName returns the list container classes for the dense dex view.
-// DexEntryDisplay uses this so list rendering stays visually separate from the grid density logic.
+// getDexListSectionClassName returns the shared list container classes for the row-based dex view.
+// DexEntryDisplay uses this so list density styling can change inside one stable outer shell.
 const getDexListSectionClassName = () => {
     return "overflow-hidden rounded-2xl border border-[rgba(130,129,111,0.18)] bg-white shadow-sm";
+};
+
+// getDexListHeaderClassName maps list density to the desktop header spacing shown above list rows.
+// ListDexEntryDisplay uses this so compact mode visibly fits more rows while keeping columns aligned.
+const getDexListHeaderClassName = (selectedListDensity: DexListDensity) => {
+    if (selectedListDensity === "comfortable") {
+        return "hidden grid-cols-[82px_minmax(0,1.3fr)_112px_64px_104px] items-center gap-4 border-b border-gray-200 bg-gray-50 px-5 py-3.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-gray-500 md:grid";
+    }
+
+    if (selectedListDensity === "compact") {
+        return "hidden grid-cols-[76px_minmax(0,1.3fr)_96px_56px_88px] items-center gap-1.5 border-b border-gray-200 bg-gray-50 px-2.5 py-1.5 text-[9px] font-extrabold uppercase tracking-[0.12em] text-gray-500 md:grid";
+    }
+
+    return "hidden grid-cols-[80px_minmax(0,1.3fr)_104px_60px_96px] items-center gap-2.5 border-b border-gray-200 bg-gray-50 px-3.5 py-2.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-gray-500 md:grid";
+};
+
+// getDexListRowClassName maps list density and selection state to row spacing without changing row content.
+// ListDexEntryDisplay uses this so the shared +/- controls can tighten or loosen list rows in a visibly distinct way.
+const getDexListRowClassName = ({
+    selectedListDensity,
+    isSelected
+}: {
+    selectedListDensity: DexListDensity;
+    isSelected: boolean;
+}) => {
+    const selectionClassName = isSelected
+        ? "bg-emerald-50 hover:bg-emerald-100"
+        : "bg-white hover:bg-gray-50";
+
+    if (selectedListDensity === "comfortable") {
+        return `grid w-full grid-cols-1 gap-3.5 px-5 py-3.5 text-left transition ${selectionClassName} md:grid-cols-[82px_minmax(0,1.3fr)_112px_64px_104px] md:items-center`;
+    }
+
+    if (selectedListDensity === "compact") {
+        return `grid w-full grid-cols-1 gap-1.5 px-2.5 py-1.5 text-left transition ${selectionClassName} md:grid-cols-[76px_minmax(0,1.3fr)_96px_56px_88px] md:items-center`;
+    }
+
+    return `grid w-full grid-cols-1 gap-2.5 px-3.5 py-2.5 text-left transition ${selectionClassName} md:grid-cols-[80px_minmax(0,1.3fr)_104px_60px_96px] md:items-center`;
+};
+
+// getDexListDexNumberClassName maps list density to the dex-number text size used in each row.
+// ListDexEntryDisplay uses this so support text tightens before row content is reduced.
+const getDexListDexNumberClassName = (selectedListDensity: DexListDensity) => {
+    if (selectedListDensity === "comfortable") {
+        return "text-sm font-extrabold tracking-[0.02em] text-gray-500";
+    }
+
+    if (selectedListDensity === "compact") {
+        return "text-xs font-extrabold tracking-[0.02em] text-gray-500";
+    }
+
+    return "text-sm font-extrabold tracking-[0.02em] text-gray-500 md:text-xs";
+};
+
+// getDexListPokemonNameClassName maps list density to the primary name text size in one row.
+// ListDexEntryDisplay uses this so comfortable rows feel roomier while compact rows stay scan-friendly.
+const getDexListPokemonNameClassName = (selectedListDensity: DexListDensity) => {
+    if (selectedListDensity === "comfortable") {
+        return "truncate text-base font-extrabold text-gray-900";
+    }
+
+    if (selectedListDensity === "compact") {
+        return "truncate text-[13px] font-extrabold text-gray-900";
+    }
+
+    return "truncate text-sm font-extrabold text-gray-900";
+};
+
+// getDexListOwnershipGroupClassName maps list density to the compact owned-summary wrapper.
+// ListDexEntryDisplay uses this so owned counters stay legible while using less vertical space per row.
+const getDexListOwnershipGroupClassName = (selectedListDensity: DexListDensity) => {
+    if (selectedListDensity === "comfortable") {
+        return "grid grid-cols-2 gap-2.5 md:flex md:flex-col md:gap-1";
+    }
+
+    if (selectedListDensity === "compact") {
+        return "grid grid-cols-2 gap-1 md:flex md:flex-col md:gap-0.5";
+    }
+
+    return "grid grid-cols-2 gap-1.5 md:flex md:flex-col md:gap-0.75";
+};
+
+// getDexListOwnershipMetricClassName maps list density and counter type to the compact owned metric chip.
+// ListDexEntryDisplay uses this so owned values can be shown inline with short labels instead of tall repeated blocks.
+const getDexListOwnershipMetricClassName = ({
+    selectedListDensity,
+    isShiny
+}: {
+    selectedListDensity: DexListDensity;
+    isShiny: boolean;
+}) => {
+    const baseClassName = isShiny
+        ? "rounded-md bg-amber-50 text-amber-700 md:bg-transparent"
+        : "rounded-md bg-gray-50 text-gray-700 md:bg-transparent";
+
+    if (selectedListDensity === "comfortable") {
+        return `${baseClassName} flex items-center justify-between gap-2 px-2.5 py-2 md:px-0 md:py-0`;
+    }
+
+    if (selectedListDensity === "compact") {
+        return `${baseClassName} flex items-center justify-between gap-1.5 px-1.5 py-1 md:px-0 md:py-0`;
+    }
+
+    return `${baseClassName} flex items-center justify-between gap-2 px-2 py-1.5 md:px-0 md:py-0`;
+};
+
+// getDexListOwnershipMetricLabelClassName maps list density and counter type to the short owned labels.
+// ListDexEntryDisplay uses this so mobile rows stay clear while desktop rows avoid repeating verbose headers.
+const getDexListOwnershipMetricLabelClassName = ({
+    selectedListDensity,
+    isShiny
+}: {
+    selectedListDensity: DexListDensity;
+    isShiny: boolean;
+}) => {
+    const colorClassName = isShiny ? "text-amber-600" : "text-gray-400";
+
+    if (selectedListDensity === "comfortable") {
+        return `text-[10px] font-bold uppercase tracking-[0.08em] ${colorClassName} md:text-[9px]`;
+    }
+
+    if (selectedListDensity === "compact") {
+        return `text-[9px] font-bold uppercase tracking-[0.06em] ${colorClassName}`;
+    }
+
+    return `text-[9px] font-bold uppercase tracking-[0.08em] ${colorClassName}`;
+};
+
+// getDexListOwnershipMetricValueClassName maps list density and counter type to the numeric owned values.
+// ListDexEntryDisplay uses this so compact mode can reduce emphasis while keeping counts readable.
+const getDexListOwnershipMetricValueClassName = ({
+    selectedListDensity,
+    isShiny
+}: {
+    selectedListDensity: DexListDensity;
+    isShiny: boolean;
+}) => {
+    const colorClassName = isShiny ? "text-amber-700" : "text-gray-900";
+
+    if (selectedListDensity === "comfortable") {
+        return `text-sm font-extrabold ${colorClassName}`;
+    }
+
+    if (selectedListDensity === "compact") {
+        return `text-xs font-extrabold ${colorClassName}`;
+    }
+
+    return `text-sm font-extrabold ${colorClassName}`;
 };
 
 // GridDexEntryDisplay renders the existing card layout for the filtered dex entries.
@@ -174,7 +352,7 @@ const GridDexEntryDisplay = ({
     selectedCollectionLayer,
     selectedGridDensity,
     onSelectDexNumber
-}: Omit<DexEntryDisplayProps, "selectedViewMode">) => {
+}: Omit<DexEntryDisplayProps, "selectedListDensity" | "selectedViewMode">) => {
     return (
         <section className={getDexGridSectionClassName(selectedGridDensity)}>
             {entries.map((dexEntry) => {
@@ -260,11 +438,12 @@ const ListDexEntryDisplay = ({
     entries,
     selectedDexEntry,
     selectedCollectionLayer,
+    selectedListDensity,
     onSelectDexNumber
 }: Omit<DexEntryDisplayProps, "selectedGridDensity" | "selectedViewMode">) => {
     return (
         <section className={getDexListSectionClassName()}>
-            <div className="hidden grid-cols-[88px_minmax(0,1.3fr)_132px_72px_150px] items-center gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 text-[11px] font-extrabold uppercase tracking-[0.12em] text-gray-500 md:grid">
+            <div className={getDexListHeaderClassName(selectedListDensity)}>
                 <span>Dex No.</span>
                 <span>Pokémon</span>
                 <span>Status</span>
@@ -283,28 +462,32 @@ const ListDexEntryDisplay = ({
                     return (
                         <button
                             key={dexEntry.dexNumber}
-                            className={
+                            className={getDexListRowClassName({
+                                selectedListDensity,
                                 isSelected
-                                    ? "grid w-full grid-cols-1 gap-3 bg-emerald-50 px-4 py-3 text-left transition hover:bg-emerald-100 md:grid-cols-[88px_minmax(0,1.3fr)_132px_72px_150px] md:items-center"
-                                    : "grid w-full grid-cols-1 gap-3 bg-white px-4 py-3 text-left transition hover:bg-gray-50 md:grid-cols-[88px_minmax(0,1.3fr)_132px_72px_150px] md:items-center"
-                            }
+                            })}
                             type="button"
                             onClick={() => {
                                 onSelectDexNumber(dexEntry.dexNumber);
                             }}
                         >
-                            <div className="text-sm font-extrabold tracking-[0.02em] text-gray-500 md:text-xs">
+                            <div className={getDexListDexNumberClassName(selectedListDensity)}>
                                 #{dexEntry.dexNumber.toString().padStart(3, "0")}
                             </div>
 
                             <div className="min-w-0">
-                                <div className="truncate text-sm font-extrabold text-gray-900">
+                                <div className={getDexListPokemonNameClassName(selectedListDensity)}>
                                     {dexEntry.name}
                                 </div>
                             </div>
 
                             <div>
-                                <span className={getDexEntryStatusBadgeClassName(status)}>
+                                <span
+                                    className={getDexListStatusBadgeClassName({
+                                        status,
+                                        selectedListDensity
+                                    })}
+                                >
                                     {getDexEntryStatusLabel(status)}
                                 </span>
                             </div>
@@ -325,21 +508,53 @@ const ListDexEntryDisplay = ({
                                 )}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2 md:block">
-                                <div className="rounded-lg bg-gray-50 px-2 py-2 md:bg-transparent md:px-0 md:py-0">
-                                    <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-gray-400">
-                                        Owned
+                            <div className={getDexListOwnershipGroupClassName(selectedListDensity)}>
+                                <div
+                                    className={getDexListOwnershipMetricClassName({
+                                        selectedListDensity,
+                                        isShiny: false
+                                    })}
+                                >
+                                    <div
+                                        className={getDexListOwnershipMetricLabelClassName({
+                                            selectedListDensity,
+                                            isShiny: false
+                                        })}
+                                    >
+                                        <span className="md:hidden">Own</span>
+                                        <span className="hidden md:inline">O</span>
                                     </div>
-                                    <div className="text-sm font-extrabold text-gray-900">
+                                    <div
+                                        className={getDexListOwnershipMetricValueClassName({
+                                            selectedListDensity,
+                                            isShiny: false
+                                        })}
+                                    >
                                         {dexEntry.ownership.totalOwnedCount}
                                     </div>
                                 </div>
 
-                                <div className="rounded-lg bg-amber-50 px-2 py-2 md:mt-1 md:bg-transparent md:px-0 md:py-0">
-                                    <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-amber-600">
-                                        Shiny Owned
+                                <div
+                                    className={getDexListOwnershipMetricClassName({
+                                        selectedListDensity,
+                                        isShiny: true
+                                    })}
+                                >
+                                    <div
+                                        className={getDexListOwnershipMetricLabelClassName({
+                                            selectedListDensity,
+                                            isShiny: true
+                                        })}
+                                    >
+                                        <span className="md:hidden">Sh</span>
+                                        <span className="hidden md:inline">S</span>
                                     </div>
-                                    <div className="text-sm font-extrabold text-amber-700">
+                                    <div
+                                        className={getDexListOwnershipMetricValueClassName({
+                                            selectedListDensity,
+                                            isShiny: true
+                                        })}
+                                    >
                                         {dexEntry.ownership.shinyOwnedCount}
                                     </div>
                                 </div>
@@ -353,12 +568,13 @@ const ListDexEntryDisplay = ({
 };
 
 // DexEntryDisplay switches between the existing card grid and the new dense list without re-filtering entries.
-// LoadedDashboardView uses this so display layout stays modular while selection and filter state remain centralized.
+// LoadedDashboardView uses this so display layout and per-mode density stay modular while selection and filter state remain centralized.
 export const DexEntryDisplay = ({
     entries,
     selectedDexEntry,
     selectedCollectionLayer,
     selectedGridDensity,
+    selectedListDensity,
     selectedViewMode,
     onSelectDexNumber
 }: DexEntryDisplayProps) => {
@@ -368,6 +584,7 @@ export const DexEntryDisplay = ({
                 entries={entries}
                 selectedDexEntry={selectedDexEntry}
                 selectedCollectionLayer={selectedCollectionLayer}
+                selectedListDensity={selectedListDensity}
                 onSelectDexNumber={onSelectDexNumber}
             />
         );
