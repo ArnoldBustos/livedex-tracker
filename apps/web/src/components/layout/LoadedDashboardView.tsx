@@ -803,67 +803,58 @@ export const LoadedDashboardView = ({
                     />
 
                     <section className="flex flex-wrap items-end justify-between gap-4">
-                        <div className="flex min-w-0 flex-1 flex-wrap items-end justify-between gap-4 rounded-2xl border border-[rgba(130,129,111,0.18)] bg-white/80 px-4 py-3 shadow-sm">
+                        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-4 rounded-2xl border border-[rgba(130,129,111,0.18)] bg-white/80 px-4 py-3 shadow-sm">
                             <div className="min-w-0">
-                                <p className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
-                                    Database View
-                                </p>
                                 <h2 className="text-3xl font-extrabold tracking-tight text-gray-900">
                                     {selectedScope === "national" ? "National Dex" : "Regional Dex"}
                                 </h2>
                             </div>
 
-                            <div className="min-w-0">
-                                <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
-                                    Display
-                                </p>
+                            <div className="flex min-w-0 flex-wrap items-stretch gap-2 rounded-xl bg-gray-100 p-1 sm:flex-nowrap">
+                                {viewModeControlOptions.map((viewModeOption) => {
+                                    return (
+                                        <ControlChipButton
+                                            key={viewModeOption.value}
+                                            label={viewModeOption.label}
+                                            isSelected={selectedViewMode === viewModeOption.value}
+                                            onClick={() => {
+                                                onChangeViewMode(viewModeOption.value);
+                                            }}
+                                        />
+                                    );
+                                })}
 
-                                <div className="flex flex-wrap items-stretch gap-2 rounded-xl bg-gray-100 p-1 sm:flex-nowrap">
-                                    {viewModeControlOptions.map((viewModeOption) => {
-                                        return (
-                                            <ControlChipButton
-                                                key={viewModeOption.value}
-                                                label={viewModeOption.label}
-                                                isSelected={selectedViewMode === viewModeOption.value}
-                                                onClick={() => {
-                                                    onChangeViewMode(viewModeOption.value);
-                                                }}
-                                            />
-                                        );
-                                    })}
+                                {selectedViewMode === "grid" ? (
+                                    <div className="ml-1 flex min-h-[40px] items-center gap-1 rounded-lg border border-white/80 bg-white px-1 py-1 shadow-sm">
+                                        <button
+                                            className={
+                                                isDecreaseGridDensityDisabled
+                                                    ? "rounded-md px-2 py-1 text-sm font-extrabold text-gray-300"
+                                                    : "rounded-md px-2 py-1 text-sm font-extrabold text-gray-600 hover:bg-gray-100"
+                                            }
+                                            type="button"
+                                            onClick={onDecreaseGridDensity}
+                                            disabled={isDecreaseGridDensityDisabled}
+                                            aria-label="Show more cards per row with smaller cards"
+                                        >
+                                            -
+                                        </button>
 
-                                    {selectedViewMode === "grid" ? (
-                                        <div className="ml-1 flex min-h-[40px] items-center gap-1 rounded-lg border border-white/80 bg-white px-1 py-1 shadow-sm">
-                                            <button
-                                                className={
-                                                    isDecreaseGridDensityDisabled
-                                                        ? "rounded-md px-2 py-1 text-sm font-extrabold text-gray-300"
-                                                        : "rounded-md px-2 py-1 text-sm font-extrabold text-gray-600 hover:bg-gray-100"
-                                                }
-                                                type="button"
-                                                onClick={onDecreaseGridDensity}
-                                                disabled={isDecreaseGridDensityDisabled}
-                                                aria-label="Show more cards per row with smaller cards"
-                                            >
-                                                -
-                                            </button>
-
-                                            <button
-                                                className={
-                                                    isIncreaseGridDensityDisabled
-                                                        ? "rounded-md px-2 py-1 text-sm font-extrabold text-gray-300"
-                                                        : "rounded-md px-2 py-1 text-sm font-extrabold text-gray-600 hover:bg-gray-100"
-                                                }
-                                                type="button"
-                                                onClick={onIncreaseGridDensity}
-                                                disabled={isIncreaseGridDensityDisabled}
-                                                aria-label="Show fewer cards per row with larger cards"
-                                            >
-                                                +
-                                            </button>
-                                        </div>
-                                    ) : null}
-                                </div>
+                                        <button
+                                            className={
+                                                isIncreaseGridDensityDisabled
+                                                    ? "rounded-md px-2 py-1 text-sm font-extrabold text-gray-300"
+                                                    : "rounded-md px-2 py-1 text-sm font-extrabold text-gray-600 hover:bg-gray-100"
+                                            }
+                                            type="button"
+                                            onClick={onIncreaseGridDensity}
+                                            disabled={isIncreaseGridDensityDisabled}
+                                            aria-label="Show fewer cards per row with larger cards"
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+                                ) : null}
                             </div>
                         </div>
 
