@@ -365,6 +365,27 @@ const SidebarToggleButton = ({
     );
 };
 
+// SidebarSnapshotStat renders one compact ownership metric tile in the selected-entry summary area.
+// LoadedDashboardView uses this so ownership counts stay visible while reducing nested card styling in the sidebar.
+const SidebarSnapshotStat = ({
+    label,
+    value
+}: {
+    label: string;
+    value: number;
+}) => {
+    return (
+        <div className="rounded-lg border border-[rgba(130,129,111,0.14)] bg-white px-3 py-2">
+            <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-gray-500">
+                {label}
+            </div>
+            <div className="mt-1 text-lg font-extrabold text-gray-900">
+                {value}
+            </div>
+        </div>
+    );
+};
+
 // CollectionLayerToggleButton renders the dashboard layer switch between standard and shiny evaluation.
 // LoadedDashboardView uses this so filter logic can swap layers without duplicating the filter row.
 const CollectionLayerToggleButton = ({
@@ -425,7 +446,7 @@ const SelectedDexCollectionSection = ({
     const collectionState = dexEntry[layerKey];
 
     return (
-        <div className="grid gap-2 rounded-xl bg-gray-50 p-3">
+        <section className="grid gap-2 border-t border-[rgba(130,129,111,0.12)] pt-3">
             <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-gray-500">
                     {title}
@@ -480,7 +501,7 @@ const SelectedDexCollectionSection = ({
                     });
                 }}
             />
-        </div>
+        </section>
     );
 };
 
@@ -651,12 +672,12 @@ export const LoadedDashboardView = ({
             >
                 {!isGuestMode ? (
                     <aside className="sticky top-4 self-start max-h-[calc(100vh-32px)] overflow-y-auto rounded-2xl bg-white p-4 shadow-sm flex flex-col gap-4">
-                        <div className="rounded-xl bg-gray-50 p-4">
+                        <div className="rounded-xl border border-[rgba(130,129,111,0.12)] bg-gray-50/70 p-4">
                             <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#656554]">
                                 Profiles
                             </div>
 
-                        <div className="mt-3 flex flex-col gap-4">
+                        <div className="mt-3 flex flex-col gap-2.5">
                             {saveProfiles.map((saveProfile) => {
                                 const isActiveProfile = saveProfile.id === activeSaveProfileId;
                                 const isPendingDelete = pendingDeleteProfileId === saveProfile.id;
@@ -664,14 +685,14 @@ export const LoadedDashboardView = ({
                                 return (
                                     <div
                                         key={saveProfile.id}
-                                        className="rounded-[16px] bg-white/60 p-2"
+                                        className={
+                                            isActiveProfile
+                                                ? "rounded-[16px] border border-[rgba(147,86,0,0.3)] bg-white px-3 py-3 shadow-sm"
+                                                : "rounded-[16px] border border-[rgba(130,129,111,0.12)] bg-white/90 px-3 py-3"
+                                        }
                                     >
                                         <button
-                                            className={
-                                                isActiveProfile
-                                                    ? "flex w-full flex-col items-start rounded-[14px] border border-[rgba(147,86,0,0.38)] bg-[rgba(255,255,255,0.82)] px-4 py-3 text-left transition"
-                                                    : "flex w-full flex-col items-start rounded-[14px] border border-[rgba(130,129,111,0.18)] bg-[rgba(255,255,255,0.72)] px-4 py-3 text-left transition hover:border-[rgba(147,86,0,0.38)]"
-                                            }
+                                            className="flex w-full flex-col items-start text-left transition"
                                             type="button"
                                             onClick={() => {
                                                 onSelectSaveProfile(saveProfile.id);
@@ -695,9 +716,12 @@ export const LoadedDashboardView = ({
                                         </button>
 
                                         {!isPendingDelete ? (
-                                            <div className="flex justify-end pt-1">
+                                            <div className="mt-2 flex items-center justify-between gap-2 border-t border-[rgba(130,129,111,0.1)] pt-2">
+                                                <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#8a8b78]">
+                                                    {isActiveProfile ? "Active profile" : "Saved profile"}
+                                                </span>
                                                 <button
-                                                    className="rounded-md px-2 py-1 text-[11px] font-medium text-[#b42318] hover:bg-red-50 hover:text-[#912018]"
+                                                    className="rounded-md px-2 py-1 text-[11px] font-medium text-[#8a8b78] hover:bg-red-50 hover:text-[#912018]"
                                                     type="button"
                                                     onClick={() => {
                                                         setPendingDeleteProfileId(saveProfile.id);
@@ -707,7 +731,7 @@ export const LoadedDashboardView = ({
                                                 </button>
                                             </div>
                                         ) : (
-                                            <div className="pt-2">
+                                            <div className="mt-2 border-t border-[rgba(130,129,111,0.1)] pt-2">
                                                 <div className="rounded-xl border border-red-100 bg-[rgba(255,244,244,0.9)] p-3">
                                                     <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#b42318]">
                                                         Delete profile
@@ -922,7 +946,7 @@ export const LoadedDashboardView = ({
 
                 <aside className="sticky top-4 hidden self-start rounded-2xl bg-white p-3 shadow-sm xl:flex xl:flex-col">
                     <div className="flex max-h-[calc(100vh-32px)] flex-col gap-3 overflow-y-auto pr-1">
-                        <div className="flex items-center justify-center rounded-xl bg-gray-100 p-3">
+                        <div className="flex items-center justify-center rounded-xl bg-gray-100/80 p-3">
                             <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-white shadow">
                                 {selectedDexEntry ? (
                                     <img
@@ -970,9 +994,14 @@ export const LoadedDashboardView = ({
                             </div>
 
                             {selectedDexEntry ? (
-                                <div className="grid gap-2">
-                                    <a
-                                        className="rounded-xl border border-[rgba(130,129,111,0.18)] bg-gray-50 px-3 py-2.5 text-center text-xs font-semibold text-[#38392a] hover:bg-gray-100"
+                                <div className="grid gap-2 border-t border-[rgba(130,129,111,0.12)] pt-3">
+                                    <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-gray-500">
+                                        Reference Links
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <a
+                                        className="rounded-xl border border-[rgba(130,129,111,0.14)] bg-white px-3 py-2 text-center text-xs font-semibold text-[#38392a] transition hover:bg-gray-50"
                                         href={getBulbapediaUrl(selectedDexEntry.name)}
                                         target="_blank"
                                         rel="noreferrer"
@@ -980,8 +1009,8 @@ export const LoadedDashboardView = ({
                                         Open in Bulbapedia
                                     </a>
 
-                                    <a
-                                        className="rounded-xl border border-[rgba(130,129,111,0.18)] bg-gray-50 px-3 py-2.5 text-center text-xs font-semibold text-[#38392a] hover:bg-gray-100"
+                                        <a
+                                        className="rounded-xl border border-[rgba(130,129,111,0.14)] bg-white px-3 py-2 text-center text-xs font-semibold text-[#38392a] transition hover:bg-gray-50"
                                         href={getPokemonDbUrl(selectedDexEntry.name)}
                                         target="_blank"
                                         rel="noreferrer"
@@ -989,38 +1018,31 @@ export const LoadedDashboardView = ({
                                         Open in Pokémon DB
                                     </a>
 
-                                    <a
-                                        className="rounded-xl border border-[rgba(130,129,111,0.18)] bg-gray-50 px-3 py-2.5 text-center text-xs font-semibold text-[#38392a] hover:bg-gray-100"
+                                        <a
+                                        className="rounded-xl border border-[rgba(130,129,111,0.14)] bg-white px-3 py-2 text-center text-xs font-semibold text-[#38392a] transition hover:bg-gray-50"
                                         href={getSerebiiUrl(selectedDexEntry.dexNumber)}
                                         target="_blank"
                                         rel="noreferrer"
                                     >
                                         Open in Serebii
                                     </a>
+                                    </div>
                                 </div>
                             ) : null}
 
-                            <div className="grid gap-3">
+                            <div className="grid gap-3 rounded-xl border border-[rgba(130,129,111,0.12)] bg-gray-50/70 p-3">
                                 {selectedDexEntry ? (
                                     <>
-                                        <div className="grid grid-cols-2 gap-2 rounded-xl bg-gray-50 p-3">
-                                            <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
-                                                <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-gray-500">
-                                                    Owned
-                                                </div>
-                                                <div className="mt-1 text-lg font-extrabold text-gray-900">
-                                                    {selectedDexEntry.ownership.totalOwnedCount}
-                                                </div>
-                                            </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <SidebarSnapshotStat
+                                                label="Owned"
+                                                value={selectedDexEntry.ownership.totalOwnedCount}
+                                            />
 
-                                            <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
-                                                <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-gray-500">
-                                                    Shiny Owned
-                                                </div>
-                                                <div className="mt-1 text-lg font-extrabold text-gray-900">
-                                                    {selectedDexEntry.ownership.shinyOwnedCount}
-                                                </div>
-                                            </div>
+                                            <SidebarSnapshotStat
+                                                label="Shiny Owned"
+                                                value={selectedDexEntry.ownership.shinyOwnedCount}
+                                            />
                                         </div>
 
                                         <SelectedDexCollectionSection
@@ -1040,8 +1062,8 @@ export const LoadedDashboardView = ({
                                         />
                                     </>
                                 ) : (
-                                    <div className="grid gap-2 rounded-xl bg-gray-50 p-3">
-                                        <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2 shadow-sm">
+                                    <div className="grid gap-2">
+                                        <div className="flex items-center justify-between rounded-lg border border-[rgba(130,129,111,0.14)] bg-white px-3 py-2">
                                             <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
                                                 Standard Collection
                                             </span>
@@ -1050,7 +1072,7 @@ export const LoadedDashboardView = ({
                                             </strong>
                                         </div>
 
-                                        <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2 shadow-sm">
+                                        <div className="flex items-center justify-between rounded-lg border border-[rgba(130,129,111,0.14)] bg-white px-3 py-2">
                                             <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
                                                 Shiny Collection
                                             </span>
@@ -1062,7 +1084,7 @@ export const LoadedDashboardView = ({
                                 )}
                             </div>
 
-                            <div className="rounded-xl bg-gray-50 p-4">
+                            <div className="rounded-xl border border-[rgba(130,129,111,0.12)] bg-gray-50/70 p-4">
                                 <p className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.12em] text-gray-500">
                                     Collection Analysis
                                 </p>
