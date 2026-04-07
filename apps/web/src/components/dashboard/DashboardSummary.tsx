@@ -1,11 +1,13 @@
 import { computeDexProgress } from "../../lib/dex/computeDexProgress";
+import type { DexCollectionLayerKey } from "../../types/save";
 
-// DashboardSummaryProps defines the scoped standard summary counts plus identity details shown in the dashboard header.
-// LoadedDashboardView builds these values from the active dex scope and passes them into this summary component.
+// DashboardSummaryProps defines the active-layer summary counts plus identity details shown in the dashboard header.
+// LoadedDashboardView builds these values from the active dex scope and selected collection layer and passes them here.
 type DashboardSummaryProps = {
     saveProfileName: string;
     trainerName: string;
     gameLabel: string;
+    activeCollectionLayer: DexCollectionLayerKey;
     onEditSaveProfile: () => void;
     totalCount: number;
     seenCount: number;
@@ -59,6 +61,7 @@ export const DashboardSummary = ({
     saveProfileName,
     trainerName,
     gameLabel,
+    activeCollectionLayer,
     onEditSaveProfile,
     totalCount,
     seenCount,
@@ -73,6 +76,9 @@ export const DashboardSummary = ({
         caught: caughtCount,
         living: livingCount
     });
+    // collectionLayerLabel formats the active collection layer name for the small progress labels in the identity card.
+    // DashboardSummary uses this so the copy stays aligned with the active dashboard layer totals.
+    const collectionLayerLabel = activeCollectionLayer === "shiny" ? "Shiny" : "Standard";
 
     return (
         <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-[1.3fr_repeat(4,minmax(0,1fr))]">
@@ -128,9 +134,9 @@ export const DashboardSummary = ({
 
                 <div className="mt-4 grid gap-3 text-[11px] font-bold uppercase tracking-[0.08em] text-gray-500">
                     <div className="flex flex-wrap gap-3">
-                        <span>Standard Seen {dexProgress.seenPercent}%</span>
-                        <span>Standard Caught {dexProgress.caughtPercent}%</span>
-                        <span>Standard Living {dexProgress.livingPercent}%</span>
+                        <span>{collectionLayerLabel} Seen {dexProgress.seenPercent}%</span>
+                        <span>{collectionLayerLabel} Caught {dexProgress.caughtPercent}%</span>
+                        <span>{collectionLayerLabel} Living {dexProgress.livingPercent}%</span>
                     </div>
                 </div>
             </div>

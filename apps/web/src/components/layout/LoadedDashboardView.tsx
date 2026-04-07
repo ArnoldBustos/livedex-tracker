@@ -24,6 +24,7 @@ type LoadedDashboardViewProps = {
     saveProfiles: SaveProfileRecord[];
     activeSaveProfileId: string | null;
     selectedFilter: DexFilter;
+    selectedCollectionLayer: DexCollectionLayerKey;
     selectedScope: DexScope;
     selectedGridDensity: DexGridDensity;
     selectedDexNumber: number | null;
@@ -32,6 +33,7 @@ type LoadedDashboardViewProps = {
     isGuestMode: boolean;
     sessionLabel: string;
     onChangeFilter: (nextFilter: DexFilter) => void;
+    onChangeCollectionLayer: (nextLayer: DexCollectionLayerKey) => void;
     onChangeScope: (nextScope: DexScope) => void;
     onDecreaseGridDensity: () => void;
     onIncreaseGridDensity: () => void;
@@ -357,8 +359,8 @@ const ControlChipButton = ({
         <button
             className={
                 isSelected
-                    ? "rounded-lg bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow"
-                    : "rounded-lg px-3 py-2 text-sm font-semibold text-gray-600"
+                    ? "inline-flex min-h-[40px] items-center justify-center whitespace-nowrap rounded-lg bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow"
+                    : "inline-flex min-h-[40px] items-center justify-center whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold text-gray-600"
             }
             type="button"
             onClick={onClick}
@@ -397,6 +399,48 @@ const SidebarToggleButton = ({
                 {value ? "Yes" : "No"}
             </button>
         </div>
+    );
+};
+
+// CollectionLayerToggleButton renders the dashboard layer switch between standard and shiny evaluation.
+// LoadedDashboardView uses this so filter logic can swap layers without duplicating the filter row.
+const CollectionLayerToggleButton = ({
+    selectedCollectionLayer,
+    onClick
+}: {
+    selectedCollectionLayer: DexCollectionLayerKey;
+    onClick: () => void;
+}) => {
+    const isShinySelected = selectedCollectionLayer === "shiny";
+
+    return (
+        <button
+            className={
+                isShinySelected
+                    ? "flex min-h-[40px] items-center gap-2 rounded-lg border-2 border-slate-800 bg-[linear-gradient(135deg,#243345_0%,#2f455f_52%,#4c6a8a_100%)] px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:border-slate-700"
+                    : "flex min-h-[40px] items-center gap-2 rounded-lg border-2 border-transparent bg-white px-3 py-2 text-sm font-semibold text-gray-600 shadow-sm transition hover:bg-gray-50"
+            }
+            type="button"
+            aria-pressed={isShinySelected}
+            onClick={onClick}
+        >
+            <span
+                className={
+                    isShinySelected
+                        ? "inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/30 bg-white/12"
+                        : "inline-flex h-6 w-6 items-center justify-center rounded-full border border-gray-300 bg-white"
+                }
+            >
+                <img
+                    src={shinyStarIcon}
+                    alt=""
+                    aria-hidden="true"
+                    className={isShinySelected ? "h-3.5 w-3.5" : "h-3.5 w-3.5 opacity-55 saturate-0"}
+                />
+            </span>
+
+            <span>Shiny</span>
+        </button>
     );
 };
 
@@ -483,6 +527,7 @@ export const LoadedDashboardView = ({
     saveProfiles,
     activeSaveProfileId,
     selectedFilter,
+    selectedCollectionLayer,
     selectedScope,
     selectedGridDensity,
     selectedDexNumber,
@@ -491,6 +536,7 @@ export const LoadedDashboardView = ({
     isGuestMode,
     sessionLabel,
     onChangeFilter,
+    onChangeCollectionLayer,
     onChangeScope,
     onDecreaseGridDensity,
     onIncreaseGridDensity,
@@ -552,7 +598,7 @@ export const LoadedDashboardView = ({
 
     const filteredDexEntries = useMemo(() => {
         return dexEntries.filter((dexEntry) => {
-            const status = getDexEntryStatus(dexEntry);
+            const status = getDexEntryStatus(dexEntry, selectedCollectionLayer);
 
             if (selectedFilter === "all") {
                 return true;
@@ -576,7 +622,7 @@ export const LoadedDashboardView = ({
 
             return true;
         });
-    }, [dexEntries, selectedFilter]);
+    }, [dexEntries, selectedCollectionLayer, selectedFilter]);
 
     // selectedDexEntry keeps the sidebar focused on the chosen dex entry even when filters remove it from the grid.
     // LoadedDashboardView uses this so manual edits in filtered views do not immediately replace the right-sidebar focus.
@@ -598,18 +644,18 @@ export const LoadedDashboardView = ({
         return filteredDexEntries[0];
     }, [dexEntries, filteredDexEntries, selectedDexNumber]);
 
-    // dashboardSummary derives the active scope counts used by the standard summary cards and progress labels.
-    // DashboardSummary and the completion bar read this object so existing standard dashboard behavior stays unchanged.
+    // dashboardSummary derives the active scope counts used by the active-layer summary cards and progress labels.
+    // DashboardSummary and the completion bar read this object so standard and shiny totals share one modular path.
     const dashboardSummary = useMemo(() => {
         return getDashboardLayerSummary({
             entries: dexEntries,
             scope: selectedScope,
-            layerKey: "standard",
-            summary: dexResponse.summary.standard
+            layerKey: selectedCollectionLayer,
+            summary: dexResponse.summary[selectedCollectionLayer]
         });
-    }, [dexEntries, dexResponse.summary.standard, selectedScope]);
+    }, [dexEntries, dexResponse.summary, selectedCollectionLayer, selectedScope]);
 
-    // completionPercentage keeps the sidebar progress bar aligned with the shared standard summary percentage logic.
+    // completionPercentage keeps the sidebar progress bar aligned with the shared active-layer summary percentage logic.
     const completionPercentage = computeDexProgress({
         total: dashboardSummary.totalCount,
         seen: dashboardSummary.seenCount,
@@ -757,6 +803,7 @@ export const LoadedDashboardView = ({
                         saveProfileName={uploadResponse.saveProfile.name}
                         trainerName={trainerName}
                         gameLabel={displayGameLabel}
+                        activeCollectionLayer={selectedCollectionLayer}
                         onEditSaveProfile={onEditSaveProfile}
                         totalCount={dashboardSummary.totalCount}
                         seenCount={dashboardSummary.seenCount}
@@ -776,13 +823,13 @@ export const LoadedDashboardView = ({
                             </h2>
                         </div>
 
-                        <div className="flex w-full flex-wrap items-start justify-between gap-2 rounded-2xl border border-[rgba(130,129,111,0.18)] bg-white/80 px-3 py-3 shadow-sm">
-                            <div className="min-w-0">
+                        <div className="flex w-full flex-wrap items-start gap-3 rounded-2xl border border-[rgba(130,129,111,0.18)] bg-white/80 px-3 py-3 shadow-sm xl:flex-nowrap xl:items-start">
+                            <div className="min-w-0 xl:flex-1">
                                 <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
                                     Filter
                                 </p>
 
-                                <div className="flex flex-wrap gap-2 rounded-xl bg-gray-100 p-1">
+                                <div className="flex flex-wrap items-stretch gap-2 rounded-xl bg-gray-100 p-1 xl:flex-nowrap">
                                     {filterControlOptions.map((filterOption) => {
                                         return (
                                             <ControlChipButton
@@ -798,12 +845,29 @@ export const LoadedDashboardView = ({
                                 </div>
                             </div>
 
-                            <div className="min-w-0">
+                            <div className="min-w-0 xl:shrink-0">
+                                <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
+                                    Shiny
+                                </p>
+
+                                <div className="rounded-xl bg-gray-100 p-1">
+                                    <CollectionLayerToggleButton
+                                        selectedCollectionLayer={selectedCollectionLayer}
+                                        onClick={() => {
+                                            onChangeCollectionLayer(
+                                                selectedCollectionLayer === "standard" ? "shiny" : "standard"
+                                            );
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="min-w-0 xl:ml-auto xl:shrink-0">
                                 <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
                                     View
                                 </p>
 
-                                <div className="flex flex-wrap items-center gap-2 rounded-xl bg-gray-100 p-1">
+                                <div className="flex flex-wrap items-stretch gap-2 rounded-xl bg-gray-100 p-1 sm:flex-nowrap">
                                     {scopeControlOptions.map((scopeOption) => {
                                         return (
                                             <ControlChipButton
@@ -817,7 +881,7 @@ export const LoadedDashboardView = ({
                                         );
                                     })}
 
-                                    <div className="ml-1 flex items-center gap-1 rounded-lg border border-white/80 bg-white px-1 py-1 shadow-sm">
+                                    <div className="ml-1 flex min-h-[40px] items-center gap-1 rounded-lg border border-white/80 bg-white px-1 py-1 shadow-sm">
                                         <button
                                             className={
                                                 isDecreaseGridDensityDisabled
@@ -853,7 +917,7 @@ export const LoadedDashboardView = ({
 
                     <section className={getDexGridSectionClassName(selectedGridDensity)}>
                         {filteredDexEntries.map((dexEntry) => {
-                            const status = getDexEntryStatus(dexEntry);
+                            const status = getDexEntryStatus(dexEntry, selectedCollectionLayer);
                             const hasShinyCardIndicator = getHasShinyCardIndicator(dexEntry);
                             const imageToneClassName = getDexEntryImageToneClassName(status);
                             const isSelected = selectedDexEntry
@@ -951,7 +1015,7 @@ export const LoadedDashboardView = ({
                                     <img
                                         src={getPokemonArtworkUrl(selectedDexEntry.dexNumber)}
                                         alt={selectedDexEntry.name}
-                                        className={`max-h-full max-w-full object-contain ${getDexEntryImageToneClassName(getDexEntryStatus(selectedDexEntry))}`.trim()}
+                                        className={`max-h-full max-w-full object-contain ${getDexEntryImageToneClassName(getDexEntryStatus(selectedDexEntry, selectedCollectionLayer))}`.trim()}
                                     />
                                 ) : (
                                     <span className="text-2xl font-bold text-gray-300">?</span>

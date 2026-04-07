@@ -298,6 +298,12 @@ const App = () => {
   const [guestDexOverrides, setGuestDexOverrides] = useState<GuestDexOverrideMap>({});
   const [saveProfiles, setSaveProfiles] = useState<SaveProfileRecord[]>([]);
   const [activeSaveProfileId, setActiveSaveProfileId] = useState<string | null>(null);
+  // selectedCollectionLayer stores whether the dashboard evaluates standard or shiny progress for filters and summary cards.
+  // App.tsx owns this so LoadedDashboardView can stay presentational while the selected layer remains easy to reuse later.
+  const [selectedCollectionLayer, setSelectedCollectionLayer] =
+    useState<DexCollectionLayerKey>("standard");
+  // selectedFilter stores the active dashboard status bucket within the currently selected collection layer.
+  // App.tsx owns this so filter controls and any future list view can share one dashboard selection source.
   const [selectedFilter, setSelectedFilter] = useState<DexFilter>("all");
   const [selectedScope, setSelectedScope] = useState<DexScope>("regional");
   const [selectedGridDensity, setSelectedGridDensity] = useState<DexGridDensity>("default");
@@ -1452,6 +1458,7 @@ const App = () => {
           saveProfiles={saveProfiles}
           activeSaveProfileId={activeSaveProfileId}
           selectedFilter={selectedFilter}
+          selectedCollectionLayer={selectedCollectionLayer}
           selectedScope={selectedScope}
           selectedGridDensity={selectedGridDensity}
           selectedDexNumber={selectedDexNumber}
@@ -1460,6 +1467,7 @@ const App = () => {
           isGuestMode={isGuestMode}
           sessionLabel={sessionLabel}
           onChangeFilter={setSelectedFilter}
+          onChangeCollectionLayer={setSelectedCollectionLayer}
           onChangeScope={setSelectedScope}
           onDecreaseGridDensity={handleDecreaseGridDensity}
           onIncreaseGridDensity={handleIncreaseGridDensity}
