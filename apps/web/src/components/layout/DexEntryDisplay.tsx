@@ -191,27 +191,27 @@ const formatPokemonTypeLabel = (pokemonType: string) => {
 };
 
 // getDexListSectionClassName returns the shared list container classes for the row-based dex view.
-// DexEntryDisplay uses this so list density styling can change inside one stable outer shell.
+// DexEntryDisplay uses this so row styling and the sticky header can share one stable outer shell.
 const getDexListSectionClassName = () => {
-    return "overflow-hidden rounded-2xl border border-[rgba(130,129,111,0.18)] bg-white shadow-sm";
+    return "rounded-2xl border border-[rgba(130,129,111,0.18)] bg-white shadow-sm";
 };
 
-// getDexListHeaderClassName maps list density to the desktop header spacing shown above list rows.
-// ListDexEntryDisplay uses this so compact mode visibly fits more rows while keeping columns aligned.
+// getDexListHeaderClassName maps list density to the desktop header spacing and sticky treatment above list rows.
+// ListDexEntryDisplay uses this so compact mode visibly fits more rows while the column header stays visible on scroll.
 const getDexListHeaderClassName = (selectedListDensity: DexListDensity) => {
     if (selectedListDensity === "comfortable") {
-        return "hidden grid-cols-[82px_minmax(0,1.3fr)_112px_64px_104px] items-center gap-4 border-b border-gray-200 bg-gray-50 px-5 py-3.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-gray-500 md:grid";
+        return "sticky top-4 z-10 hidden grid-cols-[82px_minmax(0,1.3fr)_112px_64px_104px] items-center gap-4 border-b border-gray-200 bg-[rgba(249,250,251,0.96)] px-5 py-3.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-gray-500 backdrop-blur-sm md:grid";
     }
 
     if (selectedListDensity === "compact") {
-        return "hidden grid-cols-[76px_minmax(0,1.3fr)_96px_56px_88px] items-center gap-1.5 border-b border-gray-200 bg-gray-50 px-2.5 py-1.5 text-[9px] font-extrabold uppercase tracking-[0.12em] text-gray-500 md:grid";
+        return "sticky top-4 z-10 hidden grid-cols-[76px_minmax(0,1.3fr)_96px_56px_88px] items-center gap-1.5 border-b border-gray-200 bg-[rgba(249,250,251,0.96)] px-2.5 py-1.5 text-[9px] font-extrabold uppercase tracking-[0.12em] text-gray-500 backdrop-blur-sm md:grid";
     }
 
-    return "hidden grid-cols-[80px_minmax(0,1.3fr)_104px_60px_96px] items-center gap-2.5 border-b border-gray-200 bg-gray-50 px-3.5 py-2.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-gray-500 md:grid";
+    return "sticky top-4 z-10 hidden grid-cols-[80px_minmax(0,1.3fr)_104px_60px_96px] items-center gap-2.5 border-b border-gray-200 bg-[rgba(249,250,251,0.96)] px-3.5 py-2.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-gray-500 backdrop-blur-sm md:grid";
 };
 
-// getDexListRowClassName maps list density and selection state to row spacing without changing row content.
-// ListDexEntryDisplay uses this so the shared +/- controls can tighten or loosen list rows in a visibly distinct way.
+// getDexListRowClassName maps list density and selection state to row spacing plus hover and selected styling.
+// ListDexEntryDisplay uses this so rows feel interactive and the active entry stays visually linked to the detail panel.
 const getDexListRowClassName = ({
     selectedListDensity,
     isSelected
@@ -220,18 +220,28 @@ const getDexListRowClassName = ({
     isSelected: boolean;
 }) => {
     const selectionClassName = isSelected
-        ? "bg-emerald-50 hover:bg-emerald-100"
-        : "bg-white hover:bg-gray-50";
+        ? "border-l-4 border-r-4 border-emerald-500 bg-[linear-gradient(90deg,rgba(16,185,129,0.14)_0%,rgba(236,253,245,0.98)_18%,rgba(255,255,255,1)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_0_0_1px_rgba(16,185,129,0.12)] hover:bg-[linear-gradient(90deg,rgba(16,185,129,0.18)_0%,rgba(236,253,245,1)_22%,rgba(255,255,255,1)_100%)]"
+        : "border-l-4 border-r-4 border-transparent bg-white hover:bg-[linear-gradient(90deg,rgba(243,244,246,0.95)_0%,rgba(255,255,255,1)_18%)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]";
 
     if (selectedListDensity === "comfortable") {
-        return `grid w-full grid-cols-1 gap-3.5 px-5 py-3.5 text-left transition ${selectionClassName} md:grid-cols-[82px_minmax(0,1.3fr)_112px_64px_104px] md:items-center`;
+        return `grid w-full grid-cols-1 gap-3.5 px-5 py-3.5 text-left transition-colors transition-shadow duration-150 ${selectionClassName} md:grid-cols-[82px_minmax(0,1.3fr)_112px_64px_104px] md:items-center`;
     }
 
     if (selectedListDensity === "compact") {
-        return `grid w-full grid-cols-1 gap-1.5 px-2.5 py-1.5 text-left transition ${selectionClassName} md:grid-cols-[76px_minmax(0,1.3fr)_96px_56px_88px] md:items-center`;
+        return `grid w-full grid-cols-1 gap-1.5 px-2.5 py-1.5 text-left transition-colors transition-shadow duration-150 ${selectionClassName} md:grid-cols-[76px_minmax(0,1.3fr)_96px_56px_88px] md:items-center`;
     }
 
-    return `grid w-full grid-cols-1 gap-2.5 px-3.5 py-2.5 text-left transition ${selectionClassName} md:grid-cols-[80px_minmax(0,1.3fr)_104px_60px_96px] md:items-center`;
+    return `grid w-full grid-cols-1 gap-2.5 px-3.5 py-2.5 text-left transition-colors transition-shadow duration-150 ${selectionClassName} md:grid-cols-[80px_minmax(0,1.3fr)_104px_60px_96px] md:items-center`;
+};
+
+// getDexListPokemonNameWrapperClassName maps row selection to the subtle title emphasis used in the list.
+// ListDexEntryDisplay uses this so the active row reads as the current focus before the user looks to the detail panel.
+const getDexListPokemonNameWrapperClassName = (isSelected: boolean) => {
+    if (isSelected) {
+        return "truncate text-emerald-900";
+    }
+
+    return "truncate text-gray-900";
 };
 
 // getDexListDexNumberClassName maps list density to the dex-number text size used in each row.
@@ -477,7 +487,9 @@ const ListDexEntryDisplay = ({
 
                             <div className="min-w-0">
                                 <div className={getDexListPokemonNameClassName(selectedListDensity)}>
-                                    {dexEntry.name}
+                                    <span className={getDexListPokemonNameWrapperClassName(isSelected)}>
+                                        {dexEntry.name}
+                                    </span>
                                 </div>
                             </div>
 
