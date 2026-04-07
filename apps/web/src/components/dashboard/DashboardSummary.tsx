@@ -1,24 +1,24 @@
 import { computeDexProgress } from "../../lib/dex/computeDexProgress";
-import type { DexCollectionLayerKey } from "../../types/save";
+import { ProfilePickerTrigger } from "../profile/ProfilePickerTrigger";
 
-// DashboardSummaryProps defines the active-layer summary counts plus identity details shown in the dashboard header.
-// LoadedDashboardView builds these values from the active dex scope and selected collection layer and passes them here.
+// DashboardSummaryProps defines the active save identity plus the top-row dex summary metrics.
+// LoadedDashboardView builds these values from the loaded save and scoped dex summary and passes them here.
 type DashboardSummaryProps = {
     saveProfileName: string;
     trainerName: string;
     gameLabel: string;
-    activeCollectionLayer: DexCollectionLayerKey;
+    showProfilePickerTrigger: boolean;
+    profileCount: number;
+    onOpenProfilePicker: () => void;
     onEditSaveProfile: () => void;
     totalCount: number;
-    seenCount: number;
     caughtCount: number;
     livingCount: number;
     missingCount: number;
-    seenOnlyCount: number;
 };
 
-// SummaryStatCardProps defines one summary card label, value, and percentage accent styling.
-// DashboardSummary maps these props into reusable metric cards so the header layout stays modular.
+// SummaryStatCardProps defines one top-row dex metric card label, value, and optional percent label.
+// DashboardSummary maps these props into reusable cards so the dashboard keeps the anchored summary strip structure.
 type SummaryStatCardProps = {
     label: string;
     value: number;
@@ -26,16 +26,8 @@ type SummaryStatCardProps = {
     accentClassName: string;
 };
 
-// SummarySecondaryStatProps defines a lighter inline metric used to keep secondary counts visible without full-card emphasis.
-// DashboardSummary uses this for support metrics that should stay present but no longer dominate the top row.
-type SummarySecondaryStatProps = {
-    label: string;
-    value: number;
-    accentClassName: string;
-};
-
-// SummaryStatCard renders one dashboard metric card for a scoped dex count and optional percentage.
-// DashboardSummary uses this shared card so each summary metric stays visually consistent.
+// SummaryStatCard renders one compact dashboard metric card in the top summary strip.
+// DashboardSummary uses this for caught, living, and missing so the non-profile cards stay visually parallel.
 const SummaryStatCard = ({
     label,
     value,
@@ -63,97 +55,81 @@ const SummaryStatCard = ({
     );
 };
 
-// SummarySecondaryStat renders one compact summary pill with an accent bar and supporting count.
-// DashboardSummary places this beside the profile card details to keep secondary metrics visible with less chrome.
-const SummarySecondaryStat = ({
+// SummaryActionButton renders one compact secondary action for the active profile card.
+// DashboardSummary uses this for profile edit so action sizing stays aligned with the profile-picker trigger.
+const SummaryActionButton = ({
     label,
-    value,
-    accentClassName
-}: SummarySecondaryStatProps) => {
+    onClick
+}: {
+    label: string;
+    onClick: () => void;
+}) => {
     return (
-        <div className="rounded-xl border border-[rgba(130,129,111,0.14)] bg-gray-50 px-4 py-3">
-            <div className="flex items-center gap-2">
-                <div className={`h-1.5 w-8 rounded-full ${accentClassName}`} />
-                <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
-                    {label}
-                </div>
-            </div>
-
-            <strong className="mt-2 block text-2xl leading-none font-extrabold tracking-tight text-gray-900">
-                {value}
-            </strong>
-        </div>
+        <button
+            type="button"
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-[rgba(130,129,111,0.18)] bg-gray-50 px-3 text-[11px] font-bold uppercase tracking-[0.08em] text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+            onClick={onClick}
+        >
+            {label}
+        </button>
     );
 };
 
-// DashboardSummary renders the active profile details and scoped dex summary metrics.
-// LoadedDashboardView places this above the grid so long save names can wrap before the compact stat grid activates.
+// DashboardSummary renders the restored top summary strip with one profile card plus three dex metric cards.
+// LoadedDashboardView places this above the dex workspace so the page keeps its stronger anchored dashboard structure.
 export const DashboardSummary = ({
     saveProfileName,
     trainerName,
     gameLabel,
-    activeCollectionLayer,
+    showProfilePickerTrigger,
+    profileCount,
+    onOpenProfilePicker,
     onEditSaveProfile,
     totalCount,
-    seenCount,
     caughtCount,
     livingCount,
-    missingCount,
-    seenOnlyCount
+    missingCount
 }: DashboardSummaryProps) => {
     const dexProgress = computeDexProgress({
         total: totalCount,
-        seen: seenCount,
+        seen: 0,
         caught: caughtCount,
         living: livingCount
     });
-    // collectionLayerLabel formats the active collection layer name for the small progress labels in the identity card.
-    // DashboardSummary uses this so the copy stays aligned with the active dashboard layer totals.
-    const collectionLayerLabel = activeCollectionLayer === "shiny" ? "Shiny" : "Standard";
 
     return (
         <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-[1.45fr_repeat(3,minmax(0,1fr))]">
             <div className="rounded-2xl bg-white p-5 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                        <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
-                            Save Profile
-                        </div>
-
-                        <strong className="mt-3 block min-w-0 break-words text-2xl leading-tight font-extrabold tracking-tight text-gray-900 line-clamp-2">
-                            {saveProfileName}
-                        </strong>
-
-                        <div className="mt-3 text-sm font-semibold text-gray-600">
-                            {trainerName}
-                        </div>
-
-                        <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-green-700">
-                            {gameLabel}
-                        </div>
+                <div className="min-w-0">
+                    <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
+                        Save Profile
                     </div>
 
-                    <button
-                        type="button"
-                        className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-[rgba(130,129,111,0.18)] bg-gray-50 px-3 text-[11px] font-bold uppercase tracking-[0.08em] text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
-                        aria-label="Edit save profile"
-                        onClick={onEditSaveProfile}
-                    >
-                        Edit
-                    </button>
+                    <strong className="mt-3 block min-w-0 text-2xl leading-tight font-extrabold tracking-tight text-gray-900 sm:text-[28px]">
+                        {saveProfileName}
+                    </strong>
+
+                    <div className="mt-3 text-sm font-semibold text-gray-600">
+                        {trainerName}
+                    </div>
+
+                    <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-green-700">
+                        {gameLabel}
+                    </div>
                 </div>
 
-                <div className="mt-4 grid gap-3 border-t border-[rgba(130,129,111,0.12)] pt-4">
-                    <div className="flex flex-wrap gap-x-4 gap-y-2 text-[11px] font-bold uppercase tracking-[0.08em] text-gray-500">
-                        <span>{collectionLayerLabel} Seen {dexProgress.seenPercent}%</span>
-                        <span>{collectionLayerLabel} Caught {dexProgress.caughtPercent}%</span>
-                        <span>{collectionLayerLabel} Living {dexProgress.livingPercent}%</span>
-                    </div>
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                    {showProfilePickerTrigger ? (
+                        <ProfilePickerTrigger
+                            activeProfileName={saveProfileName}
+                            profileCount={profileCount}
+                            onOpen={onOpenProfilePicker}
+                        />
+                    ) : null}
 
-                    <SummarySecondaryStat
-                        label="Seen Only"
-                        value={seenOnlyCount}
-                        accentClassName="bg-amber-400"
+                    <SummaryActionButton
+                        label="Edit"
+                        onClick={onEditSaveProfile}
                     />
                 </div>
             </div>

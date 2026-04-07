@@ -18,6 +18,7 @@ import { getDexEntriesForScope } from "../../lib/dex";
 import { computeDexProgress } from "../../lib/dex/computeDexProgress";
 import { getDisplayGameLabel } from "../../lib/getDisplayGameLabel";
 import shinyStarIcon from "../../assets/shiny-star.png";
+import { ProfilePickerModal } from "../profile/ProfilePickerModal";
 import { DexEntryDisplay } from "./DexEntryDisplay";
 
 type LoadedDashboardViewProps = {
@@ -36,6 +37,7 @@ type LoadedDashboardViewProps = {
     isUploading: boolean;
     isGuestMode: boolean;
     sessionLabel: string;
+    openingSaveProfileId: string | null;
     onChangeFilter: (nextFilter: DexFilter) => void;
     onChangeCollectionLayer: (nextLayer: DexCollectionLayerKey) => void;
     onChangeScope: (nextScope: DexScope) => void;
@@ -531,6 +533,7 @@ export const LoadedDashboardView = ({
     isUploading,
     isGuestMode,
     sessionLabel,
+    openingSaveProfileId,
     onChangeFilter,
     onChangeCollectionLayer,
     onChangeScope,
@@ -548,9 +551,15 @@ export const LoadedDashboardView = ({
     onGoToLogin,
     onGoToRegister
 }: LoadedDashboardViewProps) => {
-    // pendingDeleteProfileId tracks which profile is showing inline delete confirmation
-    // the profile list uses this to swap the Delete button into confirm/cancel actions
+    // pendingDeleteProfileId preserves the old inline delete confirmation state while the left rail remains in the file but no longer renders.
+    // LoadedDashboardView still defines this during phase 1 so the new profile-picker rollout stays low-risk and the legacy JSX can be removed later.
     const [pendingDeleteProfileId, setPendingDeleteProfileId] = useState<string | null>(null);
+    // isProfilePickerOpen tracks whether the saved-profile picker overlay is visible.
+    // LoadedDashboardView owns this because opening the picker is a dashboard-layout concern tied to the summary header.
+    const [isProfilePickerOpen, setIsProfilePickerOpen] = useState(false);
+    // profilePickerSessionKey forces a fresh modal instance each time the picker is opened.
+    // LoadedDashboardView uses this so row-level delete confirmation state resets without an effect inside the modal.
+    const [profilePickerSessionKey, setProfilePickerSessionKey] = useState(0);
     // selectedGridDensityIndex tracks the current grid density step within the ordered scale.
     // LoadedDashboardView uses this so grid mode can disable the shared minus and plus buttons at the correct bounds.
     const selectedGridDensityIndex = dexGridDensityOrder.indexOf(selectedGridDensity);
@@ -658,7 +667,6 @@ export const LoadedDashboardView = ({
             summary: dexResponse.summary[selectedCollectionLayer]
         });
     }, [dexEntries, dexResponse.summary, selectedCollectionLayer, selectedScope]);
-
     // completionPercentage keeps the sidebar progress bar aligned with the shared active-layer summary percentage logic.
     const completionPercentage = computeDexProgress({
         total: dashboardSummary.totalCount,
@@ -666,6 +674,17 @@ export const LoadedDashboardView = ({
         caught: dashboardSummary.caughtCount,
         living: dashboardSummary.livingCount
     }).livingPercent;
+    // handleOpenProfilePicker opens the saved-profile overlay from the active profile summary area.
+    // LoadedDashboardView uses this so profile management stays tied to the current profile context instead of a permanent rail.
+    const handleOpenProfilePicker = () => {
+        setProfilePickerSessionKey((currentProfilePickerSessionKey) => {
+            return currentProfilePickerSessionKey + 1;
+        });
+        setIsProfilePickerOpen(true);
+    };
+    // shouldRenderLegacyProfileRail keeps the old left-rail JSX disabled during the modal rollout.
+    // TODO: Delete the dormant left-rail JSX in a dedicated cleanup pass after the dashboard layout stabilizes.
+    const shouldRenderLegacyProfileRail = false;
 
     return (
         <>
@@ -683,12 +702,10 @@ export const LoadedDashboardView = ({
 
             <div
                 className={
-                    isGuestMode
-                        ? "grid min-h-[calc(100vh-84px)] grid-cols-1 gap-4 bg-[#f3f4f6] px-4 py-4 xl:grid-cols-[minmax(0,1fr)_240px]"
-                        : "grid min-h-[calc(100vh-84px)] grid-cols-1 gap-4 bg-[#f3f4f6] px-4 py-4 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_240px]"
+                    "grid min-h-[calc(100vh-84px)] grid-cols-1 gap-4 bg-[#f3f4f6] px-4 py-4 xl:grid-cols-[minmax(0,1fr)_240px]"
                 }
             >
-                {!isGuestMode ? (
+                {shouldRenderLegacyProfileRail ? (
                     <aside className="sticky top-4 self-start max-h-[calc(100vh-32px)] overflow-y-auto rounded-2xl bg-white p-4 shadow-sm flex flex-col gap-4">
                         <div className="rounded-xl border border-[rgba(130,129,111,0.12)] bg-gray-50/70 p-4">
                             <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#656554]">
@@ -810,14 +827,14 @@ export const LoadedDashboardView = ({
                         saveProfileName={uploadResponse.saveProfile.name}
                         trainerName={trainerName}
                         gameLabel={displayGameLabel}
-                        activeCollectionLayer={selectedCollectionLayer}
+                        showProfilePickerTrigger={!isGuestMode}
+                        profileCount={saveProfiles.length}
+                        onOpenProfilePicker={handleOpenProfilePicker}
                         onEditSaveProfile={onEditSaveProfile}
                         totalCount={dashboardSummary.totalCount}
-                        seenCount={dashboardSummary.seenCount}
                         caughtCount={dashboardSummary.caughtCount}
                         livingCount={dashboardSummary.livingCount}
                         missingCount={dashboardSummary.missingCount}
-                        seenOnlyCount={dashboardSummary.seenOnlyCount}
                     />
 
                     <section className="flex flex-wrap items-end justify-between gap-4">
@@ -929,6 +946,7 @@ export const LoadedDashboardView = ({
                                     })}
                                 </div>
                             </div>
+
                         </div>
                     </section>
 
@@ -1111,6 +1129,20 @@ export const LoadedDashboardView = ({
                     </div>
                 </aside>
             </div >
+            <ProfilePickerModal
+                key={profilePickerSessionKey}
+                isOpen={!isGuestMode && isProfilePickerOpen}
+                saveProfiles={saveProfiles}
+                activeSaveProfileId={activeSaveProfileId}
+                openingSaveProfileId={openingSaveProfileId}
+                isBusy={isUploading}
+                onClose={() => {
+                    setIsProfilePickerOpen(false);
+                }}
+                onSelectSaveProfile={onSelectSaveProfile}
+                onDeleteProfile={onDeleteProfile}
+                onOpenEntryOptions={onResetToEmptyState}
+            />
         </>
     );
 };

@@ -1512,6 +1512,7 @@ const App = () => {
           isUploading={isUploading}
           isGuestMode={isGuestMode}
           sessionLabel={sessionLabel}
+          openingSaveProfileId={openingSaveProfileId}
           onChangeFilter={setSelectedFilter}
           onChangeCollectionLayer={setSelectedCollectionLayer}
           onChangeScope={setSelectedScope}
