@@ -206,6 +206,10 @@ export type DexScope = "national" | "regional";
 // App.tsx and dashboard components use this so standard and shiny logic can share helpers without collapsing together.
 export type DexCollectionLayerKey = "standard" | "shiny";
 
+// DexViewMode identifies which dex entry layout the dashboard renders for the current filtered result set.
+// App.tsx stores this and the dashboard display component uses it to branch between the default grid and dense list.
+export type DexViewMode = "grid" | "list";
+
 // DexGridDensity defines the five dashboard card density options for the dex grid.
 // App.tsx stores this selection and LoadedDashboardView uses it to choose grid sizing.
 export type DexGridDensity =

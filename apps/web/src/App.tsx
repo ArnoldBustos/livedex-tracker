@@ -13,6 +13,7 @@ import type {
   DexGridDensity,
   DexResponse,
   DexScope,
+  DexViewMode,
   EditableSaveIdentity,
   GuestDexOverrideMap,
   ManualGen3GameOverride,
@@ -305,6 +306,9 @@ const App = () => {
   // selectedFilter stores the active dashboard status bucket within the currently selected collection layer.
   // App.tsx owns this so filter controls and any future list view can share one dashboard selection source.
   const [selectedFilter, setSelectedFilter] = useState<DexFilter>("all");
+  // selectedViewMode stores whether the dex results render as the default card grid or the denser list.
+  // App.tsx owns this so uploads, resets, and future dashboard views can share one layout selection source.
+  const [selectedViewMode, setSelectedViewMode] = useState<DexViewMode>("grid");
   const [selectedScope, setSelectedScope] = useState<DexScope>("regional");
   const [selectedGridDensity, setSelectedGridDensity] = useState<DexGridDensity>("default");
   const [selectedDexNumber, setSelectedDexNumber] = useState<number | null>(null);
@@ -670,6 +674,7 @@ const App = () => {
     setPendingSaveProfileEdit(null);
     setSelectedDexNumber(null);
     setSelectedFilter("all");
+    setSelectedViewMode("grid");
     setSelectedScope("regional");
     setIsUploading(false);
     setErrorMessage("");
@@ -700,6 +705,7 @@ const App = () => {
       setGuestDexOverrides({});
       setActiveSaveProfileId(saveProfileId);
       setSelectedFilter("all");
+      setSelectedViewMode("grid");
       setSelectedScope(getDefaultDexScopeFromUploadResponse(nextUploadResponse));
 
       if (nextDexResponse.entries.length > 0) {
@@ -733,6 +739,7 @@ const App = () => {
     setGuestDexOverrides({});
     setActiveSaveProfileId(nextUploadResponseWithIdentity.saveProfile.id);
     setSelectedFilter("all");
+    setSelectedViewMode("grid");
     setSelectedScope(getDefaultDexScopeFromUploadResponse(nextUploadResponseWithIdentity));
 
     if (sessionMode === "user") {
@@ -1007,6 +1014,7 @@ const App = () => {
       setGuestDexOverrides({});
       setActiveSaveProfileId(null);
       setSelectedFilter("all");
+      setSelectedViewMode("grid");
       setSelectedScope(getDefaultDexScopeFromUploadResponse(manualUploadResponse));
       setSelectedDexNumber(
         dexTemplate.entries.length > 0 ? dexTemplate.entries[0].dexNumber : null
@@ -1461,6 +1469,7 @@ const App = () => {
           selectedCollectionLayer={selectedCollectionLayer}
           selectedScope={selectedScope}
           selectedGridDensity={selectedGridDensity}
+          selectedViewMode={selectedViewMode}
           selectedDexNumber={selectedDexNumber}
           errorMessage={errorMessage}
           isUploading={isUploading}
@@ -1469,6 +1478,7 @@ const App = () => {
           onChangeFilter={setSelectedFilter}
           onChangeCollectionLayer={setSelectedCollectionLayer}
           onChangeScope={setSelectedScope}
+          onChangeViewMode={setSelectedViewMode}
           onDecreaseGridDensity={handleDecreaseGridDensity}
           onIncreaseGridDensity={handleIncreaseGridDensity}
           onSelectDexNumber={setSelectedDexNumber}

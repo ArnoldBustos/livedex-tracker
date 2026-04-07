@@ -1,0 +1,385 @@
+import type {
+    DexCollectionLayerKey,
+    DexDisplayStatus,
+    DexEntry,
+    DexGridDensity,
+    DexViewMode
+} from "../../types/save";
+import { getPokemonTypeBadgeStyle } from "../../lib/pokemonTypeStyles";
+import shinyStarIcon from "../../assets/shiny-star.png";
+
+// DexEntryDisplayProps stores the already-filtered dashboard entries and shared selection state.
+// LoadedDashboardView passes this in so grid and list rendering can branch without duplicating filter logic.
+type DexEntryDisplayProps = {
+    entries: DexEntry[];
+    selectedDexEntry: DexEntry | null;
+    selectedCollectionLayer: DexCollectionLayerKey;
+    selectedGridDensity: DexGridDensity;
+    selectedViewMode: DexViewMode;
+    onSelectDexNumber: (nextDexNumber: number) => void;
+};
+
+// getDexEntryStatus returns the strongest collection state for one dex layer on one dex entry.
+// DexEntryDisplay uses this so both the grid cards and list rows stay aligned with the shared dashboard filter logic.
+const getDexEntryStatus = (
+    dexEntry: DexEntry,
+    layerKey: DexCollectionLayerKey = "standard"
+): DexDisplayStatus => {
+    const collectionState = dexEntry[layerKey];
+
+    if (collectionState.hasLivingEntry) {
+        return "living";
+    }
+
+    if (collectionState.caught) {
+        return "caught";
+    }
+
+    if (collectionState.seen) {
+        return "seen";
+    }
+
+    return "missing";
+};
+
+// getDexEntryStatusLabel formats one status value into the badge copy shown in the dex display.
+// DexEntryDisplay uses this so grid and list rows present the same wording for each collection state.
+const getDexEntryStatusLabel = (status: DexDisplayStatus) => {
+    if (status === "living") {
+        return "Living";
+    }
+
+    if (status === "caught") {
+        return "Caught";
+    }
+
+    if (status === "seen") {
+        return "Seen";
+    }
+
+    return "Missing";
+};
+
+// getDexEntryStatusBadgeClassName maps one status to the shared badge treatment used by grid cards and list rows.
+// DexEntryDisplay uses this so both layouts keep the same color language for dex progress.
+const getDexEntryStatusBadgeClassName = (status: DexDisplayStatus) => {
+    if (status === "living") {
+        return "rounded-full bg-green-100 px-2 py-1 text-[10px] font-bold uppercase text-green-700";
+    }
+
+    if (status === "caught") {
+        return "rounded-full bg-yellow-100 px-2 py-1 text-[10px] font-bold uppercase text-yellow-700";
+    }
+
+    if (status === "seen") {
+        return "rounded-full bg-purple-100 px-2 py-1 text-[10px] font-bold uppercase text-purple-700";
+    }
+
+    return "rounded-full bg-gray-100 px-2 py-1 text-[10px] font-bold uppercase text-gray-500";
+};
+
+// getHasShinyCardIndicator decides whether one dex entry should show the display-only shiny marker.
+// DexEntryDisplay uses this in both layouts so shiny presence remains visible without changing edit behavior.
+const getHasShinyCardIndicator = (dexEntry: DexEntry) => {
+    return dexEntry.shiny.caught || dexEntry.shiny.hasLivingEntry;
+};
+
+// getShinyIndicatorClassName maps shiny marker context to stronger contrast styles.
+// DexEntryDisplay uses this so the shiny marker stays legible on both compact cards and list rows.
+const getShinyIndicatorClassName = (indicatorLocation: "card" | "list") => {
+    if (indicatorLocation === "list") {
+        return "inline-flex h-7 w-7 items-center justify-center rounded-full border border-amber-300 bg-gradient-to-br from-amber-50 via-yellow-100 to-amber-200 shadow-sm";
+    }
+
+    return "inline-flex items-center justify-center rounded-full border border-amber-200 bg-gradient-to-br from-amber-50 via-yellow-100 to-amber-200 shadow-sm";
+};
+
+// getDexGridSectionClassName maps density to explicit guest and signed-in column counts.
+// DexEntryDisplay uses this so each density step changes the visible card count predictably with no duplicate density stages.
+const getDexGridSectionClassName = (selectedGridDensity: DexGridDensity) => {
+    if (selectedGridDensity === "extraComfortable") {
+        return "grid grid-cols-2 gap-5 md:grid-cols-3 xl:grid-cols-4";
+    }
+
+    if (selectedGridDensity === "comfortable") {
+        return "grid grid-cols-3 gap-4 md:grid-cols-4 xl:grid-cols-5";
+    }
+
+    if (selectedGridDensity === "default") {
+        return "grid grid-cols-4 gap-3 md:grid-cols-5 xl:grid-cols-6";
+    }
+
+    if (selectedGridDensity === "compact") {
+        return "grid grid-cols-5 gap-3 md:grid-cols-6 xl:grid-cols-7";
+    }
+
+    return "grid grid-cols-6 gap-2 md:grid-cols-7 xl:grid-cols-8";
+};
+
+// getDexCardImageClassName chooses sprite sizing for the active density option.
+// DexEntryDisplay uses this so compact and comfortable cards scale consistently with the grid.
+const getDexCardImageClassName = (selectedGridDensity: DexGridDensity) => {
+    if (selectedGridDensity === "extraComfortable") {
+        return "max-h-[88px] max-w-[88px] object-contain";
+    }
+
+    if (selectedGridDensity === "comfortable") {
+        return "max-h-[80px] max-w-[80px] object-contain";
+    }
+
+    if (selectedGridDensity === "extraCompact") {
+        return "max-h-[56px] max-w-[56px] object-contain";
+    }
+
+    if (selectedGridDensity === "compact") {
+        return "max-h-[64px] max-w-[64px] object-contain";
+    }
+
+    return "max-h-[72px] max-w-[72px] object-contain";
+};
+
+// getPokemonSpriteUrl builds the Home sprite URL for one dex card.
+// DexEntryDisplay uses this so grid cards can render the same sprite source as before.
+const getPokemonSpriteUrl = (dexNumber: number) => {
+    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${dexNumber}.png`;
+};
+
+// getDexEntryImageToneClassName returns the artwork tone classes for one dex status.
+// DexEntryDisplay uses this so missing entries stay visible but darker than seen or owned entries.
+const getDexEntryImageToneClassName = (status: DexDisplayStatus) => {
+    if (status === "missing") {
+        return "opacity-55 brightness-75 saturate-0";
+    }
+
+    return "";
+};
+
+// formatPokemonTypeLabel converts API casing into the badge label casing shown on cards.
+// DexEntryDisplay uses this so type pills render consistent readable labels.
+const formatPokemonTypeLabel = (pokemonType: string) => {
+    return `${pokemonType.charAt(0)}${pokemonType.slice(1).toLowerCase()}`;
+};
+
+// getDexListSectionClassName returns the list container classes for the dense dex view.
+// DexEntryDisplay uses this so list rendering stays visually separate from the grid density logic.
+const getDexListSectionClassName = () => {
+    return "overflow-hidden rounded-2xl border border-[rgba(130,129,111,0.18)] bg-white shadow-sm";
+};
+
+// GridDexEntryDisplay renders the existing card layout for the filtered dex entries.
+// DexEntryDisplay uses this branch when the dashboard stays in the default grid view.
+const GridDexEntryDisplay = ({
+    entries,
+    selectedDexEntry,
+    selectedCollectionLayer,
+    selectedGridDensity,
+    onSelectDexNumber
+}: Omit<DexEntryDisplayProps, "selectedViewMode">) => {
+    return (
+        <section className={getDexGridSectionClassName(selectedGridDensity)}>
+            {entries.map((dexEntry) => {
+                const status = getDexEntryStatus(dexEntry, selectedCollectionLayer);
+                const hasShinyCardIndicator = getHasShinyCardIndicator(dexEntry);
+                const imageToneClassName = getDexEntryImageToneClassName(status);
+                const isSelected = selectedDexEntry
+                    ? selectedDexEntry.dexNumber === dexEntry.dexNumber
+                    : false;
+
+                return (
+                    <button
+                        key={dexEntry.dexNumber}
+                        className={
+                            isSelected
+                                ? "flex flex-col rounded-xl border-2 border-green-500 bg-white p-3 shadow-sm"
+                                : "flex flex-col rounded-xl bg-white p-3 shadow-sm hover:shadow-md"
+                        }
+                        type="button"
+                        onClick={() => {
+                            onSelectDexNumber(dexEntry.dexNumber);
+                        }}
+                    >
+                        <div className="mb-2 flex items-start justify-between gap-2">
+                            <span className="text-[10px] font-extrabold tracking-[0.04em] text-gray-400">
+                                #{dexEntry.dexNumber.toString().padStart(3, "0")}
+                            </span>
+
+                            <span className={getDexEntryStatusBadgeClassName(status)}>
+                                {getDexEntryStatusLabel(status)}
+                            </span>
+                        </div>
+
+                        <div className="flex h-[88px] items-center justify-center overflow-hidden">
+                            <img
+                                src={getPokemonSpriteUrl(dexEntry.dexNumber)}
+                                alt={dexEntry.name}
+                                className={`${getDexCardImageClassName(selectedGridDensity)} ${imageToneClassName}`.trim()}
+                            />
+                        </div>
+
+                        <div className="mt-2 min-w-0 text-sm font-extrabold tracking-[0.01em] text-gray-900">
+                            <div className="truncate">
+                                {dexEntry.name}
+                            </div>
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap items-center gap-1">
+                            {hasShinyCardIndicator ? (
+                                <span className={`${getShinyIndicatorClassName("card")} h-6 w-6`}>
+                                    <img
+                                        src={shinyStarIcon}
+                                        alt="Shiny collected"
+                                        className="h-4 w-4 shrink-0 opacity-100 drop-shadow-[0_1px_1px_rgba(120,53,15,0.2)]"
+                                    />
+                                </span>
+                            ) : null}
+
+                            <span
+                                className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${getPokemonTypeBadgeStyle(dexEntry.primaryType).containerClassName}`}
+                            >
+                                {formatPokemonTypeLabel(dexEntry.primaryType)}
+                            </span>
+
+                            {dexEntry.secondaryType ? (
+                                <span
+                                    className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${getPokemonTypeBadgeStyle(dexEntry.secondaryType).containerClassName}`}
+                                >
+                                    {formatPokemonTypeLabel(dexEntry.secondaryType)}
+                                </span>
+                            ) : null}
+                        </div>
+                    </button>
+                );
+            })}
+        </section>
+    );
+};
+
+// ListDexEntryDisplay renders the dense row-based dex layout for faster scanning.
+// DexEntryDisplay uses this branch when the dashboard switches from cards to the new list mode.
+const ListDexEntryDisplay = ({
+    entries,
+    selectedDexEntry,
+    selectedCollectionLayer,
+    onSelectDexNumber
+}: Omit<DexEntryDisplayProps, "selectedGridDensity" | "selectedViewMode">) => {
+    return (
+        <section className={getDexListSectionClassName()}>
+            <div className="hidden grid-cols-[88px_minmax(0,1.3fr)_132px_72px_150px] items-center gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 text-[11px] font-extrabold uppercase tracking-[0.12em] text-gray-500 md:grid">
+                <span>Dex No.</span>
+                <span>Pokémon</span>
+                <span>Status</span>
+                <span>Shiny</span>
+                <span>Owned</span>
+            </div>
+
+            <div className="divide-y divide-gray-100">
+                {entries.map((dexEntry) => {
+                    const status = getDexEntryStatus(dexEntry, selectedCollectionLayer);
+                    const hasShinyCardIndicator = getHasShinyCardIndicator(dexEntry);
+                    const isSelected = selectedDexEntry
+                        ? selectedDexEntry.dexNumber === dexEntry.dexNumber
+                        : false;
+
+                    return (
+                        <button
+                            key={dexEntry.dexNumber}
+                            className={
+                                isSelected
+                                    ? "grid w-full grid-cols-1 gap-3 bg-emerald-50 px-4 py-3 text-left transition hover:bg-emerald-100 md:grid-cols-[88px_minmax(0,1.3fr)_132px_72px_150px] md:items-center"
+                                    : "grid w-full grid-cols-1 gap-3 bg-white px-4 py-3 text-left transition hover:bg-gray-50 md:grid-cols-[88px_minmax(0,1.3fr)_132px_72px_150px] md:items-center"
+                            }
+                            type="button"
+                            onClick={() => {
+                                onSelectDexNumber(dexEntry.dexNumber);
+                            }}
+                        >
+                            <div className="text-sm font-extrabold tracking-[0.02em] text-gray-500 md:text-xs">
+                                #{dexEntry.dexNumber.toString().padStart(3, "0")}
+                            </div>
+
+                            <div className="min-w-0">
+                                <div className="truncate text-sm font-extrabold text-gray-900">
+                                    {dexEntry.name}
+                                </div>
+                            </div>
+
+                            <div>
+                                <span className={getDexEntryStatusBadgeClassName(status)}>
+                                    {getDexEntryStatusLabel(status)}
+                                </span>
+                            </div>
+
+                            <div className="flex items-center">
+                                {hasShinyCardIndicator ? (
+                                    <span className={getShinyIndicatorClassName("list")}>
+                                        <img
+                                            src={shinyStarIcon}
+                                            alt="Shiny collected"
+                                            className="h-4 w-4 shrink-0 opacity-100 drop-shadow-[0_1px_1px_rgba(120,53,15,0.2)]"
+                                        />
+                                    </span>
+                                ) : (
+                                    <span className="text-xs font-bold uppercase tracking-[0.08em] text-gray-300">
+                                        -
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 md:block">
+                                <div className="rounded-lg bg-gray-50 px-2 py-2 md:bg-transparent md:px-0 md:py-0">
+                                    <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-gray-400">
+                                        Owned
+                                    </div>
+                                    <div className="text-sm font-extrabold text-gray-900">
+                                        {dexEntry.ownership.totalOwnedCount}
+                                    </div>
+                                </div>
+
+                                <div className="rounded-lg bg-amber-50 px-2 py-2 md:mt-1 md:bg-transparent md:px-0 md:py-0">
+                                    <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-amber-600">
+                                        Shiny Owned
+                                    </div>
+                                    <div className="text-sm font-extrabold text-amber-700">
+                                        {dexEntry.ownership.shinyOwnedCount}
+                                    </div>
+                                </div>
+                            </div>
+                        </button>
+                    );
+                })}
+            </div>
+        </section>
+    );
+};
+
+// DexEntryDisplay switches between the existing card grid and the new dense list without re-filtering entries.
+// LoadedDashboardView uses this so display layout stays modular while selection and filter state remain centralized.
+export const DexEntryDisplay = ({
+    entries,
+    selectedDexEntry,
+    selectedCollectionLayer,
+    selectedGridDensity,
+    selectedViewMode,
+    onSelectDexNumber
+}: DexEntryDisplayProps) => {
+    if (selectedViewMode === "list") {
+        return (
+            <ListDexEntryDisplay
+                entries={entries}
+                selectedDexEntry={selectedDexEntry}
+                selectedCollectionLayer={selectedCollectionLayer}
+                onSelectDexNumber={onSelectDexNumber}
+            />
+        );
+    }
+
+    return (
+        <GridDexEntryDisplay
+            entries={entries}
+            selectedDexEntry={selectedDexEntry}
+            selectedCollectionLayer={selectedCollectionLayer}
+            selectedGridDensity={selectedGridDensity}
+            onSelectDexNumber={onSelectDexNumber}
+        />
+    );
+};

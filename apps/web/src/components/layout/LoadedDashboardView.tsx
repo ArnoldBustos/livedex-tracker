@@ -9,14 +9,15 @@ import type {
     DexGridDensity,
     DexResponse,
     DexScope,
+    DexViewMode,
     SaveProfileRecord,
     UploadResponse
 } from "../../types/save";
-import { getPokemonTypeBadgeStyle } from "../../lib/pokemonTypeStyles";
 import { getDexEntriesForScope } from "../../lib/dex";
 import { computeDexProgress } from "../../lib/dex/computeDexProgress";
 import { getDisplayGameLabel } from "../../lib/getDisplayGameLabel";
 import shinyStarIcon from "../../assets/shiny-star.png";
+import { DexEntryDisplay } from "./DexEntryDisplay";
 
 type LoadedDashboardViewProps = {
     uploadResponse: UploadResponse;
@@ -27,6 +28,7 @@ type LoadedDashboardViewProps = {
     selectedCollectionLayer: DexCollectionLayerKey;
     selectedScope: DexScope;
     selectedGridDensity: DexGridDensity;
+    selectedViewMode: DexViewMode;
     selectedDexNumber: number | null;
     errorMessage: string;
     isUploading: boolean;
@@ -35,6 +37,7 @@ type LoadedDashboardViewProps = {
     onChangeFilter: (nextFilter: DexFilter) => void;
     onChangeCollectionLayer: (nextLayer: DexCollectionLayerKey) => void;
     onChangeScope: (nextScope: DexScope) => void;
+    onChangeViewMode: (nextViewMode: DexViewMode) => void;
     onDecreaseGridDensity: () => void;
     onIncreaseGridDensity: () => void;
     onSelectDexNumber: (nextDexNumber: number) => void;
@@ -115,6 +118,22 @@ const scopeControlOptions: Array<{
     {
         value: "regional",
         label: "Regional"
+    }
+];
+
+// viewModeControlOptions lists the available layout modes for the dex result set.
+// LoadedDashboardView maps this so grid and list selection stay modular inside the existing View control section.
+const viewModeControlOptions: Array<{
+    value: DexViewMode;
+    label: string;
+}> = [
+    {
+        value: "grid",
+        label: "Grid"
+    },
+    {
+        value: "list",
+        label: "List"
     }
 ];
 
@@ -242,56 +261,6 @@ const getDashboardLayerSummary = ({
     };
 };
 
-// getDexGridSectionClassName maps density to explicit guest and signed-in column counts.
-// LoadedDashboardView uses this so each density step changes the visible card count predictably with no duplicate density stages.
-const getDexGridSectionClassName = (selectedGridDensity: DexGridDensity) => {
-    if (selectedGridDensity === "extraComfortable") {
-        return "grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5";
-    }
-
-    if (selectedGridDensity === "comfortable") {
-        return "grid grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4";
-    }
-
-    if (selectedGridDensity === "default") {
-        return "grid grid-cols-4 md:grid-cols-5 xl:grid-cols-6 gap-3";
-    }
-
-    if (selectedGridDensity === "compact") {
-        return "grid grid-cols-5 md:grid-cols-6 xl:grid-cols-7 gap-3";
-    }
-
-    return "grid grid-cols-6 md:grid-cols-7 xl:grid-cols-8 gap-2";
-};
-
-// getDexCardImageClassName chooses sprite sizing for the active density option.
-// LoadedDashboardView uses this so compact and comfortable cards scale consistently with the grid.
-const getDexCardImageClassName = (selectedGridDensity: DexGridDensity) => {
-    if (selectedGridDensity === "extraComfortable") {
-        return "max-h-[88px] max-w-[88px] object-contain";
-    }
-
-    if (selectedGridDensity === "comfortable") {
-        return "max-h-[80px] max-w-[80px] object-contain";
-    }
-
-    if (selectedGridDensity === "extraCompact") {
-        return "max-h-[56px] max-w-[56px] object-contain";
-    }
-
-    if (selectedGridDensity === "compact") {
-        return "max-h-[64px] max-w-[64px] object-contain";
-    }
-
-    return "max-h-[72px] max-w-[72px] object-contain";
-};
-
-// getPokemonSpriteUrl builds the Home sprite URL for one dex card.
-// the card grid uses this so every dex entry can render consistent artwork.
-const getPokemonSpriteUrl = (dexNumber: number) => {
-    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${dexNumber}.png`;
-};
-
 // getPokemonArtworkUrl builds the official artwork URL for the selected pokemon.
 // the right sidebar uses this so the focused entry shows larger artwork than the grid cards.
 const getPokemonArtworkUrl = (dexNumber: number) => {
@@ -306,12 +275,6 @@ const getDexEntryImageToneClassName = (status: DexDisplayStatus) => {
     }
 
     return "";
-};
-
-// formatPokemonTypeLabel converts API casing into the badge label casing shown on cards.
-// LoadedDashboardView uses this so type pills render consistent readable labels.
-const formatPokemonTypeLabel = (pokemonType: string) => {
-    return `${pokemonType.charAt(0)}${pokemonType.slice(1).toLowerCase()}`;
 };
 
 // slugifyPokemonDbName builds a Pokemon DB friendly slug from a species name
@@ -530,6 +493,7 @@ export const LoadedDashboardView = ({
     selectedCollectionLayer,
     selectedScope,
     selectedGridDensity,
+    selectedViewMode,
     selectedDexNumber,
     errorMessage,
     isUploading,
@@ -538,6 +502,7 @@ export const LoadedDashboardView = ({
     onChangeFilter,
     onChangeCollectionLayer,
     onChangeScope,
+    onChangeViewMode,
     onDecreaseGridDensity,
     onIncreaseGridDensity,
     onSelectDexNumber,
@@ -814,13 +779,68 @@ export const LoadedDashboardView = ({
                     />
 
                     <section className="flex flex-wrap items-end justify-between gap-4">
-                        <div className="min-w-0">
-                            <p className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
-                                Database View
-                            </p>
-                            <h2 className="text-3xl font-extrabold tracking-tight text-gray-900">
-                                {selectedScope === "national" ? "National Dex" : "Regional Dex"}
-                            </h2>
+                        <div className="flex min-w-0 flex-1 flex-wrap items-end justify-between gap-4 rounded-2xl border border-[rgba(130,129,111,0.18)] bg-white/80 px-4 py-3 shadow-sm">
+                            <div className="min-w-0">
+                                <p className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
+                                    Database View
+                                </p>
+                                <h2 className="text-3xl font-extrabold tracking-tight text-gray-900">
+                                    {selectedScope === "national" ? "National Dex" : "Regional Dex"}
+                                </h2>
+                            </div>
+
+                            <div className="min-w-0">
+                                <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
+                                    Display
+                                </p>
+
+                                <div className="flex flex-wrap items-stretch gap-2 rounded-xl bg-gray-100 p-1 sm:flex-nowrap">
+                                    {viewModeControlOptions.map((viewModeOption) => {
+                                        return (
+                                            <ControlChipButton
+                                                key={viewModeOption.value}
+                                                label={viewModeOption.label}
+                                                isSelected={selectedViewMode === viewModeOption.value}
+                                                onClick={() => {
+                                                    onChangeViewMode(viewModeOption.value);
+                                                }}
+                                            />
+                                        );
+                                    })}
+
+                                    {selectedViewMode === "grid" ? (
+                                        <div className="ml-1 flex min-h-[40px] items-center gap-1 rounded-lg border border-white/80 bg-white px-1 py-1 shadow-sm">
+                                            <button
+                                                className={
+                                                    isDecreaseGridDensityDisabled
+                                                        ? "rounded-md px-2 py-1 text-sm font-extrabold text-gray-300"
+                                                        : "rounded-md px-2 py-1 text-sm font-extrabold text-gray-600 hover:bg-gray-100"
+                                                }
+                                                type="button"
+                                                onClick={onDecreaseGridDensity}
+                                                disabled={isDecreaseGridDensityDisabled}
+                                                aria-label="Show more cards per row with smaller cards"
+                                            >
+                                                -
+                                            </button>
+
+                                            <button
+                                                className={
+                                                    isIncreaseGridDensityDisabled
+                                                        ? "rounded-md px-2 py-1 text-sm font-extrabold text-gray-300"
+                                                        : "rounded-md px-2 py-1 text-sm font-extrabold text-gray-600 hover:bg-gray-100"
+                                                }
+                                                type="button"
+                                                onClick={onIncreaseGridDensity}
+                                                disabled={isIncreaseGridDensityDisabled}
+                                                aria-label="Show fewer cards per row with larger cards"
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+                                    ) : null}
+                                </div>
+                            </div>
                         </div>
 
                         <div className="flex w-full flex-wrap items-start gap-3 rounded-2xl border border-[rgba(130,129,111,0.18)] bg-white/80 px-3 py-3 shadow-sm xl:flex-nowrap xl:items-start">
@@ -862,9 +882,9 @@ export const LoadedDashboardView = ({
                                 </div>
                             </div>
 
-                            <div className="min-w-0 xl:ml-auto xl:shrink-0">
+                            <div className="min-w-0 xl:shrink-0">
                                 <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
-                                    View
+                                    Scope
                                 </p>
 
                                 <div className="flex flex-wrap items-stretch gap-2 rounded-xl bg-gray-100 p-1 sm:flex-nowrap">
@@ -880,126 +900,19 @@ export const LoadedDashboardView = ({
                                             />
                                         );
                                     })}
-
-                                    <div className="ml-1 flex min-h-[40px] items-center gap-1 rounded-lg border border-white/80 bg-white px-1 py-1 shadow-sm">
-                                        <button
-                                            className={
-                                                isDecreaseGridDensityDisabled
-                                                    ? "rounded-md px-2 py-1 text-sm font-extrabold text-gray-300"
-                                                    : "rounded-md px-2 py-1 text-sm font-extrabold text-gray-600 hover:bg-gray-100"
-                                            }
-                                            type="button"
-                                            onClick={onDecreaseGridDensity}
-                                            disabled={isDecreaseGridDensityDisabled}
-                                            aria-label="Show more cards per row with smaller cards"
-                                        >
-                                            -
-                                        </button>
-
-                                        <button
-                                            className={
-                                                isIncreaseGridDensityDisabled
-                                                    ? "rounded-md px-2 py-1 text-sm font-extrabold text-gray-300"
-                                                    : "rounded-md px-2 py-1 text-sm font-extrabold text-gray-600 hover:bg-gray-100"
-                                            }
-                                            type="button"
-                                            onClick={onIncreaseGridDensity}
-                                            disabled={isIncreaseGridDensityDisabled}
-                                            aria-label="Show fewer cards per row with larger cards"
-                                        >
-                                            +
-                                        </button>
-                                    </div>
                                 </div>
                             </div>
                         </div>
                     </section>
 
-                    <section className={getDexGridSectionClassName(selectedGridDensity)}>
-                        {filteredDexEntries.map((dexEntry) => {
-                            const status = getDexEntryStatus(dexEntry, selectedCollectionLayer);
-                            const hasShinyCardIndicator = getHasShinyCardIndicator(dexEntry);
-                            const imageToneClassName = getDexEntryImageToneClassName(status);
-                            const isSelected = selectedDexEntry
-                                ? selectedDexEntry.dexNumber === dexEntry.dexNumber
-                                : false;
-
-                            return (
-                                <button
-                                    key={dexEntry.dexNumber}
-                                    className={
-                                        isSelected
-                                            ? "flex flex-col rounded-xl border-2 border-green-500 bg-white p-3 shadow-sm"
-                                            : "flex flex-col rounded-xl bg-white p-3 shadow-sm hover:shadow-md"
-                                    }
-                                    type="button"
-                                    onClick={() => {
-                                        onSelectDexNumber(dexEntry.dexNumber);
-                                    }}
-                                >
-                                    <div className="mb-2 flex items-start justify-between gap-2">
-                                        <span className="text-[10px] font-extrabold tracking-[0.04em] text-gray-400">
-                                            #{dexEntry.dexNumber.toString().padStart(3, "0")}
-                                        </span>
-
-                                        <span
-                                            className={
-                                                status === "living"
-                                                    ? "rounded-full bg-green-100 px-2 py-1 text-[10px] font-bold uppercase text-green-700"
-                                                    : status === "caught"
-                                                        ? "rounded-full bg-yellow-100 px-2 py-1 text-[10px] font-bold uppercase text-yellow-700"
-                                                        : status === "seen"
-                                                            ? "rounded-full bg-purple-100 px-2 py-1 text-[10px] font-bold uppercase text-purple-700"
-                                                            : "rounded-full bg-gray-100 px-2 py-1 text-[10px] font-bold uppercase text-gray-500"
-                                            }
-                                        >
-                                            {getDexEntryStatusLabel(status)}
-                                        </span>
-                                    </div>
-
-                                    <div className="flex h-[88px] items-center justify-center overflow-hidden">
-                                        <img
-                                            src={getPokemonSpriteUrl(dexEntry.dexNumber)}
-                                            alt={dexEntry.name}
-                                            className={`${getDexCardImageClassName(selectedGridDensity)} ${imageToneClassName}`.trim()}
-                                        />
-                                    </div>
-
-                                    <div className="mt-2 min-w-0 text-sm font-extrabold tracking-[0.01em] text-gray-900">
-                                        <div className="truncate">
-                                            {dexEntry.name}
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-2 flex flex-wrap items-center gap-1">
-                                        {hasShinyCardIndicator ? (
-                                            <span className={`${getShinyIndicatorClassName("card")} h-6 w-6`}>
-                                                <img
-                                                    src={shinyStarIcon}
-                                                    alt="Shiny collected"
-                                                    className="h-4 w-4 shrink-0 opacity-100 drop-shadow-[0_1px_1px_rgba(120,53,15,0.2)]"
-                                                />
-                                            </span>
-                                        ) : null}
-
-                                        <span
-                                            className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${getPokemonTypeBadgeStyle(dexEntry.primaryType).containerClassName}`}
-                                        >
-                                            {formatPokemonTypeLabel(dexEntry.primaryType)}
-                                        </span>
-
-                                        {dexEntry.secondaryType ? (
-                                            <span
-                                                className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${getPokemonTypeBadgeStyle(dexEntry.secondaryType).containerClassName}`}
-                                            >
-                                                {formatPokemonTypeLabel(dexEntry.secondaryType)}
-                                            </span>
-                                        ) : null}
-                                    </div>
-                                </button>
-                            );
-                        })}
-                    </section>
+                    <DexEntryDisplay
+                        entries={filteredDexEntries}
+                        selectedDexEntry={selectedDexEntry}
+                        selectedCollectionLayer={selectedCollectionLayer}
+                        selectedGridDensity={selectedGridDensity}
+                        selectedViewMode={selectedViewMode}
+                        onSelectDexNumber={onSelectDexNumber}
+                    />
 
                     <details className="debug-details">
                         <summary>Raw Debug Response</summary>
