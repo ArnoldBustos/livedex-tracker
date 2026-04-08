@@ -37,7 +37,7 @@ export const EntryTopbar = ({
     // EntryTopbar uses this so entry persistence messaging does not require a separate ribbon row.
     const getSessionHelperText = () => {
         if (isSignedIn) {
-            return "Saved profiles are available from this entry screen.";
+            return "Welcome back.";
         }
 
         return "Progress is saved locally until you sign in.";
