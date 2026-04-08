@@ -8,6 +8,9 @@ type UploadHeroProps = {
     onUploadError: (errorMessage: string) => void;
 };
 
+// UploadHeroProps defines the shared upload-card inputs used on entry and future replacement surfaces.
+// UploadHero consumes this so file selection behavior stays reusable while parent routes own upload state.
+
 // getIsSupportedSaveFile validates accepted save file extensions for new uploads.
 // UploadHero uses this before handing the file to App.tsx for save setup orchestration.
 const getIsSupportedSaveFile = (file: File) => {
@@ -33,7 +36,11 @@ export const UploadHero = ({
     onSelectUploadFile,
     onUploadError
 }: UploadHeroProps) => {
+    // selectedFile stores the most recently chosen save filename for the current upload card instance.
+    // UploadHero uses this so the dropzone and selected-file summary stay in sync after local selection.
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    // isDragging tracks whether a file is hovering over the dropzone for temporary visual feedback.
+    // UploadHero uses this so drag styling stays local to the upload surface rather than parent state.
     const [isDragging, setIsDragging] = useState(false);
 
     // handleSelectedFile validates the chosen file and forwards it into the shared save setup flow.
@@ -102,24 +109,20 @@ export const UploadHero = ({
 
     return (
         <section className="w-full">
-            <div className="flex flex-col gap-5 rounded-2xl bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-5 rounded-[28px] bg-white p-5 shadow-sm sm:p-6">
                 <div className="flex items-start justify-between gap-4">
                     <div>
-                        <p className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
+                        <p className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-emerald-700">
                             Upload Save
                         </p>
 
-                        <h1 className="text-4xl font-extrabold tracking-tight text-gray-900">
-                            Start with a save file
-                        </h1>
+                        <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-[36px]">
+                            Start with a save file.
+                        </h2>
 
-                        <p className="mt-2 max-w-[560px] text-[15px] leading-6 text-gray-600">
-                            Upload a Gen 3 save file (.sav, .srm)
+                        <p className="mt-2 max-w-[560px] text-[15px] leading-7 text-gray-600">
+                            Import a Gen 3 save file (.sav, .srm).
                         </p>
-                    </div>
-
-                    <div className="hidden rounded-full bg-green-700 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-white md:block">
-                        Upload
                     </div>
                 </div>
 
@@ -136,14 +139,14 @@ export const UploadHero = ({
                     htmlFor="save-file-input"
                     className={
                         isDragging
-                            ? "flex cursor-pointer items-center gap-4 rounded-2xl border-2 border-dashed border-green-700 bg-green-50 px-6 py-7 transition max-[640px]:flex-col max-[640px]:items-start"
-                            : "flex cursor-pointer items-center gap-4 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 px-6 py-7 transition hover:border-green-700 hover:bg-white max-[640px]:flex-col max-[640px]:items-start"
+                            ? "flex cursor-pointer items-center gap-4 rounded-[24px] border-2 border-dashed border-emerald-700 bg-emerald-50 px-6 py-8 transition max-[640px]:flex-col max-[640px]:items-start"
+                            : "flex cursor-pointer items-center gap-4 rounded-[24px] border-2 border-dashed border-gray-200 bg-gray-50 px-6 py-8 transition hover:border-emerald-700 hover:bg-white max-[640px]:flex-col max-[640px]:items-start"
                     }
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
                 >
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white text-[24px] font-extrabold text-green-700 shadow-sm">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white text-[24px] font-extrabold text-emerald-700 shadow-sm">
                         ^
                     </div>
 
@@ -158,7 +161,7 @@ export const UploadHero = ({
                                     : "Choose or drag a save file"}
                         </div>
                         <div className="text-[14px] text-gray-600">
-                            Supports .sav and .srm files.
+                            Choose or drag a save file.
                         </div>
                     </div>
                 </label>
@@ -166,8 +169,8 @@ export const UploadHero = ({
                 <div
                     className={
                         selectedFile
-                            ? "flex flex-col gap-1.5 rounded-xl bg-gray-50 px-4 py-4"
-                            : "flex flex-col gap-1 rounded-xl border border-dashed border-gray-200 bg-white px-4 py-3"
+                            ? "flex flex-col gap-1.5 rounded-2xl bg-gray-50 px-4 py-4"
+                            : "flex flex-col gap-1 rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-3"
                     }
                 >
                     <span className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-gray-500">

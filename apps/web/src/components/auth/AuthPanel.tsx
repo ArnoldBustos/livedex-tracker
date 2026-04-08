@@ -10,6 +10,8 @@ type AuthPanelProps = {
     isSubmitting: boolean;
     errorMessage: string;
     showContinueAsGuest: boolean;
+    showEntryOptionsSection?: boolean;
+    showModeToggleRow?: boolean;
     onChangeEmail: (nextEmail: string) => void;
     onSubmit: () => void;
     onContinueAsGuest: () => void;
@@ -28,6 +30,8 @@ export const AuthPanel = ({
     isSubmitting,
     errorMessage,
     showContinueAsGuest,
+    showEntryOptionsSection = true,
+    showModeToggleRow = true,
     onChangeEmail,
     onSubmit,
     onContinueAsGuest,
@@ -145,44 +149,37 @@ export const AuthPanel = ({
                             ) : null}
                         </div>
 
-                        <div className="mt-4 flex flex-wrap gap-3 text-[13px] font-medium">
-                            <button
-                                className={`rounded-full px-3 py-2 transition ${authMode === "login"
-                                    ? "bg-green-700 text-white"
-                                    : "bg-white text-[#656554] hover:text-[#38392a]"
-                                    }`}
-                                type="button"
-                                onClick={onSwitchToLogin}
-                                disabled={isSubmitting}
-                            >
-                                Sign In
-                            </button>
+                        {showModeToggleRow ? (
+                            <div className="mt-4 flex flex-wrap items-center gap-2 text-[13px] font-medium text-[#656554]">
+                                <span>
+                                    {authMode === "login" ? "Need an account?" : "Already have an account?"}
+                                </span>
 
-                            <button
-                                className={`rounded-full px-3 py-2 transition ${authMode === "register"
-                                    ? "bg-green-700 text-white"
-                                    : "bg-white text-[#656554] hover:text-[#38392a]"
-                                    }`}
-                                type="button"
-                                onClick={onSwitchToRegister}
-                                disabled={isSubmitting}
-                            >
-                                Register
-                            </button>
-                        </div>
+                                <button
+                                    className="rounded-full border border-[rgba(130,129,111,0.18)] bg-white px-3 py-2 text-[#38392a] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                    type="button"
+                                    onClick={authMode === "login" ? onSwitchToRegister : onSwitchToLogin}
+                                    disabled={isSubmitting}
+                                >
+                                    {authMode === "login" ? "Create Account" : "Sign In"}
+                                </button>
+                            </div>
+                        ) : null}
                     </div>
                 )}
             </section>
 
-            <section className="mt-4 rounded-2xl bg-[#f6f5dc] p-4">
-                <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#656554]">
-                    Entry Options
-                </div>
+            {showEntryOptionsSection ? (
+                <section className="mt-4 rounded-2xl bg-[#f6f5dc] p-4">
+                    <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#656554]">
+                        Entry Options
+                    </div>
 
-                <p className="mt-3 text-[12px] leading-6 text-[#656554]">
-                    Upload a save, start a manual tracker, or manage account access without leaving this screen.
-                </p>
-            </section>
+                    <p className="mt-3 text-[12px] leading-6 text-[#656554]">
+                        Upload a save, start a manual tracker, or manage account access without leaving this screen.
+                    </p>
+                </section>
+            ) : null}
         </aside>
     );
 };

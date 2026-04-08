@@ -1424,12 +1424,6 @@ const App = () => {
         <EntryView
           isSignedIn={sessionMode === "user" && currentUser !== null}
           isGuestMode={isGuestMode}
-          sessionLabel={sessionLabel}
-          selectedFileName={
-            pendingSaveSetup && pendingSaveSetup.file
-              ? pendingSaveSetup.file.name
-              : null
-          }
           currentUserEmail={currentUser ? currentUser.email : ""}
           isUploading={isUploading}
           isLoadingSaveProfiles={isLoadingSaveProfiles}

@@ -1,14 +1,13 @@
-import { AuthPanel } from "../auth/AuthPanel";
+import { useState } from "react";
 import type { AuthPanelMode } from "../auth/AuthPanel";
 import { EmptyStateView } from "./EmptyStateView";
+import { EntryAuthModal } from "./EntryAuthModal";
 import { EntryTopbar } from "./EntryTopbar";
 import type { SaveProfileRecord } from "../../types/save";
 
 type EntryViewProps = {
     isSignedIn: boolean;
     isGuestMode: boolean;
-    sessionLabel: string;
-    selectedFileName: string | null;
     currentUserEmail: string;
     isUploading: boolean;
     isLoadingSaveProfiles: boolean;
@@ -35,8 +34,6 @@ type EntryViewProps = {
 export const EntryView = ({
     isSignedIn,
     isGuestMode,
-    sessionLabel,
-    selectedFileName,
     currentUserEmail,
     isUploading,
     isLoadingSaveProfiles,
@@ -57,28 +54,52 @@ export const EntryView = ({
     onOpenExistingSave,
     onUploadError
 }: EntryViewProps) => {
+    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+    // isVisibleAuthModalOpen derives whether the modal should stay rendered after auth state changes.
+    // EntryView uses this so successful sign-in hides the modal without a follow-up effect-driven state write.
+    const isVisibleAuthModalOpen = isAuthModalOpen && !isSignedIn;
+
+    // openLoginModal switches the shared auth modal into login mode before opening it.
+    // EntryTopbar uses this so the sign-in button reuses the parent auth state and handlers.
+    const openLoginModal = () => {
+        onSwitchToLogin();
+        setIsAuthModalOpen(true);
+    };
+
+    // openRegisterModal switches the shared auth modal into register mode before opening it.
+    // EntryTopbar uses this so the create-account button reuses the parent auth state and handlers.
+    const openRegisterModal = () => {
+        onSwitchToRegister();
+        setIsAuthModalOpen(true);
+    };
+
+    // closeAuthModal hides the entry auth overlay without mutating the underlying auth state.
+    // EntryView uses this for overlay dismissal and close-button dismissal.
+    const closeAuthModal = () => {
+        setIsAuthModalOpen(false);
+    };
+
     return (
-        <div className="min-h-screen bg-[#f3f4f6] px-4 py-6 text-[#38392a] sm:px-6 sm:py-8">
+        <div className="min-h-screen bg-[#f3f4f6] text-[#38392a]">
             {isUploading ? (
                 <div className="fixed left-1/2 top-4 z-10 -translate-x-1/2 rounded-full border border-[rgba(130,129,111,0.18)] bg-white px-4 py-2 text-[12px] font-semibold text-[#38392a] shadow-sm">
                     {openingSaveProfileId ? "Opening saved profile..." : "Loading save data..."}
                 </div>
             ) : null}
 
-            <div className="mx-auto flex max-w-[1680px] flex-col gap-6">
+            <div className="mx-auto flex max-w-[1680px] flex-col">
                 <EntryTopbar
-                    selectedFileName={selectedFileName}
                     isUploading={isUploading}
                     isGuestMode={isGuestMode}
                     isSignedIn={isSignedIn}
-                    sessionLabel={sessionLabel}
-                    onSelectUploadFile={onSelectUploadFile}
-                    onGoToLogin={onSwitchToLogin}
-                    onGoToRegister={onSwitchToRegister}
+                    currentUserEmail={currentUserEmail}
+                    onGoToLogin={openLoginModal}
+                    onGoToRegister={openRegisterModal}
+                    onLogout={onLogout}
                 />
 
-                <div className="grid items-stretch gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-                    <div className="min-w-0 xl:h-full">
+                <div className="px-4 pb-6 pt-3 sm:px-6 sm:pb-8 sm:pt-4">
+                    <div className="mx-auto w-full max-w-[1180px]">
                         <EmptyStateView
                             isSignedIn={isSignedIn}
                             isUploading={isUploading}
@@ -92,26 +113,24 @@ export const EntryView = ({
                             onUploadError={onUploadError}
                         />
                     </div>
-
-                    <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
-                        <AuthPanel
-                            authMode={authMode}
-                            isSignedIn={isSignedIn}
-                            currentUserEmail={currentUserEmail}
-                            email={email}
-                            isSubmitting={isSubmittingAuth}
-                            errorMessage={errorMessage}
-                            showContinueAsGuest={false}
-                            onChangeEmail={onChangeEmail}
-                            onSubmit={onSubmitAuth}
-                            onContinueAsGuest={onContinueAsGuest}
-                            onLogout={onLogout}
-                            onSwitchToLogin={onSwitchToLogin}
-                            onSwitchToRegister={onSwitchToRegister}
-                        />
-                    </div>
                 </div>
             </div>
+
+            <EntryAuthModal
+                isOpen={isVisibleAuthModalOpen}
+                authMode={authMode}
+                currentUserEmail={currentUserEmail}
+                email={email}
+                isSubmitting={isSubmittingAuth}
+                errorMessage={errorMessage}
+                onChangeEmail={onChangeEmail}
+                onSubmit={onSubmitAuth}
+                onContinueAsGuest={onContinueAsGuest}
+                onLogout={onLogout}
+                onSwitchToLogin={onSwitchToLogin}
+                onSwitchToRegister={onSwitchToRegister}
+                onClose={closeAuthModal}
+            />
         </div>
     );
 };
