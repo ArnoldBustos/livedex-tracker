@@ -122,7 +122,7 @@ export const SaveDetailsForm = ({
 
                         <input
                             id="save-details-display-name"
-                            className="min-h-[48px] rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-gray-900 outline-none transition focus:border-[#6b7a34] focus:ring-2 focus:ring-[rgba(107,122,52,0.14)]"
+                            className="min-h-[48px] rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-gray-900 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-[rgba(21,128,61,0.16)]"
                             type="text"
                             value={draftIdentity.displayName}
                             onChange={(event) => {
@@ -147,7 +147,7 @@ export const SaveDetailsForm = ({
 
                             <input
                                 id="save-details-trainer-name"
-                                className="min-h-[48px] rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-gray-900 outline-none transition focus:border-[#6b7a34] focus:ring-2 focus:ring-[rgba(107,122,52,0.14)]"
+                                className="min-h-[48px] rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-gray-900 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-[rgba(21,128,61,0.16)]"
                                 type="text"
                                 value={draftIdentity.trainerName}
                                 onChange={(event) => {
@@ -173,7 +173,7 @@ export const SaveDetailsForm = ({
 
                             <select
                                 id="save-details-game"
-                                className="min-h-[48px] rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-gray-900 outline-none transition focus:border-[#6b7a34] focus:ring-2 focus:ring-[rgba(107,122,52,0.14)]"
+                                className="min-h-[48px] rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-gray-900 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-[rgba(21,128,61,0.16)]"
                                 value={draftIdentity.game ? draftIdentity.game : ""}
                                 onChange={(event) => {
                                     setDraftIdentity(
@@ -216,7 +216,7 @@ export const SaveDetailsForm = ({
 
                         <button
                             type="submit"
-                            className="rounded-xl bg-[#6b7a34] px-5 py-2.5 text-[14px] font-semibold text-white transition hover:bg-[#5a672b] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-xl bg-green-700 px-5 py-2.5 text-[14px] font-semibold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
                             disabled={isSubmitting}
                         >
                             {isSubmitting ? "Working..." : confirmLabel}

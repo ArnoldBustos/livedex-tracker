@@ -102,7 +102,7 @@ export const AuthPanel = ({
                             </div>
 
                             <input
-                                className="mt-2 w-full rounded-xl border border-[rgba(130,129,111,0.18)] bg-white px-4 py-3 text-[14px] font-medium text-[#38392a] outline-none transition focus:border-[rgba(22,163,74,0.45)]"
+                                className="mt-2 w-full rounded-xl border border-[rgba(130,129,111,0.18)] bg-white px-4 py-3 text-[14px] font-medium text-[#38392a] outline-none transition focus:border-green-700 focus:ring-2 focus:ring-[rgba(21,128,61,0.16)]"
                                 type="email"
                                 placeholder="dev@example.com"
                                 value={email}
@@ -148,7 +148,7 @@ export const AuthPanel = ({
                         <div className="mt-4 flex flex-wrap gap-3 text-[13px] font-medium">
                             <button
                                 className={`rounded-full px-3 py-2 transition ${authMode === "login"
-                                    ? "bg-green-100 text-green-800"
+                                    ? "bg-green-700 text-white"
                                     : "bg-white text-[#656554] hover:text-[#38392a]"
                                     }`}
                                 type="button"
@@ -160,7 +160,7 @@ export const AuthPanel = ({
 
                             <button
                                 className={`rounded-full px-3 py-2 transition ${authMode === "register"
-                                    ? "bg-green-100 text-green-800"
+                                    ? "bg-green-700 text-white"
                                     : "bg-white text-[#656554] hover:text-[#38392a]"
                                     }`}
                                 type="button"

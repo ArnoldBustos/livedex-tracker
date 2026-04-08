@@ -118,7 +118,7 @@ export const UploadHero = ({
                         </p>
                     </div>
 
-                    <div className="hidden rounded-full bg-green-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-green-800 md:block">
+                    <div className="hidden rounded-full bg-green-700 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-white md:block">
                         Upload
                     </div>
                 </div>
@@ -136,8 +136,8 @@ export const UploadHero = ({
                     htmlFor="save-file-input"
                     className={
                         isDragging
-                            ? "flex cursor-pointer items-center gap-4 rounded-2xl border-2 border-dashed border-green-500 bg-green-50 px-6 py-7 transition max-[640px]:flex-col max-[640px]:items-start"
-                            : "flex cursor-pointer items-center gap-4 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 px-6 py-7 transition hover:border-green-400 hover:bg-white max-[640px]:flex-col max-[640px]:items-start"
+                            ? "flex cursor-pointer items-center gap-4 rounded-2xl border-2 border-dashed border-green-700 bg-green-50 px-6 py-7 transition max-[640px]:flex-col max-[640px]:items-start"
+                            : "flex cursor-pointer items-center gap-4 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 px-6 py-7 transition hover:border-green-700 hover:bg-white max-[640px]:flex-col max-[640px]:items-start"
                     }
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}

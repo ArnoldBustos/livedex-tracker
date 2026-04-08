@@ -117,7 +117,7 @@ export const EmptyStateView = ({
 
                         <button
                             type="button"
-                            className="mt-6 inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-[#6b7a34] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5a672b] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                            className="mt-6 inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                             onClick={onCreateManualEntry}
                             disabled={isUploading}
                         >
