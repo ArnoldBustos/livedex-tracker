@@ -12,6 +12,7 @@ import type {
     DexScope,
     DexViewMode,
     SaveProfileRecord,
+    UpdateDexEntryRequest,
     UploadResponse
 } from "../../types/save";
 import { getDexEntriesForScope } from "../../lib/dex";
@@ -64,7 +65,7 @@ type LoadedDashboardViewProps = {
                 hasLivingEntry?: boolean | null;
             };
         };
-    }) => Promise<void> | void;
+    }) => Promise<boolean> | boolean;
     onLogout: () => void;
     onGoToLogin: () => void;
     onGoToRegister: () => void;
@@ -80,6 +81,10 @@ type DashboardLayerSummary = {
     missingCount: number;
     seenOnlyCount: number;
 };
+
+// StagedOwnedSelectionMap stores frontend-only owned patches by species id during Select Mode.
+// LoadedDashboardView uses this so staged owned changes stay discardable until Save Changes runs the existing update flow.
+type StagedOwnedSelectionMap = Record<number, UpdateDexEntryRequest>;
 
 // filterControlOptions lists the available content filters for the dashboard controls.
 // LoadedDashboardView maps this so filter layout stays modular when options change.
@@ -204,6 +209,29 @@ const getDexEntryStatusLabel = (status: DexDisplayStatus) => {
 // LoadedDashboardView uses this so shiny presence appears in the middle grid without adding shiny edit behavior there.
 const getHasShinyCardIndicator = (dexEntry: DexEntry) => {
     return dexEntry.shiny.caught || dexEntry.shiny.hasLivingEntry;
+};
+
+// getIsDexEntryOwnedInLayer returns whether one entry already counts as owned in one collection layer.
+// LoadedDashboardView uses this so Select Mode only stages safe missing-owned -> owned updates for the active layer.
+const getIsDexEntryOwnedInLayer = (
+    dexEntry: DexEntry,
+    layerKey: DexCollectionLayerKey
+) => {
+    return dexEntry[layerKey].caught || dexEntry[layerKey].hasLivingEntry;
+};
+
+// getHasStagedOwnedSelection returns whether one staged patch already marks a layer as owned.
+// LoadedDashboardView uses this so Select Mode can render pending checkmarks without mutating the live dex response.
+const getHasStagedOwnedSelection = ({
+    stagedPatch,
+    layerKey
+}: {
+    stagedPatch: UpdateDexEntryRequest | undefined;
+    layerKey: DexCollectionLayerKey;
+}) => {
+    const stagedLayerPatch = stagedPatch ? stagedPatch[layerKey] : undefined;
+
+    return stagedLayerPatch ? stagedLayerPatch.caught === true : false;
 };
 
 // getShinyIndicatorClassName maps shiny marker context to stronger contrast styles.
@@ -560,6 +588,15 @@ export const LoadedDashboardView = ({
     // profilePickerSessionKey forces a fresh modal instance each time the picker is opened.
     // LoadedDashboardView uses this so row-level delete confirmation state resets without an effect inside the modal.
     const [profilePickerSessionKey, setProfilePickerSessionKey] = useState(0);
+    // isSelectModeActive tracks whether dex entry clicks should stage owned updates instead of changing sidebar selection.
+    // LoadedDashboardView owns this so the control rows and dex display can coordinate one temporary batch-owned mode.
+    const [isSelectModeActive, setIsSelectModeActive] = useState(false);
+    // isSavingStagedOwnedChanges tracks the async Select Mode save flow.
+    // LoadedDashboardView uses this so Save Changes and Cancel can disable while staged owned patches are being committed.
+    const [isSavingStagedOwnedChanges, setIsSavingStagedOwnedChanges] = useState(false);
+    // stagedOwnershipChanges stores discardable frontend-only owned patches keyed by species id.
+    // LoadedDashboardView uses this so Select Mode can queue owned updates without mutating live dex entry state.
+    const [stagedOwnershipChanges, setStagedOwnershipChanges] = useState<StagedOwnedSelectionMap>({});
     // selectedGridDensityIndex tracks the current grid density step within the ordered scale.
     // LoadedDashboardView uses this so grid mode can disable the shared minus and plus buttons at the correct bounds.
     const selectedGridDensityIndex = dexGridDensityOrder.indexOf(selectedGridDensity);
@@ -637,6 +674,25 @@ export const LoadedDashboardView = ({
         });
     }, [dexEntries, selectedCollectionLayer, selectedFilter]);
 
+    // stagedOwnedEntryIds tracks every species with at least one staged owned patch across both collection layers.
+    // LoadedDashboardView uses this so Select Mode can show one stable selected-entry count while filters and layers change.
+    const stagedOwnedEntryIds = useMemo(() => {
+        return Object.keys(stagedOwnershipChanges).map((speciesId) => {
+            return Number(speciesId);
+        });
+    }, [stagedOwnershipChanges]);
+
+    // pendingOwnedEntryIds tracks the staged owned species in the currently visible collection layer.
+    // LoadedDashboardView passes this into DexEntryDisplay so only the active layer shows the green staged checkmark badge.
+    const pendingOwnedEntryIds = useMemo(() => {
+        return stagedOwnedEntryIds.filter((speciesId) => {
+            return getHasStagedOwnedSelection({
+                stagedPatch: stagedOwnershipChanges[speciesId],
+                layerKey: selectedCollectionLayer
+            });
+        });
+    }, [selectedCollectionLayer, stagedOwnedEntryIds, stagedOwnershipChanges]);
+
     // selectedDexEntry keeps the sidebar focused on the chosen dex entry even when filters remove it from the grid.
     // LoadedDashboardView uses this so manual edits in filtered views do not immediately replace the right-sidebar focus.
     const selectedDexEntry = useMemo(() => {
@@ -681,6 +737,114 @@ export const LoadedDashboardView = ({
             return currentProfilePickerSessionKey + 1;
         });
         setIsProfilePickerOpen(true);
+    };
+    // handleEnterSelectMode activates the frontend-only staging mode without changing any live dex values.
+    // LoadedDashboardView uses this from the row-two controls so entry clicks can switch from focus selection to staged owned selection.
+    const handleEnterSelectMode = () => {
+        setIsSelectModeActive(true);
+    };
+    // handleCancelSelectMode discards all staged owned patches and exits Select Mode.
+    // LoadedDashboardView uses this so users can abandon the temporary selection state without touching the live dex response.
+    const handleCancelSelectMode = () => {
+        if (isSavingStagedOwnedChanges) {
+            return;
+        }
+
+        setStagedOwnershipChanges({});
+        setIsSelectModeActive(false);
+    };
+    // handleDexEntryPress routes one dex entry click to either sidebar selection or Select Mode staging.
+    // DexEntryDisplay calls this so the existing detail-panel click path stays intact outside Select Mode.
+    const handleDexEntryPress = (dexEntry: DexEntry) => {
+        if (!isSelectModeActive) {
+            onSelectDexNumber(dexEntry.dexNumber);
+            return;
+        }
+
+        if (getIsDexEntryOwnedInLayer(dexEntry, selectedCollectionLayer)) {
+            return;
+        }
+
+        setStagedOwnershipChanges((currentStagedOwnershipChanges) => {
+            const currentEntryPatch = currentStagedOwnershipChanges[dexEntry.pokemonSpeciesId];
+            const nextEntryPatch = currentEntryPatch ? Object.assign({}, currentEntryPatch) : {};
+            const hasCurrentLayerSelection = getHasStagedOwnedSelection({
+                stagedPatch: currentEntryPatch,
+                layerKey: selectedCollectionLayer
+            });
+
+            if (hasCurrentLayerSelection) {
+                delete nextEntryPatch[selectedCollectionLayer];
+            } else {
+                nextEntryPatch[selectedCollectionLayer] = {
+                    caught: true
+                };
+            }
+
+            const nextStagedOwnershipChanges = Object.assign({}, currentStagedOwnershipChanges);
+            const hasStandardSelection = getHasStagedOwnedSelection({
+                stagedPatch: nextEntryPatch,
+                layerKey: "standard"
+            });
+            const hasShinySelection = getHasStagedOwnedSelection({
+                stagedPatch: nextEntryPatch,
+                layerKey: "shiny"
+            });
+
+            if (!hasStandardSelection && !hasShinySelection) {
+                delete nextStagedOwnershipChanges[dexEntry.pokemonSpeciesId];
+                return nextStagedOwnershipChanges;
+            }
+
+            nextStagedOwnershipChanges[dexEntry.pokemonSpeciesId] = nextEntryPatch;
+            return nextStagedOwnershipChanges;
+        });
+    };
+    // handleSaveStagedOwnedChanges commits staged owned patches through the existing single-entry update flow.
+    // LoadedDashboardView uses this so Select Mode remains frontend-only until the user explicitly saves.
+    const handleSaveStagedOwnedChanges = async () => {
+        if (stagedOwnedEntryIds.length === 0 || isSavingStagedOwnedChanges) {
+            return;
+        }
+
+        setIsSavingStagedOwnedChanges(true);
+
+        let hasFailure = false;
+
+        try {
+            for (const stagedSpeciesId of stagedOwnedEntryIds) {
+                const stagedPatch = stagedOwnershipChanges[stagedSpeciesId];
+
+                if (!stagedPatch) {
+                    continue;
+                }
+
+                const didUpdateDexEntry = await onUpdateDexEntry({
+                    pokemonSpeciesId: stagedSpeciesId,
+                    patch: stagedPatch
+                });
+
+                if (didUpdateDexEntry === false) {
+                    hasFailure = true;
+                    break;
+                }
+
+                setStagedOwnershipChanges((currentStagedOwnershipChanges) => {
+                    const nextStagedOwnershipChanges = Object.assign({}, currentStagedOwnershipChanges);
+                    delete nextStagedOwnershipChanges[stagedSpeciesId];
+                    return nextStagedOwnershipChanges;
+                });
+            }
+        } finally {
+            setIsSavingStagedOwnedChanges(false);
+        }
+
+        if (hasFailure) {
+            return;
+        }
+
+        setStagedOwnershipChanges({});
+        setIsSelectModeActive(false);
     };
     // shouldRenderLegacyProfileRail keeps the old left-rail JSX disabled during the modal rollout.
     // TODO: Delete the dormant left-rail JSX in a dedicated cleanup pass after the dashboard layout stabilizes.
@@ -837,7 +1001,7 @@ export const LoadedDashboardView = ({
                         missingCount={dashboardSummary.missingCount}
                     />
 
-                    <section className="flex flex-wrap items-end justify-between gap-4">
+                    <section className="flex flex-col gap-4">
                         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-4 rounded-2xl border border-[rgba(130,129,111,0.18)] bg-white/80 px-4 py-3 shadow-sm">
                             <div className="min-w-0">
                                 <h2 className="text-3xl font-extrabold tracking-tight text-gray-900">
@@ -845,63 +1009,80 @@ export const LoadedDashboardView = ({
                                 </h2>
                             </div>
 
-                            <div className="flex min-w-0 flex-wrap items-stretch gap-2 rounded-xl bg-gray-100 p-1 sm:flex-nowrap">
-                                {viewModeControlOptions.map((viewModeOption) => {
-                                    return (
-                                        <ControlChipButton
-                                            key={viewModeOption.value}
-                                            label={viewModeOption.label}
-                                            isSelected={selectedViewMode === viewModeOption.value}
-                                            onClick={() => {
-                                                onChangeViewMode(viewModeOption.value);
-                                            }}
-                                        />
-                                    );
-                                })}
+                            <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+                                <div className="flex flex-wrap items-stretch gap-2 rounded-xl bg-gray-100 p-1 sm:flex-nowrap">
+                                    {scopeControlOptions.map((scopeOption) => {
+                                        return (
+                                            <ControlChipButton
+                                                key={scopeOption.value}
+                                                label={scopeOption.label}
+                                                isSelected={selectedScope === scopeOption.value}
+                                                onClick={() => {
+                                                    onChangeScope(scopeOption.value);
+                                                }}
+                                            />
+                                        );
+                                    })}
+                                </div>
 
-                                <div className="ml-1 flex min-h-[40px] items-center gap-1 rounded-lg border border-white/80 bg-white px-1 py-1 shadow-sm">
-                                    <button
-                                        className={
-                                            isDecreaseDisplayDensityDisabled
-                                                ? "rounded-md px-2 py-1 text-sm font-extrabold text-gray-300"
-                                                : "rounded-md px-2 py-1 text-sm font-extrabold text-gray-600 hover:bg-gray-100"
-                                        }
-                                        type="button"
-                                        onClick={onDecreaseDisplayDensity}
-                                        disabled={isDecreaseDisplayDensityDisabled}
-                                        aria-label={
-                                            selectedViewMode === "grid"
-                                                ? "Show more cards per row with smaller cards"
-                                                : "Show more list rows with denser spacing"
-                                        }
-                                    >
-                                        -
-                                    </button>
+                                <div className="flex min-w-0 flex-wrap items-stretch gap-2 rounded-xl bg-gray-100 p-1 sm:flex-nowrap">
+                                    {viewModeControlOptions.map((viewModeOption) => {
+                                        return (
+                                            <ControlChipButton
+                                                key={viewModeOption.value}
+                                                label={viewModeOption.label}
+                                                isSelected={selectedViewMode === viewModeOption.value}
+                                                onClick={() => {
+                                                    onChangeViewMode(viewModeOption.value);
+                                                }}
+                                            />
+                                        );
+                                    })}
 
-                                    <button
-                                        className={
-                                            isIncreaseDisplayDensityDisabled
-                                                ? "rounded-md px-2 py-1 text-sm font-extrabold text-gray-300"
-                                                : "rounded-md px-2 py-1 text-sm font-extrabold text-gray-600 hover:bg-gray-100"
-                                        }
-                                        type="button"
-                                        onClick={onIncreaseDisplayDensity}
-                                        disabled={isIncreaseDisplayDensityDisabled}
-                                        aria-label={
-                                            selectedViewMode === "grid"
-                                                ? "Show fewer cards per row with larger cards"
-                                                : "Show fewer list rows with roomier spacing"
-                                        }
-                                    >
-                                        +
-                                    </button>
+                                    <div className="ml-1 flex min-h-[40px] items-center gap-1 rounded-lg border border-white/80 bg-white px-1 py-1 shadow-sm">
+                                        <button
+                                            className={
+                                                isDecreaseDisplayDensityDisabled
+                                                    ? "rounded-md px-2 py-1 text-sm font-extrabold text-gray-300"
+                                                    : "rounded-md px-2 py-1 text-sm font-extrabold text-gray-600 hover:bg-gray-100"
+                                            }
+                                            type="button"
+                                            onClick={onDecreaseDisplayDensity}
+                                            disabled={isDecreaseDisplayDensityDisabled}
+                                            aria-label={
+                                                selectedViewMode === "grid"
+                                                    ? "Show more cards per row with smaller cards"
+                                                    : "Show more list rows with denser spacing"
+                                            }
+                                        >
+                                            -
+                                        </button>
+
+                                        <button
+                                            className={
+                                                isIncreaseDisplayDensityDisabled
+                                                    ? "rounded-md px-2 py-1 text-sm font-extrabold text-gray-300"
+                                                    : "rounded-md px-2 py-1 text-sm font-extrabold text-gray-600 hover:bg-gray-100"
+                                            }
+                                            type="button"
+                                            onClick={onIncreaseDisplayDensity}
+                                            disabled={isIncreaseDisplayDensityDisabled}
+                                            aria-label={
+                                                selectedViewMode === "grid"
+                                                    ? "Show fewer cards per row with larger cards"
+                                                    : "Show fewer list rows with roomier spacing"
+                                            }
+                                        >
+                                            +
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex w-full flex-wrap items-center gap-4 rounded-2xl border border-[rgba(130,129,111,0.18)] bg-white/80 px-3 py-3 shadow-sm xl:flex-nowrap">
-                            <div className="min-w-0 xl:flex-1">
-                                <div className="flex flex-wrap items-stretch gap-2 rounded-xl bg-gray-100 p-1 xl:flex-nowrap">
+                        <div className="flex w-full flex-wrap items-center justify-between gap-3 rounded-2xl border border-[rgba(130,129,111,0.18)] bg-white/80 px-3 py-3 shadow-sm">
+                            <div className="min-w-0 flex-1">
+                                <div className="inline-flex flex-wrap items-stretch gap-2 rounded-xl bg-gray-100 p-1">
                                     {filterControlOptions.map((filterOption) => {
                                         return (
                                             <ControlChipButton
@@ -917,7 +1098,7 @@ export const LoadedDashboardView = ({
                                 </div>
                             </div>
 
-                            <div className="min-w-0 xl:shrink-0">
+                            <div className="flex flex-wrap items-center justify-end gap-2">
                                 <div className="rounded-xl bg-gray-100 p-1">
                                     <CollectionLayerToggleButton
                                         selectedCollectionLayer={selectedCollectionLayer}
@@ -928,25 +1109,43 @@ export const LoadedDashboardView = ({
                                         }}
                                     />
                                 </div>
-                            </div>
 
-                            <div className="min-w-0 xl:shrink-0">
-                                <div className="flex flex-wrap items-stretch gap-2 rounded-xl bg-gray-100 p-1 sm:flex-nowrap">
-                                    {scopeControlOptions.map((scopeOption) => {
-                                        return (
-                                            <ControlChipButton
-                                                key={scopeOption.value}
-                                                label={scopeOption.label}
-                                                isSelected={selectedScope === scopeOption.value}
-                                                onClick={() => {
-                                                    onChangeScope(scopeOption.value);
-                                                }}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            </div>
+                                {isSelectModeActive ? (
+                                    <>
+                                        <div className="rounded-xl border border-[rgba(16,185,129,0.18)] bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
+                                            {stagedOwnedEntryIds.length} selected
+                                        </div>
 
+                                        <button
+                                            className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-[rgba(130,129,111,0.2)] bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                            type="button"
+                                            onClick={handleCancelSelectMode}
+                                            disabled={isSavingStagedOwnedChanges}
+                                        >
+                                            Cancel
+                                        </button>
+
+                                        <button
+                                            className="inline-flex min-h-[40px] items-center justify-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                                            type="button"
+                                            onClick={() => {
+                                                void handleSaveStagedOwnedChanges();
+                                            }}
+                                            disabled={stagedOwnedEntryIds.length === 0 || isSavingStagedOwnedChanges}
+                                        >
+                                            {isSavingStagedOwnedChanges ? "Saving..." : "Save Changes"}
+                                        </button>
+                                    </>
+                                ) : (
+                                    <button
+                                        className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-[rgba(130,129,111,0.2)] bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+                                        type="button"
+                                        onClick={handleEnterSelectMode}
+                                    >
+                                        Select
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </section>
 
@@ -957,7 +1156,9 @@ export const LoadedDashboardView = ({
                         selectedGridDensity={selectedGridDensity}
                         selectedListDensity={selectedListDensity}
                         selectedViewMode={selectedViewMode}
-                        onSelectDexNumber={onSelectDexNumber}
+                        isSelectModeActive={isSelectModeActive}
+                        pendingOwnedEntryIds={pendingOwnedEntryIds}
+                        onPressDexEntry={handleDexEntryPress}
                     />
 
                     <details className="debug-details">

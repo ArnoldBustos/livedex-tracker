@@ -9,8 +9,8 @@ import type {
 import { getPokemonTypeBadgeStyle } from "../../lib/pokemonTypeStyles";
 import shinyStarIcon from "../../assets/shiny-star.png";
 
-// DexEntryDisplayProps stores the already-filtered dashboard entries and shared selection state.
-// LoadedDashboardView passes this in so grid and list rendering can branch without duplicating filter logic.
+// DexEntryDisplayProps stores the already-filtered dashboard entries, focus state, and Select Mode staging state.
+// LoadedDashboardView passes this in so grid and list rendering can branch without duplicating filter or staged-owned logic.
 type DexEntryDisplayProps = {
     entries: DexEntry[];
     selectedDexEntry: DexEntry | null;
@@ -18,7 +18,9 @@ type DexEntryDisplayProps = {
     selectedGridDensity: DexGridDensity;
     selectedListDensity: DexListDensity;
     selectedViewMode: DexViewMode;
-    onSelectDexNumber: (nextDexNumber: number) => void;
+    isSelectModeActive: boolean;
+    pendingOwnedEntryIds: number[];
+    onPressDexEntry: (dexEntry: DexEntry) => void;
 };
 
 // getDexEntryStatus returns the strongest collection state for one dex layer on one dex entry.
@@ -112,6 +114,58 @@ const getDexListStatusBadgeClassName = ({
 // DexEntryDisplay uses this in both layouts so shiny presence remains visible without changing edit behavior.
 const getHasShinyCardIndicator = (dexEntry: DexEntry) => {
     return dexEntry.shiny.caught || dexEntry.shiny.hasLivingEntry;
+};
+
+// getIsDexEntryPendingOwnedSelection returns whether one species currently has a staged owned update.
+// DexEntryDisplay uses this so Select Mode can add the temporary green checkmark badge without changing live status badges.
+const getIsDexEntryPendingOwnedSelection = ({
+    dexEntry,
+    pendingOwnedEntryIds
+}: {
+    dexEntry: DexEntry;
+    pendingOwnedEntryIds: number[];
+}) => {
+    return pendingOwnedEntryIds.includes(dexEntry.pokemonSpeciesId);
+};
+
+// getSelectModeBadgeClassName returns the shared green checkmark badge treatment for staged owned entries.
+// DexEntryDisplay uses this so grid cards and list rows present one coherent Select Mode indicator.
+const getSelectModeBadgeClassName = (indicatorLocation: "grid" | "list") => {
+    if (indicatorLocation === "list") {
+        return "absolute right-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-emerald-500 text-sm font-extrabold text-white shadow-md";
+    }
+
+    return "absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-emerald-500 text-sm font-extrabold text-white shadow-md";
+};
+
+// SelectModeCheckmarkBadge renders the staged-owned green badge used in grid and list layouts.
+// DexEntryDisplay uses this so Select Mode keeps one consistent phone-gallery style indicator without non-ASCII text.
+const SelectModeCheckmarkBadge = ({
+    indicatorLocation
+}: {
+    indicatorLocation: "grid" | "list";
+}) => {
+    return (
+        <span
+            className={getSelectModeBadgeClassName(indicatorLocation)}
+            aria-label="Staged to be marked owned"
+        >
+            <svg
+                viewBox="0 0 16 16"
+                aria-hidden="true"
+                className="h-4 w-4"
+                fill="none"
+            >
+                <path
+                    d="M3.5 8.5L6.5 11.5L12.5 4.5"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
+            </svg>
+        </span>
+    );
 };
 
 // getShinyIndicatorClassName maps shiny marker context to stronger contrast styles.
@@ -210,28 +264,32 @@ const getDexListHeaderClassName = (selectedListDensity: DexListDensity) => {
     return "sticky top-4 z-10 hidden grid-cols-[80px_minmax(0,1.3fr)_104px_60px_96px] items-center gap-2.5 border-b border-gray-200 bg-[rgba(249,250,251,0.96)] px-3.5 py-2.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-gray-500 backdrop-blur-sm md:grid";
 };
 
-// getDexListRowClassName maps list density and selection state to row spacing plus hover and selected styling.
-// ListDexEntryDisplay uses this so rows feel interactive and the active entry stays visually linked to the detail panel.
+// getDexListRowClassName maps list density plus focus and staged-owned state to row spacing and emphasis.
+// ListDexEntryDisplay uses this so rows can distinguish the detail focus state from the temporary Select Mode state.
 const getDexListRowClassName = ({
     selectedListDensity,
-    isSelected
+    isSelected,
+    isPendingOwnedSelection
 }: {
     selectedListDensity: DexListDensity;
     isSelected: boolean;
+    isPendingOwnedSelection: boolean;
 }) => {
-    const selectionClassName = isSelected
-        ? "border-l-4 border-r-4 border-emerald-500 bg-[linear-gradient(90deg,rgba(16,185,129,0.14)_0%,rgba(236,253,245,0.98)_18%,rgba(255,255,255,1)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_0_0_1px_rgba(16,185,129,0.12)] hover:bg-[linear-gradient(90deg,rgba(16,185,129,0.18)_0%,rgba(236,253,245,1)_22%,rgba(255,255,255,1)_100%)]"
-        : "border-l-4 border-r-4 border-transparent bg-white hover:bg-[linear-gradient(90deg,rgba(243,244,246,0.95)_0%,rgba(255,255,255,1)_18%)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]";
+    const selectionClassName = isPendingOwnedSelection
+        ? "border-l-4 border-r-4 border-emerald-500 bg-[linear-gradient(90deg,rgba(16,185,129,0.2)_0%,rgba(236,253,245,1)_20%,rgba(255,255,255,1)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_0_0_1px_rgba(16,185,129,0.18)] hover:bg-[linear-gradient(90deg,rgba(16,185,129,0.24)_0%,rgba(236,253,245,1)_24%,rgba(255,255,255,1)_100%)]"
+        : isSelected
+            ? "border-l-4 border-r-4 border-emerald-500 bg-[linear-gradient(90deg,rgba(16,185,129,0.14)_0%,rgba(236,253,245,0.98)_18%,rgba(255,255,255,1)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_0_0_1px_rgba(16,185,129,0.12)] hover:bg-[linear-gradient(90deg,rgba(16,185,129,0.18)_0%,rgba(236,253,245,1)_22%,rgba(255,255,255,1)_100%)]"
+            : "border-l-4 border-r-4 border-transparent bg-white hover:bg-[linear-gradient(90deg,rgba(243,244,246,0.95)_0%,rgba(255,255,255,1)_18%)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]";
 
     if (selectedListDensity === "comfortable") {
-        return `grid w-full grid-cols-1 gap-3.5 px-5 py-3.5 text-left transition-colors transition-shadow duration-150 ${selectionClassName} md:grid-cols-[82px_minmax(0,1.3fr)_112px_64px_104px] md:items-center`;
+        return `relative grid w-full grid-cols-1 gap-3.5 px-5 py-3.5 pr-14 text-left transition-colors transition-shadow duration-150 ${selectionClassName} md:grid-cols-[82px_minmax(0,1.3fr)_112px_64px_104px] md:items-center`;
     }
 
     if (selectedListDensity === "compact") {
-        return `grid w-full grid-cols-1 gap-1.5 px-2.5 py-1.5 text-left transition-colors transition-shadow duration-150 ${selectionClassName} md:grid-cols-[76px_minmax(0,1.3fr)_96px_56px_88px] md:items-center`;
+        return `relative grid w-full grid-cols-1 gap-1.5 px-2.5 py-1.5 pr-12 text-left transition-colors transition-shadow duration-150 ${selectionClassName} md:grid-cols-[76px_minmax(0,1.3fr)_96px_56px_88px] md:items-center`;
     }
 
-    return `grid w-full grid-cols-1 gap-2.5 px-3.5 py-2.5 text-left transition-colors transition-shadow duration-150 ${selectionClassName} md:grid-cols-[80px_minmax(0,1.3fr)_104px_60px_96px] md:items-center`;
+    return `relative grid w-full grid-cols-1 gap-2.5 px-3.5 py-2.5 pr-14 text-left transition-colors transition-shadow duration-150 ${selectionClassName} md:grid-cols-[80px_minmax(0,1.3fr)_104px_60px_96px] md:items-center`;
 };
 
 // getDexListPokemonNameWrapperClassName maps row selection to the subtle title emphasis used in the list.
@@ -361,7 +419,9 @@ const GridDexEntryDisplay = ({
     selectedDexEntry,
     selectedCollectionLayer,
     selectedGridDensity,
-    onSelectDexNumber
+    isSelectModeActive,
+    pendingOwnedEntryIds,
+    onPressDexEntry
 }: Omit<DexEntryDisplayProps, "selectedListDensity" | "selectedViewMode">) => {
     return (
         <section className={getDexGridSectionClassName(selectedGridDensity)}>
@@ -369,6 +429,10 @@ const GridDexEntryDisplay = ({
                 const status = getDexEntryStatus(dexEntry, selectedCollectionLayer);
                 const hasShinyCardIndicator = getHasShinyCardIndicator(dexEntry);
                 const imageToneClassName = getDexEntryImageToneClassName(status);
+                const isPendingOwnedSelection = getIsDexEntryPendingOwnedSelection({
+                    dexEntry,
+                    pendingOwnedEntryIds
+                });
                 const isSelected = selectedDexEntry
                     ? selectedDexEntry.dexNumber === dexEntry.dexNumber
                     : false;
@@ -377,15 +441,21 @@ const GridDexEntryDisplay = ({
                     <button
                         key={dexEntry.dexNumber}
                         className={
-                            isSelected
-                                ? "flex flex-col rounded-xl border-2 border-green-500 bg-white p-3 shadow-sm"
-                                : "flex flex-col rounded-xl bg-white p-3 shadow-sm hover:shadow-md"
+                            isPendingOwnedSelection
+                                ? "relative flex flex-col rounded-xl border-2 border-emerald-500 bg-[linear-gradient(180deg,rgba(236,253,245,0.95)_0%,rgba(255,255,255,1)_38%)] p-3 shadow-sm"
+                                : isSelected
+                                    ? "relative flex flex-col rounded-xl border-2 border-green-500 bg-white p-3 shadow-sm"
+                                    : "relative flex flex-col rounded-xl bg-white p-3 shadow-sm hover:shadow-md"
                         }
                         type="button"
                         onClick={() => {
-                            onSelectDexNumber(dexEntry.dexNumber);
+                            onPressDexEntry(dexEntry);
                         }}
                     >
+                        {isSelectModeActive && isPendingOwnedSelection ? (
+                            <SelectModeCheckmarkBadge indicatorLocation="grid" />
+                        ) : null}
+
                         <div className="mb-2 flex items-start justify-between gap-2">
                             <span className="text-[10px] font-extrabold tracking-[0.04em] text-gray-400">
                                 #{dexEntry.dexNumber.toString().padStart(3, "0")}
@@ -449,7 +519,9 @@ const ListDexEntryDisplay = ({
     selectedDexEntry,
     selectedCollectionLayer,
     selectedListDensity,
-    onSelectDexNumber
+    isSelectModeActive,
+    pendingOwnedEntryIds,
+    onPressDexEntry
 }: Omit<DexEntryDisplayProps, "selectedGridDensity" | "selectedViewMode">) => {
     return (
         <section className={getDexListSectionClassName()}>
@@ -465,6 +537,10 @@ const ListDexEntryDisplay = ({
                 {entries.map((dexEntry) => {
                     const status = getDexEntryStatus(dexEntry, selectedCollectionLayer);
                     const hasShinyCardIndicator = getHasShinyCardIndicator(dexEntry);
+                    const isPendingOwnedSelection = getIsDexEntryPendingOwnedSelection({
+                        dexEntry,
+                        pendingOwnedEntryIds
+                    });
                     const isSelected = selectedDexEntry
                         ? selectedDexEntry.dexNumber === dexEntry.dexNumber
                         : false;
@@ -474,13 +550,19 @@ const ListDexEntryDisplay = ({
                             key={dexEntry.dexNumber}
                             className={getDexListRowClassName({
                                 selectedListDensity,
-                                isSelected
+                                isSelected,
+                                isPendingOwnedSelection
                             })}
                             type="button"
+                            aria-pressed={isPendingOwnedSelection}
                             onClick={() => {
-                                onSelectDexNumber(dexEntry.dexNumber);
+                                onPressDexEntry(dexEntry);
                             }}
                         >
+                            {isSelectModeActive && isPendingOwnedSelection ? (
+                                <SelectModeCheckmarkBadge indicatorLocation="list" />
+                            ) : null}
+
                             <div className={getDexListDexNumberClassName(selectedListDensity)}>
                                 #{dexEntry.dexNumber.toString().padStart(3, "0")}
                             </div>
@@ -588,7 +670,9 @@ export const DexEntryDisplay = ({
     selectedGridDensity,
     selectedListDensity,
     selectedViewMode,
-    onSelectDexNumber
+    isSelectModeActive,
+    pendingOwnedEntryIds,
+    onPressDexEntry
 }: DexEntryDisplayProps) => {
     if (selectedViewMode === "list") {
         return (
@@ -597,7 +681,9 @@ export const DexEntryDisplay = ({
                 selectedDexEntry={selectedDexEntry}
                 selectedCollectionLayer={selectedCollectionLayer}
                 selectedListDensity={selectedListDensity}
-                onSelectDexNumber={onSelectDexNumber}
+                isSelectModeActive={isSelectModeActive}
+                pendingOwnedEntryIds={pendingOwnedEntryIds}
+                onPressDexEntry={onPressDexEntry}
             />
         );
     }
@@ -608,7 +694,9 @@ export const DexEntryDisplay = ({
             selectedDexEntry={selectedDexEntry}
             selectedCollectionLayer={selectedCollectionLayer}
             selectedGridDensity={selectedGridDensity}
-            onSelectDexNumber={onSelectDexNumber}
+            isSelectModeActive={isSelectModeActive}
+            pendingOwnedEntryIds={pendingOwnedEntryIds}
+            onPressDexEntry={onPressDexEntry}
         />
     );
 };

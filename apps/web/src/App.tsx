@@ -1244,7 +1244,7 @@ const App = () => {
     }
   };
 
-  // handleUpdateDexEntry applies one manual dex edit for the selected pokemon.
+  // handleUpdateDexEntry applies one manual dex edit for the selected pokemon and returns whether the update succeeded.
   // Persisted uploads write through the backend, while guest uploads and manual shells store frontend-only overrides.
   const handleUpdateDexEntry = async ({
     pokemonSpeciesId,
@@ -1255,7 +1255,7 @@ const App = () => {
   }) => {
     if (!dexResponse) {
       setErrorMessage("No dex data is currently loaded.");
-      return;
+      return false;
     }
 
     const normalizedPatch = getNormalizedDexEntryPatch({
@@ -1341,12 +1341,12 @@ const App = () => {
       });
 
       setErrorMessage("");
-      return;
+      return true;
     }
 
     if (!currentUser || !activeSaveProfileId) {
       setErrorMessage("No signed-in save profile is selected.");
-      return;
+      return false;
     }
 
     try {
@@ -1360,10 +1360,12 @@ const App = () => {
       });
 
       setDexResponse(nextDexResponse);
+      return true;
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Failed to update dex entry"
       );
+      return false;
     }
   };
 
