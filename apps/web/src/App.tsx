@@ -1410,11 +1410,26 @@ const App = () => {
     setSessionMode("auth");
   };
 
+  // sessionLabel formats the current entry or dashboard session copy for signed-in and guest shells.
+  // EntryView and LoadedDashboardView both consume this so session text stays consistent across pre-load and loaded states.
+  const sessionLabel = isGuestMode
+    ? "Temporary local session"
+    : currentUser
+      ? currentUser.email
+      : "Temporary local session";
+
   if (!uploadResponse || !displayedDexResponse) {
     return (
       <>
         <EntryView
           isSignedIn={sessionMode === "user" && currentUser !== null}
+          isGuestMode={isGuestMode}
+          sessionLabel={sessionLabel}
+          selectedFileName={
+            pendingSaveSetup && pendingSaveSetup.file
+              ? pendingSaveSetup.file.name
+              : null
+          }
           currentUserEmail={currentUser ? currentUser.email : ""}
           isUploading={isUploading}
           isLoadingSaveProfiles={isLoadingSaveProfiles}
@@ -1488,12 +1503,6 @@ const App = () => {
       </>
     );
   }
-
-  const sessionLabel = isGuestMode
-    ? "Temporary local session"
-    : currentUser
-      ? currentUser.email
-      : "Temporary local session";
 
   return (
     <>

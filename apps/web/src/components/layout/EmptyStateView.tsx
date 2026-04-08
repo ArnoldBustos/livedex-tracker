@@ -15,8 +15,8 @@ type EmptyStateViewProps = {
     onUploadError: (errorMessage: string) => void;
 };
 
-// EmptyStateView renders the no-save landing state for upload and manual creation.
-// App.tsx uses this so saved-profile opening, primary upload, and lighter manual-entry copy stay modular in the empty state.
+// EmptyStateView renders the left-column entry content for upload and manual creation.
+// EntryView composes this inside the shared page shell so nested full-screen spacing does not push the content below the auth panel.
 export const EmptyStateView = ({
     isSignedIn,
     isUploading,
@@ -30,8 +30,8 @@ export const EmptyStateView = ({
     onUploadError
 }: EmptyStateViewProps) => {
     return (
-        <main className="min-h-screen overflow-x-hidden bg-[#f3f4f6] px-4 py-6 sm:px-6 sm:py-8">
-            <div className={`mx-auto grid max-w-[1400px] items-start gap-6 ${isSignedIn ? "xl:grid-cols-[320px_minmax(0,1fr)]" : ""}`}>
+        <div className="min-w-0 overflow-x-hidden xl:h-full">
+            <div className={`grid items-start gap-4 ${isSignedIn ? "xl:grid-cols-[320px_minmax(0,1fr)]" : ""}`}>
                 {isSignedIn ? (
                     <aside className="self-start rounded-2xl bg-white p-3 shadow-sm xl:sticky xl:top-4 xl:flex xl:flex-col">
                         <div className="flex flex-col gap-3 pb-3 xl:max-h-[calc(100vh-32px)] xl:overflow-y-auto xl:pr-1">
@@ -93,7 +93,7 @@ export const EmptyStateView = ({
                     </aside>
                 ) : null}
 
-                <div className="grid min-w-0 gap-6">
+                <div className="grid min-w-0 gap-4 xl:h-full xl:grid-rows-[auto_minmax(0,1fr)]">
                     <UploadHero
                         isUploading={isUploading}
                         showsReplacementCopy={false}
@@ -102,7 +102,7 @@ export const EmptyStateView = ({
                         onUploadError={onUploadError}
                     />
 
-                    <section className="rounded-2xl bg-white p-6 shadow-sm">
+                    <section className="flex min-h-[220px] flex-col rounded-2xl bg-white p-5 shadow-sm">
                         <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
                             Manual Entry
                         </p>
@@ -117,7 +117,7 @@ export const EmptyStateView = ({
 
                         <button
                             type="button"
-                            className="mt-6 inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                            className="mt-auto inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                             onClick={onCreateManualEntry}
                             disabled={isUploading}
                         >
@@ -126,6 +126,6 @@ export const EmptyStateView = ({
                     </section>
                 </div>
             </div>
-        </main>
+        </div>
     );
 };

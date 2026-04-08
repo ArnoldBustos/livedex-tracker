@@ -1,10 +1,14 @@
 import { AuthPanel } from "../auth/AuthPanel";
 import type { AuthPanelMode } from "../auth/AuthPanel";
 import { EmptyStateView } from "./EmptyStateView";
+import { EntryTopbar } from "./EntryTopbar";
 import type { SaveProfileRecord } from "../../types/save";
 
 type EntryViewProps = {
     isSignedIn: boolean;
+    isGuestMode: boolean;
+    sessionLabel: string;
+    selectedFileName: string | null;
     currentUserEmail: string;
     isUploading: boolean;
     isLoadingSaveProfiles: boolean;
@@ -30,6 +34,9 @@ type EntryViewProps = {
 // App.tsx uses this as the shared landing state before any save or manual dashboard is loaded.
 export const EntryView = ({
     isSignedIn,
+    isGuestMode,
+    sessionLabel,
+    selectedFileName,
     currentUserEmail,
     isUploading,
     isLoadingSaveProfiles,
@@ -58,38 +65,51 @@ export const EntryView = ({
                 </div>
             ) : null}
 
-            <div className="mx-auto grid max-w-[1680px] gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-                <div className="min-w-0">
-                    <EmptyStateView
-                        isSignedIn={isSignedIn}
-                        isUploading={isUploading}
-                        isLoadingSaveProfiles={isLoadingSaveProfiles}
-                        openingSaveProfileId={openingSaveProfileId}
-                        errorMessage={errorMessage}
-                        saveProfiles={saveProfiles}
-                        onSelectUploadFile={onSelectUploadFile}
-                        onCreateManualEntry={onCreateManualEntry}
-                        onOpenExistingSave={onOpenExistingSave}
-                        onUploadError={onUploadError}
-                    />
-                </div>
+            <div className="mx-auto flex max-w-[1680px] flex-col gap-6">
+                <EntryTopbar
+                    selectedFileName={selectedFileName}
+                    isUploading={isUploading}
+                    isGuestMode={isGuestMode}
+                    isSignedIn={isSignedIn}
+                    sessionLabel={sessionLabel}
+                    onSelectUploadFile={onSelectUploadFile}
+                    onGoToLogin={onSwitchToLogin}
+                    onGoToRegister={onSwitchToRegister}
+                />
 
-                <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
-                    <AuthPanel
-                        authMode={authMode}
-                        isSignedIn={isSignedIn}
-                        currentUserEmail={currentUserEmail}
-                        email={email}
-                        isSubmitting={isSubmittingAuth}
-                        errorMessage={errorMessage}
-                        showContinueAsGuest={false}
-                        onChangeEmail={onChangeEmail}
-                        onSubmit={onSubmitAuth}
-                        onContinueAsGuest={onContinueAsGuest}
-                        onLogout={onLogout}
-                        onSwitchToLogin={onSwitchToLogin}
-                        onSwitchToRegister={onSwitchToRegister}
-                    />
+                <div className="grid items-stretch gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+                    <div className="min-w-0 xl:h-full">
+                        <EmptyStateView
+                            isSignedIn={isSignedIn}
+                            isUploading={isUploading}
+                            isLoadingSaveProfiles={isLoadingSaveProfiles}
+                            openingSaveProfileId={openingSaveProfileId}
+                            errorMessage={errorMessage}
+                            saveProfiles={saveProfiles}
+                            onSelectUploadFile={onSelectUploadFile}
+                            onCreateManualEntry={onCreateManualEntry}
+                            onOpenExistingSave={onOpenExistingSave}
+                            onUploadError={onUploadError}
+                        />
+                    </div>
+
+                    <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
+                        <AuthPanel
+                            authMode={authMode}
+                            isSignedIn={isSignedIn}
+                            currentUserEmail={currentUserEmail}
+                            email={email}
+                            isSubmitting={isSubmittingAuth}
+                            errorMessage={errorMessage}
+                            showContinueAsGuest={false}
+                            onChangeEmail={onChangeEmail}
+                            onSubmit={onSubmitAuth}
+                            onContinueAsGuest={onContinueAsGuest}
+                            onLogout={onLogout}
+                            onSwitchToLogin={onSwitchToLogin}
+                            onSwitchToRegister={onSwitchToRegister}
+                        />
+                    </div>
                 </div>
             </div>
         </div>
