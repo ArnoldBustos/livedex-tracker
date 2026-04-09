@@ -1,25 +1,25 @@
+import { env } from "../config/env";
 import { pokemonSpeciesSeedData } from "../data/pokemonSpecies";
 import prismaClient from "../lib/prisma";
+import { ensureLocalDevAccount } from "../modules/auth/localDevAccount.service";
+
+// seedLocalDevAccount ensures the canonical local development user exists before future real-auth migration work.
+// seed.ts calls this so dev@example.com stays attached to the same User row that already owns local save data.
+const seedLocalDevAccount = async () => {
+    const bootstrapResult = await ensureLocalDevAccount();
+
+    if (env.ENABLE_LOCAL_DEV_ACCOUNT) {
+        console.log("Local dev account bootstrap enabled:", JSON.stringify(bootstrapResult, null, 2));
+        return;
+    }
+
+    console.log(
+        "Canonical dev user preserved for compatibility. Set ENABLE_LOCAL_DEV_ACCOUNT=true to make local auth bootstrapping explicit."
+    );
+};
 
 const seed = async () => {
-    const existingUser = await prismaClient.user.findUnique({
-        where: {
-            email: "dev@example.com"
-        }
-    });
-
-    if (!existingUser) {
-        const createdUser = await prismaClient.user.create({
-            data: {
-                email: "dev@example.com",
-                username: "devuser"
-            }
-        });
-
-        console.log("Created dev user:", createdUser.id);
-    } else {
-        console.log("Dev user already exists:", existingUser.id);
-    }
+    await seedLocalDevAccount();
 
     for (const pokemonSpecies of pokemonSpeciesSeedData) {
         await prismaClient.pokemonSpecies.upsert({

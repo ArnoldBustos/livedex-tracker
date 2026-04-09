@@ -3,6 +3,7 @@ import prismaClient from "../../lib/prisma";
 
 // loginWithEmail finds a user by email and returns a lightweight auth payload
 // auth.routes.ts uses this controller for the first minimal login flow
+// TODO: Replace this email-only lookup with real session auth during the auth migration.
 export const loginWithEmail = async (request: Request, response: Response) => {
     const email =
         typeof request.body.email === "string"
