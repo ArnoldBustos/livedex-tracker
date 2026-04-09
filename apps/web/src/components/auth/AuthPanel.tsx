@@ -7,12 +7,14 @@ type AuthPanelProps = {
     isSignedIn: boolean;
     currentUserEmail: string;
     email: string;
+    password: string;
     isSubmitting: boolean;
     errorMessage: string;
     showContinueAsGuest: boolean;
     showEntryOptionsSection?: boolean;
     showModeToggleRow?: boolean;
     onChangeEmail: (nextEmail: string) => void;
+    onChangePassword: (nextPassword: string) => void;
     onSubmit: () => void;
     onContinueAsGuest: () => void;
     onLogout: () => void;
@@ -27,12 +29,14 @@ export const AuthPanel = ({
     isSignedIn,
     currentUserEmail,
     email,
+    password,
     isSubmitting,
     errorMessage,
     showContinueAsGuest,
     showEntryOptionsSection = true,
     showModeToggleRow = true,
     onChangeEmail,
+    onChangePassword,
     onSubmit,
     onContinueAsGuest,
     onLogout,
@@ -43,6 +47,12 @@ export const AuthPanel = ({
     // App.tsx provides the setter so this panel stays reusable and controlled.
     const handleEmailChange = (event: ChangeEvent<HTMLInputElement>) => {
         onChangeEmail(event.target.value);
+    };
+
+    // handlePasswordChange forwards typed password updates to the parent-owned auth state.
+    // App.tsx provides the setter so this panel can stay controlled while the entry modal keeps the same layout.
+    const handlePasswordChange = (event: ChangeEvent<HTMLInputElement>) => {
+        onChangePassword(event.target.value);
     };
 
     return (
@@ -115,6 +125,21 @@ export const AuthPanel = ({
                             />
                         </label>
 
+                        <label className="mt-4 block">
+                            <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#656554]">
+                                Password
+                            </div>
+
+                            <input
+                                className="mt-2 w-full rounded-xl border border-[rgba(130,129,111,0.18)] bg-white px-4 py-3 text-[14px] font-medium text-[#38392a] outline-none transition focus:border-green-700 focus:ring-2 focus:ring-[rgba(21,128,61,0.16)]"
+                                type="password"
+                                placeholder="••••••••"
+                                value={password}
+                                onChange={handlePasswordChange}
+                                disabled={isSubmitting}
+                            />
+                        </label>
+
                         {errorMessage ? (
                             <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[12px] font-medium text-red-700">
                                 {errorMessage}
@@ -126,7 +151,7 @@ export const AuthPanel = ({
                                 className="min-h-[48px] rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
                                 type="button"
                                 onClick={onSubmit}
-                                disabled={isSubmitting || !email.trim()}
+                                disabled={isSubmitting || !email.trim() || !password.trim()}
                             >
                                 {isSubmitting
                                     ? authMode === "login"

@@ -13,9 +13,8 @@ const setupLocalDevAccount = async () => {
     const bootstrapResult = await ensureLocalDevAccount();
 
     console.log("Local dev account is ready:", JSON.stringify(bootstrapResult, null, 2));
-    console.log(
-        "Next migration step: attach a real local-only auth credential to this existing user record without creating a second user."
-    );
+    console.log("Configured local dev sign-in email:", bootstrapResult.email);
+    console.log("Configured local dev sign-in password from env key: LOCAL_DEV_ACCOUNT_PASSWORD");
 };
 
 setupLocalDevAccount()

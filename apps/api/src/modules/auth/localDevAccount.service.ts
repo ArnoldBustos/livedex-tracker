@@ -1,4 +1,6 @@
+import { env } from "../../config/env";
 import prismaClient from "../../lib/prisma";
+import { hashAuthPassword } from "./passwordHash.service";
 
 // LOCAL_DEV_ACCOUNT_EMAIL stores the canonical email for the existing local development user row.
 // seed.ts and setupLocalDevAccount.ts use this so future real auth attaches credentials to one stable account.
@@ -15,7 +17,32 @@ export type LocalDevAccountBootstrapResult = {
     email: string;
     username: string;
     created: boolean;
-    requiresRealAuthCredential: boolean;
+    credentialReady: boolean;
+};
+
+// ensureLocalDevCredentialAccount upserts the credential account used by Better Auth for the canonical local dev user.
+// ensureLocalDevAccount calls this behind the dev-only gate so dev@example.com can sign in through the real auth flow.
+const ensureLocalDevCredentialAccount = async (userId: string) => {
+    const hashedPassword = await hashAuthPassword(env.LOCAL_DEV_ACCOUNT_PASSWORD);
+
+    await prismaClient.account.upsert({
+        where: {
+            providerId_accountId: {
+                providerId: "credential",
+                accountId: userId
+            }
+        },
+        update: {
+            userId,
+            password: hashedPassword
+        },
+        create: {
+            userId,
+            accountId: userId,
+            providerId: "credential",
+            password: hashedPassword
+        }
+    });
 };
 
 // ensureLocalDevAccount finds or creates the canonical local development user without duplicating rows.
@@ -32,13 +59,17 @@ export const ensureLocalDevAccount = async (): Promise<LocalDevAccountBootstrapR
         }
     });
 
+    if (existingUser && env.ENABLE_LOCAL_DEV_ACCOUNT) {
+        await ensureLocalDevCredentialAccount(existingUser.id);
+    }
+
     if (existingUser) {
         return {
             userId: existingUser.id,
             email: existingUser.email,
             username: existingUser.username,
             created: false,
-            requiresRealAuthCredential: true
+            credentialReady: env.ENABLE_LOCAL_DEV_ACCOUNT
         };
     }
 
@@ -54,11 +85,15 @@ export const ensureLocalDevAccount = async (): Promise<LocalDevAccountBootstrapR
         }
     });
 
+    if (env.ENABLE_LOCAL_DEV_ACCOUNT) {
+        await ensureLocalDevCredentialAccount(createdUser.id);
+    }
+
     return {
         userId: createdUser.id,
         email: createdUser.email,
         username: createdUser.username,
         created: true,
-        requiresRealAuthCredential: true
+        credentialReady: env.ENABLE_LOCAL_DEV_ACCOUNT
     };
 };

@@ -1,12 +1,12 @@
-const API_BASE_URL = "http://localhost:4000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
 
 export type ApiClientUser = {
     id: string;
     email: string;
 };
 
-// buildAuthHeaders returns the user header values expected by the backend
-// api request helpers call this so auth wiring stays in one place
+// buildRequestHeaders returns the guest-mode request header values expected by the backend.
+// api request helpers call this so real account auth can use cookies while guest mode stays explicit and temporary.
 const buildAuthHeaders = (
     currentUser?: ApiClientUser | null
 ): Record<string, string> => {
@@ -14,10 +14,13 @@ const buildAuthHeaders = (
         return {};
     }
 
-    return {
-        "x-user-id": currentUser.id,
-        "x-user-email": currentUser.email
-    };
+    if (currentUser.id === "guest") {
+        return {
+            "x-livedex-guest": "true"
+        };
+    }
+
+    return {};
 };
 
 // parseJsonResponse reads a JSON response body when one exists
@@ -50,14 +53,16 @@ export const apiRequest = async <T>(
     const body = options?.body ?? null;
     const extraHeaders = options?.headers ?? {};
 
-    const requestHeaders: Record<string, string> = {
-        ...buildAuthHeaders(currentUser),
-        ...extraHeaders
-    };
+    const requestHeaders = Object.assign(
+        {},
+        buildAuthHeaders(currentUser),
+        extraHeaders
+    );
 
     const response = await fetch(`${API_BASE_URL}${path}`, {
         method,
         body,
+        credentials: "include",
         headers: requestHeaders
     });
 

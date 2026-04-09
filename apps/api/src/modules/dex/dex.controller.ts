@@ -160,8 +160,8 @@ export const getDexBySaveProfileId = async (
     const userId = await resolveRequestUserId(req);
 
     if (!userId) {
-        return res.status(500).json({
-            error: "No request user found. Run the seed script first."
+        return res.status(401).json({
+            error: "Authentication required"
         });
     }
 
@@ -236,8 +236,8 @@ export const patchDexEntryBySaveProfileId = async (
     const userId = await resolveRequestUserId(request);
 
     if (!userId) {
-        response.status(500).json({
-            error: "No request user found. Run the seed script first."
+        response.status(401).json({
+            error: "Authentication required"
         });
         return;
     }

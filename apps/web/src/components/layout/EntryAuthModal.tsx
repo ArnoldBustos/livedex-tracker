@@ -6,9 +6,11 @@ type EntryAuthModalProps = {
     authMode: AuthPanelMode;
     currentUserEmail: string;
     email: string;
+    password: string;
     isSubmitting: boolean;
     errorMessage: string;
     onChangeEmail: (nextEmail: string) => void;
+    onChangePassword: (nextPassword: string) => void;
     onSubmit: () => void;
     onContinueAsGuest: () => void;
     onLogout: () => void;
@@ -24,9 +26,11 @@ export const EntryAuthModal = ({
     authMode,
     currentUserEmail,
     email,
+    password,
     isSubmitting,
     errorMessage,
     onChangeEmail,
+    onChangePassword,
     onSubmit,
     onContinueAsGuest,
     onLogout,
@@ -62,12 +66,14 @@ export const EntryAuthModal = ({
                     isSignedIn={false}
                     currentUserEmail={currentUserEmail}
                     email={email}
+                    password={password}
                     isSubmitting={isSubmitting}
                     errorMessage={errorMessage}
                     showContinueAsGuest={false}
                     showEntryOptionsSection={false}
                     showModeToggleRow={true}
                     onChangeEmail={onChangeEmail}
+                    onChangePassword={onChangePassword}
                     onSubmit={onSubmit}
                     onContinueAsGuest={onContinueAsGuest}
                     onLogout={onLogout}

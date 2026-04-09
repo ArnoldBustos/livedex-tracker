@@ -1,22 +1,40 @@
 import type { Request, Response, NextFunction } from "express";
+import { getRequestAuthSession } from "../modules/auth/authSession.service";
 
-// attachRequestUser reads simple auth headers and attaches a request user when present
-// app.ts will register this middleware so controllers can read request.user
-// TODO: Remove trusted identity headers when real session middleware replaces the fake auth flow.
+// attachRequestUser resolves guest-mode headers and Better Auth sessions into request.user.
+// app.ts registers this middleware so feature controllers can depend on request-user resolution without knowing auth internals.
 export const attachRequestUser = (
     request: Request,
-    _response: Response,
+    response: Response,
     next: NextFunction
 ) => {
-    const userIdHeader = request.header("x-user-id");
-    const userEmailHeader = request.header("x-user-email");
+    const guestModeHeader = request.header("x-livedex-guest");
 
-    if (userIdHeader && userEmailHeader) {
+    if (guestModeHeader === "true") {
         request.user = {
-            id: userIdHeader,
-            email: userEmailHeader
+            id: "guest",
+            email: "guest"
         };
+
+        next();
+        return;
     }
 
-    next();
+    getRequestAuthSession({
+        request,
+        response
+    })
+        .then((currentSession) => {
+            if (currentSession) {
+                request.user = {
+                    id: currentSession.user.id,
+                    email: currentSession.user.email
+                };
+            }
+
+            next();
+        })
+        .catch((error) => {
+            next(error);
+        });
 };

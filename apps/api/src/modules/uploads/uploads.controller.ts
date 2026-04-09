@@ -38,8 +38,8 @@ export const getSaveProfiles = async (request: Request, response: Response) => {
     const userId = await resolveRequestUserId(request);
 
     if (!userId) {
-        response.status(500).json({
-            error: "No request user found. Run the seed script first."
+        response.status(401).json({
+            error: "Authentication required"
         });
         return;
     }
@@ -57,8 +57,8 @@ export const deleteSaveProfileById = async (request: Request, response: Response
     const userId = await resolveRequestUserId(request);
 
     if (!userId) {
-        response.status(500).json({
-            error: "No request user found. Run the seed script first."
+        response.status(401).json({
+            error: "Authentication required"
         });
         return;
     }
@@ -95,8 +95,8 @@ export const getSaveProfileById = async (request: Request, response: Response) =
     const userId = await resolveRequestUserId(request);
 
     if (!userId) {
-        response.status(500).json({
-            error: "No request user found. Run the seed script first."
+        response.status(401).json({
+            error: "Authentication required"
         });
         return;
     }
@@ -133,8 +133,8 @@ export const patchSaveProfileById = async (request: Request, response: Response)
     const userId = await resolveRequestUserId(request);
 
     if (!userId) {
-        response.status(500).json({
-            error: "No request user found. Run the seed script first."
+        response.status(401).json({
+            error: "Authentication required"
         });
         return;
     }
@@ -240,8 +240,8 @@ export const uploadSaveFile = async (request: Request, response: Response) => {
         const userId = await resolveRequestUserId(request);
 
         if (!userId) {
-            response.status(500).json({
-                error: "No request user found. Run the seed script first."
+            response.status(401).json({
+                error: "Authentication required"
             });
             return;
         }

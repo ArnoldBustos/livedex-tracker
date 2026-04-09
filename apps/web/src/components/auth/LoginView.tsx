@@ -4,9 +4,11 @@ import type { AuthPanelMode } from "./AuthPanel";
 type LoginViewProps = {
     authMode: AuthPanelMode;
     email: string;
+    password: string;
     isSubmitting: boolean;
     errorMessage: string;
     onChangeEmail: (nextEmail: string) => void;
+    onChangePassword: (nextPassword: string) => void;
     onSubmit: () => void;
     onContinueAsGuest: () => void;
     onSwitchToLogin: () => void;
@@ -18,9 +20,11 @@ type LoginViewProps = {
 export const LoginView = ({
     authMode,
     email,
+    password,
     isSubmitting,
     errorMessage,
     onChangeEmail,
+    onChangePassword,
     onSubmit,
     onContinueAsGuest,
     onSwitchToLogin,
@@ -63,10 +67,12 @@ export const LoginView = ({
                         isSignedIn={false}
                         currentUserEmail=""
                         email={email}
+                        password={password}
                         isSubmitting={isSubmitting}
                         errorMessage={errorMessage}
                         showContinueAsGuest={true}
                         onChangeEmail={onChangeEmail}
+                        onChangePassword={onChangePassword}
                         onSubmit={onSubmit}
                         onContinueAsGuest={onContinueAsGuest}
                         onLogout={() => {

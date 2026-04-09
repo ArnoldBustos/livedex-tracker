@@ -9,23 +9,6 @@ import type {
 } from "../../types/save";
 import type { ApiClientUser } from "./client";
 
-// loginWithEmail sends the email login request and returns the backend user payload
-// App.tsx calls this during the first-entry sign-in flow
-export const loginWithEmail = async (email: string) => {
-    return apiRequest<{ user: { id: string; email: string; username: string } }>(
-        "/auth/login",
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                email
-            })
-        }
-    );
-};
-
 // fetchSaveProfiles loads all save profiles for the current user
 // App.tsx calls this after login or when session state is restored
 export const fetchSaveProfiles = async (currentUser: ApiClientUser) => {

@@ -32,11 +32,16 @@ import {
   fetchDexBySaveProfileId,
   fetchSaveProfileById,
   fetchSaveProfiles,
-  loginWithEmail,
   buildUploadSaveFormData,
   updateSaveProfileMetadata,
   uploadSaveAndFetchDex,
 } from "./lib/api/uploads"; // API layer for backend requests
+import {
+  fetchCurrentSession,
+  signInWithPassword,
+  signOutSession,
+  signUpWithPassword
+} from "./lib/api/auth"; // real auth API layer for cookie-backed session flows
 
 import {
   clearStoredUser,
@@ -324,8 +329,10 @@ const App = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [currentUser, setCurrentUser] = useState<StoredUser | null>(restoredSession.user);
   const [sessionMode, setSessionMode] = useState<SessionMode>(restoredSession.mode);
-  const [loginEmail, setLoginEmail] = useState("");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isBootstrappingSession, setIsBootstrappingSession] = useState(true);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [pendingManualGameSelection, setPendingManualGameSelection] =
     useState<PendingManualGameSelection | null>(null);
@@ -582,22 +589,37 @@ const App = () => {
     return normalizedPatch;
   };
 
-  // handleLogin submits the email to the backend and enters signed-in account mode on success
-  // LoginView calls this when the user presses Sign In
-  // handleLogin submits the email to the backend and enters signed-in account mode on success
-  // LoginView calls this when the user presses Sign In or the current auth action button
-  const handleLogin = async () => {
+  // handleSubmitAuth submits the current auth mode credentials to the backend and enters signed-in account mode on success.
+  // EntryView calls this when the user presses the shared sign-in or create-account button.
+  const handleSubmitAuth = async () => {
     try {
       setIsLoggingIn(true);
       setErrorMessage("");
+      const trimmedEmail = authEmail.trim().toLowerCase();
+      const trimmedPassword = authPassword.trim();
+      const authResponse =
+        authMode === "login"
+          ? await signInWithPassword({
+            email: trimmedEmail,
+            password: trimmedPassword
+          })
+          : await signUpWithPassword({
+            email: trimmedEmail,
+            password: trimmedPassword
+          });
 
-      const loginResponse = await loginWithEmail(loginEmail.trim());
-      setCurrentUser(loginResponse.user);
+      clearStoredUser();
+      setCurrentUser(authResponse.user);
       setSessionMode("user");
       setAuthMode("login");
+      setAuthPassword("");
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Login failed"
+        error instanceof Error
+          ? error.message
+          : authMode === "login"
+            ? "Sign in failed"
+            : "Account creation failed"
       );
     } finally {
       setIsLoggingIn(false);
@@ -633,10 +655,43 @@ const App = () => {
     return nextGuestUser;
   };
 
-  // Persists the current user session only when the app is in user or guest mode
-  // App startup, login, guest entry, and logout all flow through this so storage stays in sync with sessionMode
+  // bootstrapRealSession loads the current authenticated session from the server cookie on first render.
+  // App.tsx uses this so signed-in state is restored from Better Auth instead of legacy local storage.
   useEffect(() => {
-    if (sessionMode === "auth" || !currentUser) {
+    const bootstrapRealSession = async () => {
+      try {
+        const sessionResponse = await fetchCurrentSession();
+
+        if (sessionResponse.session && sessionResponse.session.user) {
+          clearStoredUser();
+          setCurrentUser(sessionResponse.session.user);
+          setSessionMode("user");
+          return;
+        }
+
+        if (restoredSession.mode !== "guest") {
+          setCurrentUser(null);
+          setSessionMode("auth");
+        }
+      } catch (error) {
+        console.error("Failed to restore authenticated session", error);
+
+        if (restoredSession.mode !== "guest") {
+          setCurrentUser(null);
+          setSessionMode("auth");
+        }
+      } finally {
+        setIsBootstrappingSession(false);
+      }
+    };
+
+    bootstrapRealSession();
+  }, [restoredSession.mode]);
+
+  // Persists only the local guest session while clearing any legacy fake-auth storage.
+  // App startup, guest entry, and auth mode changes flow through this so local storage no longer proves signed-in identity.
+  useEffect(() => {
+    if (!currentUser || sessionMode !== "guest") {
       clearStoredUser();
       return;
     }
@@ -1384,6 +1439,7 @@ const App = () => {
     setCurrentUser(null);
     setSessionMode("auth");
     setAuthMode("login");
+    setAuthPassword("");
     setErrorMessage("");
   };
 
@@ -1396,14 +1452,24 @@ const App = () => {
     setCurrentUser(null);
     setSessionMode("auth");
     setAuthMode("register");
+    setAuthPassword("");
     setErrorMessage("");
   };
 
-  // handleLogout clears persisted auth, loaded save state, and save profile list state.
-  // LoadedDashboardView calls this so the app always returns to the auth screen after logout.
-  const handleLogout = () => {
+  // handleLogout clears the authenticated session cookie or guest state, then returns the app to the auth screen.
+  // LoadedDashboardView calls this so sign-out always leaves the app in a clean entry state.
+  const handleLogout = async () => {
+    if (sessionMode === "user") {
+      try {
+        await signOutSession();
+      } catch (error) {
+        console.error("Failed to sign out session", error);
+      }
+    }
+
     clearStoredUser();
-    setLoginEmail("");
+    setAuthEmail("");
+    setAuthPassword("");
     resetLoadedSaveState();
     setSaveProfiles([]);
     setCurrentUser(null);
@@ -1418,6 +1484,16 @@ const App = () => {
       ? currentUser.email
       : "Temporary local session";
 
+  if (isBootstrappingSession && sessionMode !== "guest") {
+    return (
+      <div className="min-h-screen bg-[#f3f4f6] px-6 py-12 text-[#38392a]">
+        <div className="mx-auto max-w-[980px] rounded-2xl bg-white p-6 shadow-sm">
+          Restoring session...
+        </div>
+      </div>
+    );
+  }
+
   if (!uploadResponse || !displayedDexResponse) {
     return (
       <>
@@ -1431,10 +1507,12 @@ const App = () => {
           errorMessage={errorMessage}
           saveProfiles={saveProfiles}
           authMode={authMode}
-          email={loginEmail}
+          email={authEmail}
+          password={authPassword}
           isSubmittingAuth={isLoggingIn}
-          onChangeEmail={setLoginEmail}
-          onSubmitAuth={handleLogin}
+          onChangeEmail={setAuthEmail}
+          onChangePassword={setAuthPassword}
+          onSubmitAuth={handleSubmitAuth}
           onContinueAsGuest={handleContinueAsGuest}
           onLogout={handleLogout}
           onSwitchToLogin={() => {

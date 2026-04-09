@@ -16,8 +16,10 @@ type EntryViewProps = {
     saveProfiles: SaveProfileRecord[];
     authMode: AuthPanelMode;
     email: string;
+    password: string;
     isSubmittingAuth: boolean;
     onChangeEmail: (nextEmail: string) => void;
+    onChangePassword: (nextPassword: string) => void;
     onSubmitAuth: () => void;
     onContinueAsGuest: () => void;
     onLogout: () => void;
@@ -42,8 +44,10 @@ export const EntryView = ({
     saveProfiles,
     authMode,
     email,
+    password,
     isSubmittingAuth,
     onChangeEmail,
+    onChangePassword,
     onSubmitAuth,
     onContinueAsGuest,
     onLogout,
@@ -121,9 +125,11 @@ export const EntryView = ({
                 authMode={authMode}
                 currentUserEmail={currentUserEmail}
                 email={email}
+                password={password}
                 isSubmitting={isSubmittingAuth}
                 errorMessage={errorMessage}
                 onChangeEmail={onChangeEmail}
+                onChangePassword={onChangePassword}
                 onSubmit={onSubmitAuth}
                 onContinueAsGuest={onContinueAsGuest}
                 onLogout={onLogout}

@@ -1,4 +1,4 @@
-const AUTH_SESSION_STORAGE_KEY = "livedex.currentUser";
+const LEGACY_AUTH_SESSION_STORAGE_KEY = "livedex.currentUser";
 const GUEST_SESSION_STORAGE_KEY = "livedex.guestUser";
 
 export type StoredUser = {
@@ -9,10 +9,6 @@ export type StoredUser = {
 
 export type RestoredSession =
     | {
-        mode: "user";
-        user: StoredUser;
-    }
-    | {
         mode: "guest";
         user: StoredUser;
     }
@@ -21,8 +17,8 @@ export type RestoredSession =
         user: null;
     };
 
-// getIsGuestUser checks whether a stored user should be treated as a guest session
-// App.tsx and save helpers use this to keep guest and signed-in session flows separate
+// getIsGuestUser checks whether a stored user should be treated as a guest session.
+// App.tsx and API helpers use this so guest mode can stay local while signed-in auth comes from server cookies.
 export const getIsGuestUser = (currentUser: StoredUser | null) => {
     if (!currentUser) {
         return false;
@@ -31,26 +27,8 @@ export const getIsGuestUser = (currentUser: StoredUser | null) => {
     return currentUser.id === "guest";
 };
 
-// loadStoredSignedInUser reads only the persisted signed-in account session
-// restoreSession uses this first so real account sessions always win over guest fallback
-export const loadStoredSignedInUser = (): StoredUser | null => {
-    const storedSignedInUser = window.localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
-
-    if (!storedSignedInUser) {
-        return null;
-    }
-
-    try {
-        return JSON.parse(storedSignedInUser) as StoredUser;
-    } catch (error) {
-        console.error("Failed to parse stored signed-in user session", error);
-        window.localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
-        return null;
-    }
-};
-
-// loadStoredGuestUser reads only the persisted guest session
-// restoreSession uses this only when no signed-in account session exists
+// loadStoredGuestUser reads the persisted guest session and removes invalid serialized data.
+// restoreSession uses this so guest mode can survive refresh without treating local storage as proof of signed-in auth.
 export const loadStoredGuestUser = (): StoredUser | null => {
     const storedGuestUser = window.localStorage.getItem(GUEST_SESSION_STORAGE_KEY);
 
@@ -67,18 +45,9 @@ export const loadStoredGuestUser = (): StoredUser | null => {
     }
 };
 
-// restoreSession determines the startup session mode in one place
-// App.tsx calls this during initialization so refresh behavior is explicit and stable
+// restoreSession restores only the guest session because signed-in auth is now fetched from the server session cookie.
+// App.tsx calls this during initialization so guest refresh behavior remains explicit and secure.
 export const restoreSession = (): RestoredSession => {
-    const storedSignedInUser = loadStoredSignedInUser();
-
-    if (storedSignedInUser) {
-        return {
-            mode: "user",
-            user: storedSignedInUser
-        };
-    }
-
     const storedGuestUser = loadStoredGuestUser();
 
     if (storedGuestUser) {
@@ -94,28 +63,25 @@ export const restoreSession = (): RestoredSession => {
     };
 };
 
-// saveStoredUser writes signed-in users and guest users to separate storage keys
-// App.tsx calls this when auth state changes so session persistence stays mode-aware
+// saveStoredUser persists only guest sessions and clears any legacy signed-in local storage state.
+// App.tsx calls this when guest mode changes so old fake-auth local user state can no longer act as sign-in proof.
 export const saveStoredUser = (currentUser: StoredUser) => {
-    if (getIsGuestUser(currentUser)) {
-        window.localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
-        window.localStorage.setItem(
-            GUEST_SESSION_STORAGE_KEY,
-            JSON.stringify(currentUser)
-        );
+    window.localStorage.removeItem(LEGACY_AUTH_SESSION_STORAGE_KEY);
+
+    if (!getIsGuestUser(currentUser)) {
+        window.localStorage.removeItem(GUEST_SESSION_STORAGE_KEY);
         return;
     }
 
-    window.localStorage.removeItem(GUEST_SESSION_STORAGE_KEY);
     window.localStorage.setItem(
-        AUTH_SESSION_STORAGE_KEY,
+        GUEST_SESSION_STORAGE_KEY,
         JSON.stringify(currentUser)
     );
 };
 
-// clearStoredUser removes both signed-in and guest session storage entries
-// App.tsx calls this during logout so the app always returns to the auth state
+// clearStoredUser removes both guest state and any leftover legacy signed-in local storage entry.
+// App.tsx calls this when auth mode changes so the browser stops carrying fake-auth residue between reloads.
 export const clearStoredUser = () => {
-    window.localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+    window.localStorage.removeItem(LEGACY_AUTH_SESSION_STORAGE_KEY);
     window.localStorage.removeItem(GUEST_SESSION_STORAGE_KEY);
 };
