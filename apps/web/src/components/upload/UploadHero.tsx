@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import type { ChangeEvent, DragEvent } from "react";
 
 type UploadHeroProps = {
     isUploading: boolean;
@@ -10,6 +11,10 @@ type UploadHeroProps = {
 
 // UploadHeroProps defines the shared upload-card inputs used on entry and future replacement surfaces.
 // UploadHero consumes this so file selection behavior stays reusable while parent routes own upload state.
+
+// magneticDropZoneInset expands the invisible drag-capture area around the visible drop surface.
+// UploadHero uses this so the dropzone feels easier to catch before the cursor reaches the border.
+const magneticDropZoneInsetClassName = "-m-4 p-4 sm:-m-5 sm:p-5";
 
 // getIsSupportedSaveFile validates accepted save file extensions for new uploads.
 // UploadHero uses this before handing the file to App.tsx for save setup orchestration.
@@ -27,6 +32,27 @@ const getIsSupportedSaveFile = (file: File) => {
     return false;
 };
 
+// UploadCloudIcon renders the upload glyph used by the dropzone instead of the temporary caret.
+// UploadHero uses this so the upload affordance matches the drag-and-drop treatment more clearly.
+const UploadCloudIcon = () => {
+    return (
+        <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            className="h-7 w-7"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M7 18.5H6.5C4.01 18.5 2 16.49 2 14C2 11.74 3.67 9.87 5.85 9.56C6.61 6.92 9.04 5 11.9 5C15.06 5 17.69 7.34 18.14 10.38C20.36 10.58 22 12.44 22 14.7C22 17.07 20.07 19 17.7 19H17" />
+            <path d="M12 20V11" />
+            <path d="M8.75 14.25L12 11L15.25 14.25" />
+        </svg>
+    );
+};
+
 // UploadHero renders upload picker copy for either a neutral entry flow or an active-save replacement flow.
 // EmptyStateView and any future replacement surfaces use this so upload wording is controlled by props instead of route-specific checks.
 export const UploadHero = ({
@@ -39,9 +65,12 @@ export const UploadHero = ({
     // selectedFile stores the most recently chosen save filename for the current upload card instance.
     // UploadHero uses this so the dropzone and selected-file summary stay in sync after local selection.
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    // isDragging tracks whether a file is hovering over the dropzone for temporary visual feedback.
-    // UploadHero uses this so drag styling stays local to the upload surface rather than parent state.
+    // isDragging tracks whether a dragged file is inside the expanded upload capture zone.
+    // UploadHero uses this so the visible drop surface can react before the cursor reaches its border.
     const [isDragging, setIsDragging] = useState(false);
+    // dragDepthRef counts nested drag targets inside the expanded capture zone.
+    // UploadHero uses this so dragleave events from child nodes do not turn off the active state too early.
+    const dragDepthRef = useRef(0);
 
     // handleSelectedFile validates the chosen file and forwards it into the shared save setup flow.
     // App.tsx receives the file so upload details can be collected outside this presentational component.
@@ -57,7 +86,7 @@ export const UploadHero = ({
 
     // handleFileChange reads the hidden file input and forwards the chosen file upward.
     // UploadHero uses this for click-based file picking.
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
         const nextFiles = event.target.files;
 
         if (!nextFiles || nextFiles.length === 0) {
@@ -69,30 +98,61 @@ export const UploadHero = ({
         event.target.value = "";
     };
 
-    // handleDragOver enables dropzone styling while a file is dragged over the upload target.
-    // UploadHero uses this to keep drag feedback local to the upload surface.
-    const handleDragOver = (event: React.DragEvent<HTMLLabelElement>) => {
+    // resetDragState clears the expanded dropzone highlight after a drag finishes or exits.
+    // UploadHero uses this so drag visuals and nested drag counters return to their idle state together.
+    const resetDragState = () => {
+        dragDepthRef.current = 0;
+        setIsDragging(false);
+    };
+
+    // handleDragEnter activates the expanded magnetic dropzone as soon as a dragged file enters its capture area.
+    // UploadHero uses this so users get active feedback before they are fully inside the visible dashed border.
+    const handleDragEnter = (event: DragEvent<HTMLDivElement>) => {
         event.preventDefault();
 
         if (isUploading) {
             return;
         }
 
+        dragDepthRef.current += 1;
         setIsDragging(true);
     };
 
-    // handleDragLeave clears the temporary dropzone highlight when the drag leaves the target.
-    // UploadHero uses this so the drag state resets cleanly.
-    const handleDragLeave = (event: React.DragEvent<HTMLLabelElement>) => {
+    // handleDragOver keeps the browser drop interaction enabled while a file hovers over the capture area.
+    // UploadHero uses this so the drag can continue smoothly across the enlarged magnetic boundary.
+    const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
         event.preventDefault();
-        setIsDragging(false);
+
+        if (isUploading) {
+            return;
+        }
+
+        if (!isDragging) {
+            setIsDragging(true);
+        }
+    };
+
+    // handleDragLeave clears the active drag state only after the pointer leaves the full expanded capture area.
+    // UploadHero uses this so moving across child elements does not make the dropzone flicker off.
+    const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
+        event.preventDefault();
+
+        if (isUploading) {
+            return;
+        }
+
+        dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+
+        if (dragDepthRef.current === 0) {
+            setIsDragging(false);
+        }
     };
 
     // handleDrop validates and forwards a dropped save file into shared setup state.
     // App.tsx owns the next step so UploadHero remains limited to selection UX.
-    const handleDrop = (event: React.DragEvent<HTMLLabelElement>) => {
+    const handleDrop = (event: DragEvent<HTMLDivElement>) => {
         event.preventDefault();
-        setIsDragging(false);
+        resetDragState();
 
         if (isUploading) {
             return;
@@ -109,18 +169,18 @@ export const UploadHero = ({
 
     return (
         <section className="w-full">
-            <div className="flex flex-col gap-5 rounded-[28px] bg-white p-5 shadow-sm sm:p-6">
+            <div className="flex flex-col gap-4 rounded-[28px] bg-white p-5 shadow-sm sm:gap-5 sm:p-6">
                 <div className="flex items-start justify-between gap-4">
                     <div>
                         <p className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-emerald-700">
                             Upload Save
                         </p>
 
-                        <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-[36px]">
+                        <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-[42px]">
                             Start with a save file.
                         </h2>
 
-                        <p className="mt-2 max-w-[560px] text-[15px] leading-7 text-gray-600">
+                        <p className="mt-2 max-w-[560px] text-[15px] leading-6 text-gray-600">
                             Import a Gen 3 save file (.sav, .srm).
                         </p>
                     </div>
@@ -135,36 +195,67 @@ export const UploadHero = ({
                     disabled={isUploading}
                 />
 
-                <label
-                    htmlFor="save-file-input"
-                    className={
-                        isDragging
-                            ? "flex cursor-pointer items-center gap-4 rounded-[24px] border-2 border-dashed border-emerald-700 bg-emerald-50 px-6 py-8 transition max-[640px]:flex-col max-[640px]:items-start"
-                            : "flex cursor-pointer items-center gap-4 rounded-[24px] border-2 border-dashed border-gray-200 bg-gray-50 px-6 py-8 transition hover:border-emerald-700 hover:bg-white max-[640px]:flex-col max-[640px]:items-start"
-                    }
+                <div
+                    className={`relative rounded-[32px] ${magneticDropZoneInsetClassName}`}
+                    onDragEnter={handleDragEnter}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
                 >
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white text-[24px] font-extrabold text-emerald-700 shadow-sm">
-                        ^
-                    </div>
+                    <div
+                        className={
+                            isDragging
+                                ? "pointer-events-none absolute inset-0 rounded-[32px] border-2 border-dashed border-emerald-300/80 bg-emerald-100/35"
+                                : "pointer-events-none absolute inset-0 opacity-0"
+                        }
+                        aria-hidden="true"
+                    />
 
-                    <div className="flex flex-col gap-1">
-                        <div className="text-[18px] font-extrabold text-gray-900">
-                            {isDragging
-                                ? "Drop your save file here"
-                                : selectedFile
-                                    ? showsReplacementCopy
-                                        ? "Replace selected save file"
-                                        : "Choose or drag a save file"
-                                    : "Choose or drag a save file"}
+                    <label
+                        htmlFor="save-file-input"
+                        className={
+                            isDragging
+                                ? "relative flex min-h-[316px] cursor-pointer flex-col items-center justify-center rounded-[28px] border-2 border-dashed border-emerald-500 bg-emerald-50 px-6 py-7 text-center transition sm:min-h-[340px] sm:px-8 sm:py-8"
+                                : "relative flex min-h-[316px] cursor-pointer flex-col items-center justify-center rounded-[28px] border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-7 text-center transition hover:border-emerald-500 hover:bg-white sm:min-h-[340px] sm:px-8 sm:py-8"
+                        }
+                    >
+                        <div
+                            className={
+                                isDragging
+                                    ? "flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 shadow-sm"
+                                    : "flex h-14 w-14 items-center justify-center rounded-full bg-white text-emerald-700 shadow-sm ring-1 ring-gray-200"
+                            }
+                        >
+                            <UploadCloudIcon />
                         </div>
-                        <div className="text-[14px] text-gray-600">
-                            Choose or drag a save file.
+
+                        <div className="mt-4 flex max-w-[520px] flex-col items-center gap-1.5">
+                            <div className="text-[18px] font-extrabold tracking-tight text-gray-900 sm:text-[20px]">
+                                {isDragging
+                                    ? "Drop your save file here"
+                                    : selectedFile
+                                        ? showsReplacementCopy
+                                            ? "Replace selected save file"
+                                            : "Choose or drag a save file"
+                                        : "Choose or drag a save file"}
+                            </div>
                         </div>
-                    </div>
-                </label>
+
+                        <span
+                            className={
+                                isDragging
+                                    ? "mt-5 inline-flex min-h-[44px] items-center justify-center rounded-full border border-emerald-500 bg-white px-5 py-2.5 text-sm font-semibold text-emerald-800 shadow-sm"
+                                    : "mt-5 inline-flex min-h-[44px] items-center justify-center rounded-full border border-emerald-300 bg-white px-5 py-2.5 text-sm font-semibold text-emerald-800 shadow-sm transition hover:border-emerald-500 hover:bg-emerald-50"
+                            }
+                        >
+                            Browse Files
+                        </span>
+
+                        <span className="mt-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 sm:text-[12px]">
+                            Supported: .sav and .srm
+                        </span>
+                    </label>
+                </div>
 
                 <div
                     className={
@@ -176,6 +267,7 @@ export const UploadHero = ({
                     <span className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-gray-500">
                         Selected File
                     </span>
+
                     <span
                         className={
                             selectedFile

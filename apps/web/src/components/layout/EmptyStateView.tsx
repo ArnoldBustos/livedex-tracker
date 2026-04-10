@@ -63,6 +63,81 @@ const IntroPokeballMark = () => {
     );
 };
 
+// EntryIntroCard renders the upload-first support panel used in entry layouts.
+// EmptyStateView uses this so signed-in and guest entry flows can share intro content with different sizing.
+const EntryIntroCard = ({
+    isCompact
+}: {
+    isCompact: boolean;
+}) => {
+    return (
+        <section
+            className={
+                isCompact
+                    ? "overflow-hidden rounded-[28px] border border-emerald-100 bg-white p-5 shadow-sm"
+                    : "overflow-hidden rounded-[28px] border border-white/70 bg-white p-5 shadow-sm sm:p-6"
+            }
+        >
+            <div
+                className={
+                    isCompact
+                        ? "flex flex-col gap-4"
+                        : "flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+                }
+            >
+                <div className={isCompact ? "max-w-[320px]" : "max-w-[520px]"}>
+                    <h1
+                        className={
+                            isCompact
+                                ? "text-[18px] font-extrabold tracking-tight text-gray-950 sm:text-[20px]"
+                                : "max-w-[9ch] text-3xl font-extrabold tracking-tight text-gray-950 sm:text-[34px]"
+                        }
+                    >
+                        Start your tracker
+                    </h1>
+
+                    <p
+                        className={
+                            isCompact
+                                ? "mt-2 max-w-[300px] text-[14px] leading-6 text-gray-600"
+                                : "mt-3 max-w-[460px] text-[15px] leading-7 text-gray-600"
+                        }
+                    >
+                        Upload a Gen 3 save or start from scratch.
+                    </p>
+                </div>
+
+                <div
+                    className={
+                        isCompact
+                            ? "flex items-center justify-between gap-3"
+                            : "flex items-center gap-3 lg:justify-end"
+                    }
+                >
+                    <IntroPokeballMark />
+
+                    <div className={isCompact ? "flex max-w-[260px] flex-wrap gap-2" : "flex max-w-[320px] flex-wrap gap-2"}>
+                        {supportedGameLabels.map((supportedGameLabel) => {
+                            return (
+                                <span
+                                    key={supportedGameLabel}
+                                    className={
+                                        isCompact
+                                            ? "inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-800"
+                                            : "inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-[12px] font-semibold text-emerald-800"
+                                    }
+                                >
+                                    {supportedGameLabel}
+                                </span>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+        </section>
+    );
+};
+
 // RecentSavedProfileListItem renders one compact recent-save row for the signed-in entry sidebar.
 // SavedProfilesPanel uses this so recent quick-resume items stay shorter than the full modal list rows.
 const RecentSavedProfileListItem = ({
@@ -255,36 +330,7 @@ export const EmptyStateView = ({
             <div className="min-w-0">
                 <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_360px]">
                     <div className="grid min-w-0 gap-5">
-                        <section className="overflow-hidden rounded-[28px] border border-white/70 bg-white p-5 shadow-sm sm:p-6">
-                            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                                <div className="max-w-[520px]">
-                                    <h1 className="max-w-[9ch] text-3xl font-extrabold tracking-tight text-gray-950 sm:text-[34px]">
-                                        Start your tracker
-                                    </h1>
-
-                                    <p className="mt-3 max-w-[460px] text-[15px] leading-7 text-gray-600">
-                                        Upload a Gen 3 save or start from scratch.
-                                    </p>
-                                </div>
-
-                                <div className="flex items-center gap-3 lg:justify-end">
-                                    <IntroPokeballMark />
-
-                                    <div className="flex max-w-[320px] flex-wrap gap-2">
-                                        {supportedGameLabels.map((supportedGameLabel) => {
-                                            return (
-                                                <span
-                                                    key={supportedGameLabel}
-                                                    className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-[12px] font-semibold text-emerald-800"
-                                                >
-                                                    {supportedGameLabel}
-                                                </span>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
+                        {isSignedIn ? <EntryIntroCard isCompact={false} /> : null}
 
                         <UploadHero
                             isUploading={isUploading}
@@ -322,15 +368,7 @@ export const EmptyStateView = ({
                                     onCreateManualEntry={onCreateManualEntry}
                                 />
 
-                                <section className="rounded-[28px] border border-emerald-100 bg-emerald-50/60 p-5 shadow-sm">
-                                    <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-emerald-700">
-                                        Upload Notes
-                                    </p>
-
-                                    <p className="mt-2 text-sm leading-6 text-emerald-950/80">
-                                        Save files are processed from the entry flow first, then the tracker opens with the imported progress.
-                                    </p>
-                                </section>
+                                <EntryIntroCard isCompact={true} />
                             </>
                         )}
                     </div>
