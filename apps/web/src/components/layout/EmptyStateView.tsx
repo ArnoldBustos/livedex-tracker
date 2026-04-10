@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import gbaCartridgeTemplateImage from "../../assets/gba_cartridge_template.png";
 import { UploadHero } from "../upload/UploadHero";
 import type { SaveProfileRecord } from "../../types/save";
 import { EntrySavedProfilesModal } from "./EntrySavedProfilesModal";
@@ -16,9 +17,59 @@ type EmptyStateViewProps = {
     onUploadError: (errorMessage: string) => void;
 };
 
-// supportedGameLabels lists the Gen 3 titles surfaced in the entry intro chips.
-// EmptyStateView uses this so the intro can signal scope without hardcoding repeated chip markup.
-const supportedGameLabels = ["Ruby", "Sapphire", "Emerald", "FireRed", "LeafGreen"];
+type SupportedGameTheme = {
+    key: string;
+    label: string;
+    titleColorClassName: string;
+    cartridgeTintClassName: string;
+    dotClassName: string;
+};
+
+// supportedGameThemes stores the guest entry supported-game palette and labels.
+// EmptyStateView uses this so the chips and animated cartridge share one modular game source of truth.
+const supportedGameThemes: SupportedGameTheme[] = [
+    {
+        key: "ruby",
+        label: "Ruby",
+        titleColorClassName: "text-[#b31942]",
+        cartridgeTintClassName: "bg-[#b31942]",
+        dotClassName: "bg-[#b31942]"
+    },
+    {
+        key: "sapphire",
+        label: "Sapphire",
+        titleColorClassName: "text-[#1f5fbf]",
+        cartridgeTintClassName: "bg-[#1f5fbf]",
+        dotClassName: "bg-[#1f5fbf]"
+    },
+    {
+        key: "emerald",
+        label: "Emerald",
+        titleColorClassName: "text-[#158f63]",
+        cartridgeTintClassName: "bg-[#158f63]",
+        dotClassName: "bg-[#158f63]"
+    },
+    {
+        key: "firered",
+        label: "FireRed",
+        titleColorClassName: "text-[#d9480f]",
+        cartridgeTintClassName: "bg-[#d9480f]",
+        dotClassName: "bg-[#d9480f]"
+    },
+    {
+        key: "leafgreen",
+        label: "LeafGreen",
+        titleColorClassName: "text-[#2f9e44]",
+        cartridgeTintClassName: "bg-[#2f9e44]",
+        dotClassName: "bg-[#2f9e44]"
+    }
+];
+
+// supportedGameLabels lists the Gen 3 titles surfaced in the full intro chips.
+// EntryIntroCard derives this from supportedGameThemes so the static and animated game lists stay in sync.
+const supportedGameLabels = supportedGameThemes.map((supportedGameTheme) => {
+    return supportedGameTheme.label;
+});
 
 // inlineRecentProfileLimit defines how many recent saves appear directly on the signed-in entry page.
 // EmptyStateView uses this so quick resume stays compact while the full list moves into a modal.
@@ -63,69 +114,210 @@ const IntroPokeballMark = () => {
     );
 };
 
-// EntryIntroCard renders the upload-first support panel used in entry layouts.
-// EmptyStateView uses this so signed-in and guest entry flows can share intro content with different sizing.
-const EntryIntroCard = ({
-    isCompact
+// GBACartridgeIcon renders the provided GBA cartridge asset with a color tint for the active game theme.
+// SupportedGamesShowcase uses this so the guest card follows the provided cartridge silhouette while still reading per-game colors.
+const GBACartridgeIcon = ({
+    supportedGameTheme
 }: {
-    isCompact: boolean;
+    supportedGameTheme: SupportedGameTheme;
 }) => {
     return (
-        <section
-            className={
-                isCompact
-                    ? "overflow-hidden rounded-[28px] border border-emerald-100 bg-white p-5 shadow-sm"
-                    : "overflow-hidden rounded-[28px] border border-white/70 bg-white p-5 shadow-sm sm:p-6"
-            }
-        >
+        <div className="relative h-[118px] w-[218px] transition-transform duration-300 lg:h-[104px] lg:w-[192px]">
             <div
-                className={
-                    isCompact
-                        ? "flex flex-col gap-4"
-                        : "flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
-                }
-            >
-                <div className={isCompact ? "max-w-[320px]" : "max-w-[520px]"}>
-                    <h1
-                        className={
-                            isCompact
-                                ? "text-[18px] font-extrabold tracking-tight text-gray-950 sm:text-[20px]"
-                                : "max-w-[9ch] text-3xl font-extrabold tracking-tight text-gray-950 sm:text-[34px]"
-                        }
-                    >
-                        Start your tracker
-                    </h1>
+                className={`absolute inset-0 ${supportedGameTheme.cartridgeTintClassName} opacity-[0.55]`}
+                style={{
+                    WebkitMaskImage: `url(${gbaCartridgeTemplateImage})`,
+                    maskImage: `url(${gbaCartridgeTemplateImage})`,
+                    WebkitMaskRepeat: "no-repeat",
+                    maskRepeat: "no-repeat",
+                    WebkitMaskPosition: "center",
+                    maskPosition: "center",
+                    WebkitMaskSize: "contain",
+                    maskSize: "contain"
+                }}
+                aria-hidden="true"
+            />
 
-                    <p
-                        className={
-                            isCompact
-                                ? "mt-2 max-w-[300px] text-[14px] leading-6 text-gray-600"
-                                : "mt-3 max-w-[460px] text-[15px] leading-7 text-gray-600"
-                        }
-                    >
-                        Upload a Gen 3 save or start from scratch.
+            <div
+                className="absolute inset-0 bg-white opacity-[0.08]"
+                style={{
+                    WebkitMaskImage: `url(${gbaCartridgeTemplateImage})`,
+                    maskImage: `url(${gbaCartridgeTemplateImage})`,
+                    WebkitMaskRepeat: "no-repeat",
+                    maskRepeat: "no-repeat",
+                    WebkitMaskPosition: "center",
+                    maskPosition: "center",
+                    WebkitMaskSize: "contain",
+                    maskSize: "contain"
+                }}
+                aria-hidden="true"
+            />
+
+            <img
+                src={gbaCartridgeTemplateImage}
+                alt=""
+                className="absolute inset-0 h-full w-full select-none object-contain opacity-[0.92]"
+                draggable={false}
+            />
+        </div>
+    );
+};
+
+// SupportedGamesShowcase renders the guest-mode animated supported-games card with GBA-style cartridge art.
+// EntryIntroCard uses this in compact mode so guest entry gets a more expressive support panel without affecting signed-in layout.
+const SupportedGamesShowcase = () => {
+    // activeGameIndex stores the currently displayed supported game in the rotating guest showcase.
+    // SupportedGamesShowcase updates this on a timer and from dot clicks so the cartridge and title stay synchronized.
+    const [activeGameIndex, setActiveGameIndex] = useState(0);
+    // requestedGameIndex stores the next game the showcase should transition toward.
+    // SupportedGamesShowcase uses this so timed rotation and manual dot clicks share one transition path.
+    const [requestedGameIndex, setRequestedGameIndex] = useState(0);
+    // isGameVisible stores whether the current showcase frame should be shown during fade transitions.
+    // SupportedGamesShowcase uses this so game swaps feel softer than an immediate hard cut.
+    const [isGameVisible, setIsGameVisible] = useState(true);
+
+    // activeSupportedGameTheme returns the current guest showcase theme based on the active rotation index.
+    // SupportedGamesShowcase uses this so cartridge colors, title colors, and active dots come from one value.
+    const activeSupportedGameTheme = supportedGameThemes[activeGameIndex];
+
+    // requestGameIndex starts a fade-out and records which supported game should be shown next.
+    // SupportedGamesShowcase uses this so timed rotation and manual dot clicks share the same transition trigger.
+    const requestGameIndex = (nextGameIndex: number) => {
+        if (nextGameIndex === requestedGameIndex) {
+            return;
+        }
+
+        setIsGameVisible(false);
+        setRequestedGameIndex(nextGameIndex);
+    };
+
+    // handleSelectGame jumps the guest showcase directly to one supported game when a dot is clicked.
+    // SupportedGamesShowcase binds this to the dot navigation so manual selection interrupts the auto cycle cleanly.
+    const handleSelectGame = (nextGameIndex: number) => {
+        requestGameIndex(nextGameIndex);
+    };
+
+    useEffect(() => {
+        // advanceShowcase rotates the guest supported-games carousel to the next game on a fixed interval.
+        // SupportedGamesShowcase runs this while mounted so the compact support card keeps ambient motion.
+        const advanceShowcase = window.setInterval(() => {
+            setIsGameVisible(false);
+            setRequestedGameIndex((currentRequestedGameIndex) => {
+                return (currentRequestedGameIndex + 1) % supportedGameThemes.length;
+            });
+        }, 3200);
+
+        return () => {
+            window.clearInterval(advanceShowcase);
+        };
+    }, []);
+
+    useEffect(() => {
+        // syncRequestedGame performs the shared fade transition whenever auto-rotation or dot clicks request a different game.
+        // SupportedGamesShowcase uses this so every game change follows the same predictable visual timing.
+        if (requestedGameIndex === activeGameIndex) {
+            return;
+        }
+
+        const syncRequestedGameTimeout = window.setTimeout(() => {
+            setActiveGameIndex(requestedGameIndex);
+            setIsGameVisible(true);
+        }, 160);
+
+        return () => {
+            window.clearTimeout(syncRequestedGameTimeout);
+        };
+    }, [requestedGameIndex, activeGameIndex]);
+
+    return (
+        <section className="flex h-full flex-1 flex-col overflow-hidden rounded-[28px] border border-emerald-100 bg-white p-4 shadow-sm lg:p-4">
+            <div className="flex h-full flex-col gap-3">
+                <div>
+                    <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
+                        Supported Games
                     </p>
                 </div>
 
                 <div
                     className={
-                        isCompact
-                            ? "flex items-center justify-between gap-3"
-                            : "flex items-center gap-3 lg:justify-end"
+                        isGameVisible
+                            ? "flex flex-1 flex-col opacity-100 transition-opacity duration-200"
+                            : "flex flex-1 flex-col opacity-0 transition-opacity duration-150"
                     }
                 >
+                    <div className="flex flex-1 items-end justify-center lg:pb-[54px]">
+                        <GBACartridgeIcon supportedGameTheme={activeSupportedGameTheme} />
+                    </div>
+
+                    <div className="mt-1 text-center">
+                        <div className="text-[14px] font-medium text-gray-500 lg:text-[13px]">
+                            Pokemon{" "}
+                            <span className={`font-semibold ${activeSupportedGameTheme.titleColorClassName}`}>
+                                {activeSupportedGameTheme.label}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-center gap-2.5 pt-0.5">
+                    {supportedGameThemes.map((supportedGameTheme, supportedGameIndex) => {
+                        return (
+                            <button
+                                key={supportedGameTheme.key}
+                                type="button"
+                                className={
+                                    supportedGameIndex === requestedGameIndex
+                                        ? `h-2.5 w-2.5 rounded-full ${supportedGameTheme.dotClassName}`
+                                        : "h-2.5 w-2.5 rounded-full bg-gray-300 transition hover:bg-gray-400"
+                                }
+                                aria-label={`Show Pokemon ${supportedGameTheme.label}`}
+                                onClick={() => {
+                                    handleSelectGame(supportedGameIndex);
+                                }}
+                            />
+                        );
+                    })}
+                </div>
+            </div>
+        </section>
+    );
+};
+
+// EntryIntroCard renders the upload-first support panel used in entry layouts.
+// EmptyStateView uses this so signed-in and guest entry flows can share intro content while compact guest mode can swap in the supported-games showcase.
+const EntryIntroCard = ({
+    isCompact
+}: {
+    isCompact: boolean;
+}) => {
+    if (isCompact) {
+        return <SupportedGamesShowcase />;
+    }
+
+    return (
+        <section
+            className="overflow-hidden rounded-[28px] border border-white/70 bg-white p-5 shadow-sm sm:p-6"
+        >
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div className="max-w-[520px]">
+                    <h1 className="max-w-[9ch] text-3xl font-extrabold tracking-tight text-gray-950 sm:text-[34px]">
+                        Start your tracker
+                    </h1>
+
+                    <p className="mt-3 max-w-[460px] text-[15px] leading-7 text-gray-600">
+                        Upload a Gen 3 save or start from scratch.
+                    </p>
+                </div>
+
+                <div className="flex items-center gap-3 lg:justify-end">
                     <IntroPokeballMark />
 
-                    <div className={isCompact ? "flex max-w-[260px] flex-wrap gap-2" : "flex max-w-[320px] flex-wrap gap-2"}>
+                    <div className="flex max-w-[320px] flex-wrap gap-2">
                         {supportedGameLabels.map((supportedGameLabel) => {
                             return (
                                 <span
                                     key={supportedGameLabel}
-                                    className={
-                                        isCompact
-                                            ? "inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-800"
-                                            : "inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-[12px] font-semibold text-emerald-800"
-                                    }
+                                    className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-[12px] font-semibold text-emerald-800"
                                 >
                                     {supportedGameLabel}
                                 </span>
@@ -197,23 +389,23 @@ const ManualEntryCard = ({
             className={
                 isCompact
                     ? "relative flex flex-col overflow-hidden rounded-[28px] bg-emerald-800 p-4 text-white shadow-sm"
-                    : "relative flex min-h-[240px] flex-col overflow-hidden rounded-[28px] bg-emerald-800 p-6 text-white shadow-sm sm:p-7"
+                    : "relative flex min-h-[190px] flex-col overflow-hidden rounded-[28px] bg-emerald-800 p-5 text-white shadow-sm sm:p-6 lg:min-h-[172px] lg:p-5"
             }
         >
-            <div className="absolute inset-x-auto bottom-0 right-0 h-24 w-24 rounded-tl-[32px] border-l border-t border-white/10 bg-white/5" />
+            <div className="absolute inset-x-auto bottom-0 right-0 h-20 w-20 rounded-tl-[32px] border-l border-t border-white/10 bg-white/5" />
 
             <div className="relative z-10 flex h-full flex-col">
                 <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-emerald-100">
                     Manual Entry
                 </p>
 
-                <p className={isCompact ? "mt-2 text-[14px] leading-6 text-emerald-50/90" : "mt-4 max-w-[260px] text-[15px] leading-7 text-emerald-50/90"}>
+                <p className={isCompact ? "mt-2 text-[14px] leading-6 text-emerald-50/90" : "mt-3 max-w-[260px] text-[15px] leading-6 text-emerald-50/90 lg:text-[14px]"}>
                     {isCompact ? "Create a blank tracker from scratch." : "Create a blank tracker from scratch."}
                 </p>
 
                 <button
                     type="button"
-                    className="mt-4 inline-flex min-h-[46px] w-full items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-4 inline-flex min-h-[44px] w-full items-center justify-center rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 lg:min-h-[42px]"
                     onClick={onCreateManualEntry}
                     disabled={isUploading}
                 >
@@ -328,8 +520,8 @@ export const EmptyStateView = ({
     return (
         <>
             <div className="min-w-0">
-                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_360px]">
-                    <div className="grid min-w-0 gap-5">
+                <div className="grid items-stretch gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+                    <div className={isSignedIn ? "grid min-w-0 gap-5" : "flex min-w-0"}>
                         {isSignedIn ? <EntryIntroCard isCompact={false} /> : null}
 
                         <UploadHero
@@ -341,7 +533,7 @@ export const EmptyStateView = ({
                         />
                     </div>
 
-                    <div className="grid gap-5 content-start">
+                    <div className={isSignedIn ? "grid gap-5 content-start" : "flex h-full flex-col gap-2"}>
                         {isSignedIn ? (
                             <>
                                 <SavedProfilesPanel

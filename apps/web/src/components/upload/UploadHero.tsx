@@ -168,21 +168,17 @@ export const UploadHero = ({
     };
 
     return (
-        <section className="w-full">
-            <div className="flex flex-col gap-4 rounded-[28px] bg-white p-5 shadow-sm sm:gap-5 sm:p-6">
+        <section className="flex h-full w-full">
+            <div className="flex h-full w-full flex-1 flex-col gap-3 rounded-[28px] bg-white p-4 shadow-sm sm:gap-4 sm:p-5 lg:gap-3 lg:p-5">
                 <div className="flex items-start justify-between gap-4">
                     <div>
                         <p className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-emerald-700">
                             Upload Save
                         </p>
 
-                        <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-[42px]">
+                        <h2 className="text-[42px] font-extrabold tracking-tight text-gray-900 lg:text-[34px]">
                             Start with a save file.
                         </h2>
-
-                        <p className="mt-2 max-w-[560px] text-[15px] leading-6 text-gray-600">
-                            Import a Gen 3 save file (.sav, .srm).
-                        </p>
                     </div>
                 </div>
 
@@ -196,7 +192,7 @@ export const UploadHero = ({
                 />
 
                 <div
-                    className={`relative rounded-[32px] ${magneticDropZoneInsetClassName}`}
+                    className={`relative flex-1 rounded-[32px] ${magneticDropZoneInsetClassName}`}
                     onDragEnter={handleDragEnter}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
@@ -215,22 +211,22 @@ export const UploadHero = ({
                         htmlFor="save-file-input"
                         className={
                             isDragging
-                                ? "relative flex min-h-[316px] cursor-pointer flex-col items-center justify-center rounded-[28px] border-2 border-dashed border-emerald-500 bg-emerald-50 px-6 py-7 text-center transition sm:min-h-[340px] sm:px-8 sm:py-8"
-                                : "relative flex min-h-[316px] cursor-pointer flex-col items-center justify-center rounded-[28px] border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-7 text-center transition hover:border-emerald-500 hover:bg-white sm:min-h-[340px] sm:px-8 sm:py-8"
+                                ? "relative flex h-full min-h-[280px] cursor-pointer flex-col items-center justify-center rounded-[28px] border-2 border-dashed border-emerald-500 bg-emerald-50 px-6 py-6 text-center transition sm:min-h-[300px] sm:px-7 sm:py-7 lg:min-h-[250px] lg:px-7 lg:py-6"
+                                : "relative flex h-full min-h-[280px] cursor-pointer flex-col items-center justify-center rounded-[28px] border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-6 text-center transition hover:border-emerald-500 hover:bg-white sm:min-h-[300px] sm:px-7 sm:py-7 lg:min-h-[250px] lg:px-7 lg:py-6"
                         }
                     >
                         <div
                             className={
                                 isDragging
-                                    ? "flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 shadow-sm"
-                                    : "flex h-14 w-14 items-center justify-center rounded-full bg-white text-emerald-700 shadow-sm ring-1 ring-gray-200"
+                                    ? "flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 shadow-sm lg:h-11 lg:w-11"
+                                    : "flex h-12 w-12 items-center justify-center rounded-full bg-white text-emerald-700 shadow-sm ring-1 ring-gray-200 lg:h-11 lg:w-11"
                             }
                         >
                             <UploadCloudIcon />
                         </div>
 
-                        <div className="mt-4 flex max-w-[520px] flex-col items-center gap-1.5">
-                            <div className="text-[18px] font-extrabold tracking-tight text-gray-900 sm:text-[20px]">
+                        <div className="mt-3 flex max-w-[520px] flex-col items-center gap-1">
+                            <div className="text-[18px] font-extrabold tracking-tight text-gray-900 lg:text-[16px]">
                                 {isDragging
                                     ? "Drop your save file here"
                                     : selectedFile
@@ -244,14 +240,14 @@ export const UploadHero = ({
                         <span
                             className={
                                 isDragging
-                                    ? "mt-5 inline-flex min-h-[44px] items-center justify-center rounded-full border border-emerald-500 bg-white px-5 py-2.5 text-sm font-semibold text-emerald-800 shadow-sm"
-                                    : "mt-5 inline-flex min-h-[44px] items-center justify-center rounded-full border border-emerald-300 bg-white px-5 py-2.5 text-sm font-semibold text-emerald-800 shadow-sm transition hover:border-emerald-500 hover:bg-emerald-50"
+                                    ? "mt-4 inline-flex min-h-[42px] items-center justify-center rounded-full border border-emerald-500 bg-white px-5 py-2 text-sm font-semibold text-emerald-800 shadow-sm lg:min-h-[40px] lg:px-4"
+                                    : "mt-4 inline-flex min-h-[42px] items-center justify-center rounded-full border border-emerald-300 bg-white px-5 py-2 text-sm font-semibold text-emerald-800 shadow-sm transition hover:border-emerald-500 hover:bg-emerald-50 lg:min-h-[40px] lg:px-4"
                             }
                         >
                             Browse Files
                         </span>
 
-                        <span className="mt-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 sm:text-[12px]">
+                        <span className="mt-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">
                             Supported: .sav and .srm
                         </span>
                     </label>
@@ -260,8 +256,8 @@ export const UploadHero = ({
                 <div
                     className={
                         selectedFile
-                            ? "flex flex-col gap-1.5 rounded-2xl bg-gray-50 px-4 py-4"
-                            : "flex flex-col gap-1 rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-3"
+                            ? "flex flex-col gap-1 rounded-2xl bg-gray-50 px-4 py-3"
+                            : "flex flex-col gap-1 rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-2.5"
                     }
                 >
                     <span className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-gray-500">
