@@ -8,10 +8,19 @@ const getIsEnabledFlag = (value: string | undefined) => {
     return value === "true";
 };
 
+// getDefaultLocalDevAccountEnabled preserves the local dev auth path unless production explicitly disables it.
+// env.ts uses this so local Better Auth testing stays available even when apps/api/.env omits the dev-only flag.
+const getDefaultLocalDevAccountEnabled = () => {
+    return process.env.NODE_ENV !== "production";
+};
+
 export const env = {
     // ENABLE_LOCAL_DEV_ACCOUNT controls whether dev-only account setup helpers should run.
-    // seed.ts and setupLocalDevAccount.ts read this so local bootstrapping stays isolated from general app config.
-    ENABLE_LOCAL_DEV_ACCOUNT: getIsEnabledFlag(process.env.ENABLE_LOCAL_DEV_ACCOUNT),
+    // seed.ts, setupLocalDevAccount.ts, and auth.controller.ts read this so local bootstrapping stays available unless production disables it.
+    ENABLE_LOCAL_DEV_ACCOUNT:
+        typeof process.env.ENABLE_LOCAL_DEV_ACCOUNT === "string"
+            ? getIsEnabledFlag(process.env.ENABLE_LOCAL_DEV_ACCOUNT)
+            : getDefaultLocalDevAccountEnabled(),
     // BETTER_AUTH_SECRET stores the Better Auth signing secret for local and deployed session cookies.
     // betterAuth.ts reads this so session auth can issue and verify cookies consistently.
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET || "local-dev-better-auth-secret-change-me",

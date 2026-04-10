@@ -3,6 +3,7 @@ import { fromNodeHeaders } from "better-auth/node";
 import { getAvailableUsernameForEmail, getStoredUserFromAuthUser } from "./authUser.service";
 import { auth } from "./betterAuth";
 import { applyBetterAuthHeaders, getRequestAuthSession } from "./authSession.service";
+import { ensureLocalDevAccountForSignIn } from "./localDevAccount.service";
 
 // getTrimmedAuthBodyValue reads one auth body field as a trimmed string.
 // auth.controller.ts uses this so sign-up and sign-in validation stay centralized and consistent.
@@ -117,6 +118,8 @@ export const signInWithEmailPassword = async (request: Request, response: Respon
     }
 
     try {
+        await ensureLocalDevAccountForSignIn(email);
+
         const signInResult = await auth.api.signInEmail({
             headers: fromNodeHeaders(request.headers),
             body: {

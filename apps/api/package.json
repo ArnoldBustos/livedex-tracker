@@ -8,6 +8,7 @@
         "prisma:generate": "prisma generate",
         "prisma:push": "prisma db push",
         "prisma:studio": "prisma studio",
+        "dev-account:check": "tsx src/scripts/checkDevUser.ts",
         "seed": "tsx src/scripts/seed.ts",
         "dev-account:setup": "tsx src/scripts/setupLocalDevAccount.ts"
     },

@@ -20,6 +20,12 @@ export type LocalDevAccountBootstrapResult = {
     credentialReady: boolean;
 };
 
+// getIsLocalDevAccountEmail checks whether one sign-in email targets the canonical local development account.
+// auth.controller.ts uses this so dev-only bootstrap logic stays isolated from the main sign-in handler.
+export const getIsLocalDevAccountEmail = (email: string) => {
+    return email.toLowerCase() === LOCAL_DEV_ACCOUNT_EMAIL;
+};
+
 // ensureLocalDevCredentialAccount upserts the credential account used by Better Auth for the canonical local dev user.
 // ensureLocalDevAccount calls this behind the dev-only gate so dev@example.com can sign in through the real auth flow.
 const ensureLocalDevCredentialAccount = async (userId: string) => {
@@ -96,4 +102,18 @@ export const ensureLocalDevAccount = async (): Promise<LocalDevAccountBootstrapR
         created: true,
         credentialReady: env.ENABLE_LOCAL_DEV_ACCOUNT
     };
+};
+
+// ensureLocalDevAccountForSignIn prepares the canonical local dev credential before Better Auth validates the password.
+// auth.controller.ts calls this so dev@example.com sign-in can self-heal missing credential rows without changing normal auth flows.
+export const ensureLocalDevAccountForSignIn = async (email: string) => {
+    if (!env.ENABLE_LOCAL_DEV_ACCOUNT) {
+        return;
+    }
+
+    if (!getIsLocalDevAccountEmail(email)) {
+        return;
+    }
+
+    await ensureLocalDevAccount();
 };
