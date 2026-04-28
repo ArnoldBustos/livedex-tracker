@@ -168,8 +168,8 @@ export const UploadHero = ({
     };
 
     return (
-        <section className="flex h-full w-full">
-            <div className="flex h-full w-full flex-1 flex-col gap-3 rounded-[28px] bg-white p-4 shadow-sm sm:gap-4 sm:p-5 lg:gap-3 lg:p-5">
+        <section className="flex h-full w-full lg:min-h-0">
+            <div className="flex h-full w-full flex-1 flex-col gap-3 rounded-[28px] bg-white p-4 shadow-sm sm:gap-4 sm:p-5 lg:min-h-0 lg:gap-3 lg:p-5">
                 <div className="flex items-start justify-between gap-4">
                     <div>
                         <p className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-emerald-700">
@@ -192,7 +192,7 @@ export const UploadHero = ({
                 />
 
                 <div
-                    className={`relative flex-1 rounded-[32px] ${magneticDropZoneInsetClassName}`}
+                    className={`relative flex-1 lg:min-h-0 rounded-[32px] ${magneticDropZoneInsetClassName}`}
                     onDragEnter={handleDragEnter}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
@@ -211,8 +211,8 @@ export const UploadHero = ({
                         htmlFor="save-file-input"
                         className={
                             isDragging
-                                ? "relative flex h-full min-h-[280px] cursor-pointer flex-col items-center justify-center rounded-[28px] border-2 border-dashed border-emerald-500 bg-emerald-50 px-6 py-6 text-center transition sm:min-h-[300px] sm:px-7 sm:py-7 lg:min-h-[250px] lg:px-7 lg:py-6"
-                                : "relative flex h-full min-h-[280px] cursor-pointer flex-col items-center justify-center rounded-[28px] border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-6 text-center transition hover:border-emerald-500 hover:bg-white sm:min-h-[300px] sm:px-7 sm:py-7 lg:min-h-[250px] lg:px-7 lg:py-6"
+                                ? "relative flex h-full min-h-[280px] cursor-pointer flex-col items-center justify-center rounded-[28px] border-2 border-dashed border-emerald-500 bg-emerald-50 px-6 py-6 text-center transition sm:min-h-[300px] sm:px-7 sm:py-7 lg:min-h-[300px] lg:px-7 lg:py-6"
+                                : "relative flex h-full min-h-[280px] cursor-pointer flex-col items-center justify-center rounded-[28px] border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-6 text-center transition hover:border-emerald-500 hover:bg-white sm:min-h-[300px] sm:px-7 sm:py-7 lg:min-h-[300px] lg:px-7 lg:py-6"
                         }
                     >
                         <div

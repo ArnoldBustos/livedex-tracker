@@ -58,7 +58,7 @@ export const EntryTopbar = ({
     };
 
     return (
-        <header className="border-b border-emerald-100 bg-[#eef6ef] px-4 py-3 sm:px-6 sm:py-4">
+        <header className="shrink-0 border-b border-emerald-100 bg-[#eef6ef] px-4 py-3 sm:px-6 sm:py-4">
             <div className="mx-auto flex w-full max-w-[1180px] items-start justify-between gap-4">
                 <div className="flex min-w-0 flex-col">
                     <p className="text-2xl font-extrabold tracking-tight text-emerald-950 sm:text-3xl">

@@ -84,14 +84,14 @@ export const EntryView = ({
     };
 
     return (
-        <div className="min-h-screen bg-[#f3f4f6] text-[#38392a]">
+        <div className="flex min-h-screen flex-col bg-[#f3f4f6] text-[#38392a]">
             {isUploading ? (
                 <div className="fixed left-1/2 top-4 z-10 -translate-x-1/2 rounded-full border border-[rgba(130,129,111,0.18)] bg-white px-4 py-2 text-[12px] font-semibold text-[#38392a] shadow-sm">
                     {openingSaveProfileId ? "Opening saved profile..." : "Loading save data..."}
                 </div>
             ) : null}
 
-            <div className="mx-auto flex max-w-[1680px] flex-col">
+            <div className="mx-auto flex w-full max-w-[1680px] flex-1 flex-col">
                 <EntryTopbar
                     isUploading={isUploading}
                     isGuestMode={isGuestMode}
@@ -102,8 +102,8 @@ export const EntryView = ({
                     onLogout={onLogout}
                 />
 
-                <div className="px-4 pb-6 pt-3 sm:px-6 sm:pb-8 sm:pt-4">
-                    <div className="mx-auto w-full max-w-[1180px]">
+                <div className="flex flex-1 flex-col justify-start px-4 pb-6 pt-3 sm:px-6 sm:pb-8 sm:pt-4 lg:min-h-0 lg:pt-4 lg:pb-4">
+                    <div className="mx-auto flex w-full max-w-[1180px] flex-col lg:min-h-0 lg:flex-1">
                         <EmptyStateView
                             isSignedIn={isSignedIn}
                             isUploading={isUploading}

@@ -519,9 +519,9 @@ export const EmptyStateView = ({
 
     return (
         <>
-            <div className="min-w-0">
-                <div className="grid items-stretch gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
-                    <div className={isSignedIn ? "grid min-w-0 gap-5" : "flex min-w-0"}>
+            <div className="min-w-0 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
+                <div className="grid items-stretch gap-3 lg:min-h-0 lg:h-full lg:flex-1 lg:grid-cols-[minmax(0,1fr)_320px]">
+                    <div className={isSignedIn ? "grid min-w-0 gap-5 lg:min-h-0 lg:h-full" : "flex min-w-0 lg:min-h-0 lg:h-full lg:flex-1"}>
                         {isSignedIn ? <EntryIntroCard isCompact={false} /> : null}
 
                         <UploadHero
@@ -533,7 +533,7 @@ export const EmptyStateView = ({
                         />
                     </div>
 
-                    <div className={isSignedIn ? "grid gap-5 content-start" : "flex h-full flex-col gap-2"}>
+                    <div className={isSignedIn ? "grid gap-5 content-start lg:min-h-0 lg:h-full" : "flex h-full flex-col gap-2 lg:min-h-0 lg:flex-1"}>
                         {isSignedIn ? (
                             <>
                                 <SavedProfilesPanel
