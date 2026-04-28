@@ -1,3 +1,4 @@
+import { GEN3_MAX_NATIONAL_DEX_NUMBER } from "../../../../../../packages/shared/src";
 import type { Gen3Layout } from "./detectGen3Game";
 import type { Gen3SaveSection } from "./readGen3SaveSections";
 
@@ -43,7 +44,7 @@ const POKEDEX_LAYOUTS: Partial<Record<Gen3Layout, PokedexLayoutDefinition>> = {
 };
 
 // MAX_SPECIES caps extracted flags to the Gen 3 National Dex range.
-const MAX_SPECIES = 386;
+const MAX_SPECIES = GEN3_MAX_NATIONAL_DEX_NUMBER;
 // POKEDEX_FLAG_BYTE_LENGTH is the number of bytes required to cover the Gen 3 National Dex bitfield.
 const POKEDEX_FLAG_BYTE_LENGTH = Math.ceil(MAX_SPECIES / 8);
 // POKEDEX_MODE_OFFSET stores the RSE Pokedex mode byte inside the small-block Pokedex structure.

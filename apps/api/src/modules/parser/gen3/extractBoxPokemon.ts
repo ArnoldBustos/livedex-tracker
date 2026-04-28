@@ -1,3 +1,4 @@
+import { GEN3_MAX_NATIONAL_DEX_NUMBER } from "../../../../../../packages/shared/src";
 import {
     decryptGen3StoredPokemon,
     getIsShinyGen3Pokemon,
@@ -23,9 +24,6 @@ const SLOTS_PER_BOX = 30;
 const STORED_SLOT_SIZE_BYTES = 80;
 // Defines the byte size of the shared PC storage header before box slot data begins.
 const STORAGE_HEADER_SIZE_BYTES = 4;
-// Caps accepted species ids to the Gen 3 National Dex range supported by the parser.
-const MAX_GEN3_NATIONAL_DEX_NUMBER = 386;
-
 const getStorageBlock = (
     sectionsById: Map<number, Gen3SaveSection>
 ): Buffer => {
@@ -107,7 +105,7 @@ export const extractBoxPokemon = ({
             const isShiny = getIsShinyGen3Pokemon(decryptedStoredPokemon);
 
             // Validates that the species id is in the supported Gen 3 National Dex range.
-            const isValidSpeciesId = speciesId > 0 && speciesId <= MAX_GEN3_NATIONAL_DEX_NUMBER;
+            const isValidSpeciesId = speciesId > 0 && speciesId <= GEN3_MAX_NATIONAL_DEX_NUMBER;
 
             if (!isValidSpeciesId) {
                 console.log("Skipping invalid box Pokémon slot", {

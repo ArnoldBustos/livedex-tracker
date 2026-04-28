@@ -1,3 +1,4 @@
+import { GEN3_MAX_NATIONAL_DEX_NUMBER } from "../../../../../../packages/shared/src";
 import type { ExtractedPokedexFlags } from "./extractPokedexFlags";
 import type { ParsedGen3Pokemon } from "./extractPartyPokemon";
 
@@ -53,9 +54,6 @@ export type ImportedDexSnapshot = {
     summary: ImportedDexSnapshotSummary;
 };
 
-// MAX_GEN3_NATIONAL_DEX_NUMBER caps parser snapshot rows to the seeded Gen 3 species range.
-const MAX_GEN3_NATIONAL_DEX_NUMBER = 386;
-
 // buildImportedDexSnapshot aggregates parsed save data into a layered per-species imported snapshot.
 // parseGen3Save uses this so shiny and ownership counts stay parser-owned instead of being rebuilt downstream.
 export const buildImportedDexSnapshot = ({
@@ -72,7 +70,7 @@ export const buildImportedDexSnapshot = ({
     const ownedPokemonByDexNumber = new Map<number, ParsedGen3Pokemon[]>();
 
     for (const pokemon of [...partyPokemon, ...boxPokemon]) {
-        if (pokemon.speciesId <= 0 || pokemon.speciesId > MAX_GEN3_NATIONAL_DEX_NUMBER) {
+        if (pokemon.speciesId <= 0 || pokemon.speciesId > GEN3_MAX_NATIONAL_DEX_NUMBER) {
             continue;
         }
 
@@ -88,7 +86,7 @@ export const buildImportedDexSnapshot = ({
 
     const entries: ImportedDexSnapshotEntry[] = [];
 
-    for (let dexNumber = 1; dexNumber <= MAX_GEN3_NATIONAL_DEX_NUMBER; dexNumber += 1) {
+    for (let dexNumber = 1; dexNumber <= GEN3_MAX_NATIONAL_DEX_NUMBER; dexNumber += 1) {
         const ownedPokemon = ownedPokemonByDexNumber.get(dexNumber) || [];
         const shinyOwnedCount = ownedPokemon.filter((pokemon) => {
             return pokemon.isShiny;

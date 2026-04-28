@@ -1,3 +1,8 @@
+export {
+    GEN3_MAX_NATIONAL_DEX_NUMBER,
+    SUPPORTED_POKEDEX_MAX_NATIONAL_DEX_NUMBER
+} from "./pokedex";
+
 // SUPPORTED_GAMES lists the persisted save-title values shared by frontend and backend upload flows.
 export const SUPPORTED_GAMES = [
     "RUBY",
