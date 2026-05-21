@@ -5,6 +5,11 @@
     "scripts": {
         "dev:web": "pnpm --filter web dev",
         "dev:api": "pnpm --filter api dev",
+        "docker:up": "docker compose up -d postgres",
+        "docker:down": "docker compose down",
+        "db:setup": "pnpm --filter api prisma:generate && pnpm --filter api prisma:push && pnpm --filter api seed && pnpm --filter api dev-account:setup",
+        "local:check": "pnpm -r lint && pnpm -r build",
+        "local:reset": "docker compose down -v && docker compose up -d postgres && pnpm db:setup",
         "build": "pnpm -r build",
         "lint": "pnpm -r lint"
     }
