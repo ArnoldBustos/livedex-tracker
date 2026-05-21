@@ -29,6 +29,10 @@ const getIsSupportedSaveFile = (file: File) => {
         return true;
     }
 
+    if (lowercaseFileName.endsWith(".dsv")) {
+        return true;
+    }
+
     return false;
 };
 
@@ -76,7 +80,7 @@ export const UploadHero = ({
     // App.tsx receives the file so upload details can be collected outside this presentational component.
     const handleSelectedFile = (file: File) => {
         if (!getIsSupportedSaveFile(file)) {
-            onUploadError("Only .sav and .srm files are supported.");
+            onUploadError("Only .sav, .srm, and .dsv files are supported.");
             return;
         }
 

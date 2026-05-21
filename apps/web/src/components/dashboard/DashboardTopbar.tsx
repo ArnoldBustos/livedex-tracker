@@ -23,6 +23,10 @@ const getIsSupportedSaveFile = (file: File) => {
         return true;
     }
 
+    if (lowercaseFileName.endsWith(".dsv")) {
+        return true;
+    }
+
     return false;
 };
 

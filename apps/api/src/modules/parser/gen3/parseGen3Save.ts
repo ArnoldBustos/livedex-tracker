@@ -1,7 +1,8 @@
+import { GEN3_MAX_NATIONAL_DEX_NUMBER } from "../../../../../../packages/shared/src";
 import {
     buildImportedDexSnapshot,
     type ImportedDexSnapshot
-} from "./buildImportedDexSnapshot";
+} from "../shared/buildImportedDexSnapshot";
 import {
     detectGen3Game,
     type DetectedGen3Game,
@@ -159,7 +160,8 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
     const importedDexSnapshot = buildImportedDexSnapshot({
         pokedexFlags,
         partyPokemon,
-        boxPokemon
+        boxPokemon,
+        maxNationalDexNumber: GEN3_MAX_NATIONAL_DEX_NUMBER
     });
     const livingNationalDexNumbers = importedDexSnapshot.entries
         .filter((entry) => {
