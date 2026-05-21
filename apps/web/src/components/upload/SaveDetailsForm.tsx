@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type {
     EditableSaveIdentity,
     SupportedGame
@@ -18,6 +18,8 @@ type SaveDetailsFormProps = {
     onSubmit: (identity: EditableSaveIdentity) => Promise<void> | void;
     onCancel: () => void;
 };
+
+type SaveDetailsFormBodyProps = Omit<SaveDetailsFormProps, "isOpen">;
 
 // supportedGameLabelByValue maps stored game ids to the mixed-case labels shown in the setup dropdown.
 // SaveDetailsForm uses this so the select can keep enum-style values while showing human-readable names.
@@ -41,10 +43,27 @@ const gameSelectionOptions: Array<{
     };
 });
 
-// SaveDetailsForm renders the shared save identity dialog used by setup flows.
-// App.tsx opens this for manual entry, upload naming, and profile edits so setup logic stays centralized in one dashboard-aligned modal.
-export const SaveDetailsForm = ({
-    isOpen,
+const getSaveDetailsFormKey = ({
+    title,
+    confirmLabel,
+    identity,
+    showTrainerNameField,
+    showGameField,
+    requireGameSelection
+}: SaveDetailsFormProps) => {
+    return [
+        title,
+        confirmLabel,
+        identity.displayName,
+        identity.trainerName,
+        identity.game ?? "",
+        showTrainerNameField ? "trainer" : "no-trainer",
+        showGameField ? "game" : "no-game",
+        requireGameSelection ? "game-required" : "game-optional"
+    ].join("|");
+};
+
+const SaveDetailsFormBody = ({
     title,
     description,
     confirmLabel,
@@ -55,16 +74,9 @@ export const SaveDetailsForm = ({
     requireGameSelection,
     onSubmit,
     onCancel
-}: SaveDetailsFormProps) => {
+}: SaveDetailsFormBodyProps) => {
     const [draftIdentity, setDraftIdentity] = useState<EditableSaveIdentity>(identity);
     const [validationMessage, setValidationMessage] = useState("");
-
-    // Reset the editable form state whenever a new setup flow opens or the source identity changes.
-    // App.tsx relies on this so upload and manual dialogs always start from the latest prefilled values.
-    useEffect(() => {
-        setDraftIdentity(identity);
-        setValidationMessage("");
-    }, [identity, isOpen]);
 
     // handleSubmit validates required identity fields before returning the shared payload upstream.
     // App.tsx calls this through the form so setup orchestration stays outside the presentational component.
@@ -91,10 +103,6 @@ export const SaveDetailsForm = ({
         setValidationMessage("");
         await onSubmit(nextIdentity);
     };
-
-    if (!isOpen) {
-        return null;
-    }
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(17,24,39,0.42)] px-4 backdrop-blur-[2px]">
@@ -225,5 +233,29 @@ export const SaveDetailsForm = ({
                 </form>
             </div>
         </div>
+    );
+};
+
+// SaveDetailsForm renders the shared save identity dialog used by setup flows.
+// App.tsx opens this for manual entry, upload naming, and profile edits so setup logic stays centralized in one dashboard-aligned modal.
+export const SaveDetailsForm = (props: SaveDetailsFormProps) => {
+    if (!props.isOpen) {
+        return null;
+    }
+
+    return (
+        <SaveDetailsFormBody
+            key={getSaveDetailsFormKey(props)}
+            title={props.title}
+            description={props.description}
+            confirmLabel={props.confirmLabel}
+            isSubmitting={props.isSubmitting}
+            identity={props.identity}
+            showTrainerNameField={props.showTrainerNameField}
+            showGameField={props.showGameField}
+            requireGameSelection={props.requireGameSelection}
+            onSubmit={props.onSubmit}
+            onCancel={props.onCancel}
+        />
     );
 };
