@@ -1,18 +1,24 @@
-import { SUPPORTED_GAMES } from "../../../../packages/shared/src";
+import {
+    SUPPORTED_GAMES,
+    SUPPORTED_GAME_METADATA
+} from "../../../../packages/shared/src";
 import type {
     ManualGen3GameOverride,
     SupportedGame,
+    SupportedGameMetadata,
     UploadManualGameSelectionRequirement,
     UploadRequestFields
 } from "../../../../packages/shared/src";
 
 export {
-    SUPPORTED_GAMES
+    SUPPORTED_GAMES,
+    SUPPORTED_GAME_METADATA
 };
 
 export type {
     ManualGen3GameOverride,
     SupportedGame,
+    SupportedGameMetadata,
     UploadManualGameSelectionRequirement,
     UploadRequestFields
 };

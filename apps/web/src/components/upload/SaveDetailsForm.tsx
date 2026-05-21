@@ -3,7 +3,7 @@ import type {
     EditableSaveIdentity,
     SupportedGame
 } from "../../types/save";
-import { SUPPORTED_GAMES } from "../../types/save";
+import { SUPPORTED_GAME_METADATA } from "../../types/save";
 
 type SaveDetailsFormProps = {
     isOpen: boolean;
@@ -21,25 +21,15 @@ type SaveDetailsFormProps = {
 
 type SaveDetailsFormBodyProps = Omit<SaveDetailsFormProps, "isOpen">;
 
-// supportedGameLabelByValue maps stored game ids to the mixed-case labels shown in the setup dropdown.
-// SaveDetailsForm uses this so the select can keep enum-style values while showing human-readable names.
-const supportedGameLabelByValue: Record<SupportedGame, string> = {
-    RUBY: "Ruby",
-    SAPPHIRE: "Sapphire",
-    EMERALD: "Emerald",
-    FIRERED: "FireRed",
-    LEAFGREEN: "LeafGreen"
-};
-
 // gameSelectionOptions stores the supported game choices shown in reusable save setup flows.
 // SaveDetailsForm maps this so manual creation and future upload confirmation can share the same list.
 const gameSelectionOptions: Array<{
     value: SupportedGame;
     label: string;
-}> = SUPPORTED_GAMES.map((supportedGame) => {
+}> = SUPPORTED_GAME_METADATA.map((supportedGameMetadata) => {
     return {
-        value: supportedGame,
-        label: supportedGameLabelByValue[supportedGame]
+        value: supportedGameMetadata.value,
+        label: supportedGameMetadata.label
     };
 });
 

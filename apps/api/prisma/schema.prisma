@@ -26,6 +26,11 @@ enum SupportedGame {
   EMERALD
   FIRERED
   LEAFGREEN
+  DIAMOND
+  PEARL
+  PLATINUM
+  HEARTGOLD
+  SOULSILVER
 }
 
 enum PokemonType {
