@@ -8,6 +8,7 @@ import {
     readGen3PersonalityValue,
     readGen3SpeciesId
 } from "./gen3PokemonCrypto";
+import { logParseDebug } from "../../../lib/debugLog";
 import type { ParsedGen3Pokemon } from "./extractPartyPokemon";
 import type { Gen3SaveSection } from "./readGen3SaveSections";
 
@@ -89,7 +90,7 @@ export const extractBoxPokemon = ({
             const hasValidChecksum = isValidGen3StoredPokemon(decryptedStoredPokemon);
 
             if (!hasValidChecksum) {
-                console.log("Skipping checksum-invalid box Pokemon slot", {
+                logParseDebug("Skipping checksum-invalid box Pokemon slot", {
                     boxIndex,
                     slotIndex,
                     absoluteSlotIndex,
@@ -108,7 +109,7 @@ export const extractBoxPokemon = ({
             const isValidSpeciesId = speciesId > 0 && speciesId <= GEN3_MAX_NATIONAL_DEX_NUMBER;
 
             if (!isValidSpeciesId) {
-                console.log("Skipping invalid box Pokémon slot", {
+                logParseDebug("Skipping invalid box Pokémon slot", {
                     boxIndex,
                     slotIndex,
                     absoluteSlotIndex,

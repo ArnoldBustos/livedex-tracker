@@ -1,3 +1,4 @@
+import { logParseDebug } from "../../../lib/debugLog";
 import type { Gen3SaveSection } from "./readGen3SaveSections";
 
 type ExtractTrainerInfoParams = {
@@ -76,7 +77,7 @@ export const extractTrainerInfo = ({
 
     const name = decodeGen3TrainerName(trainerNameBuffer);
 
-    console.log("extractTrainerInfo result", {
+    logParseDebug("extractTrainerInfo result", {
         name,
         trainerGenderValue,
         gender

@@ -1,3 +1,5 @@
+import { logParseDebug } from "../../../lib/debugLog";
+
 const SECTION_COUNT = 14;
 const SECTION_SIZE_BYTES = 4096;
 const SAVE_SLOT_SIZE_BYTES = 57344;
@@ -67,7 +69,7 @@ const readSaveSlotSections = (
 
         const footer = readSectionFooter(sectionBuffer);
 
-        console.log("readSaveSlotSections footer", {
+        logParseDebug("readSaveSlotSections footer", {
             sectionIndex,
             sectionId: footer.sectionId,
             checksum: footer.checksum,
@@ -160,7 +162,7 @@ const getActiveSaveIndex = (
         }
     );
 
-    console.log("sectionsBySaveIndex summary", saveIndexSummary);
+    logParseDebug("sectionsBySaveIndex summary", saveIndexSummary);
 
     const candidateSaveIndexes = saveIndexSummary
         .filter((saveIndexCandidateSummary) => {
@@ -183,7 +185,7 @@ const getActiveSaveIndex = (
 export const readGen3SaveSections = (
     fileBuffer: Buffer
 ): ReadGen3SaveSectionsResult => {
-    console.log("readGen3SaveSections entered", {
+    logParseDebug("readGen3SaveSections entered", {
         fileSizeBytes: fileBuffer.length
     });
 

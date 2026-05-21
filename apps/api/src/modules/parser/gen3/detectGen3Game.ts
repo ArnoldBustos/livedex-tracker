@@ -1,3 +1,4 @@
+import { logParseDebug } from "../../../lib/debugLog";
 import type { Gen3SaveSection } from "./readGen3SaveSections";
 
 // DetectedGen3Game is the parser-facing title result that upload flows persist for the save.
@@ -123,7 +124,7 @@ export const detectGen3Game = (
             "Section 0 offset 0x00AC matched the FRLG game code marker"
         );
 
-        console.log("detectGen3Game FRLG marker match", {
+        logParseDebug("detectGen3Game FRLG marker match", {
             debug: debugResult
         });
 
@@ -144,7 +145,7 @@ export const detectGen3Game = (
             "Section 0 security key matched Emerald's known copy location"
         );
 
-        console.log("detectGen3Game Emerald marker match", {
+        logParseDebug("detectGen3Game Emerald marker match", {
             debug: debugResult
         });
 
@@ -161,7 +162,7 @@ export const detectGen3Game = (
             "Section 1 party count matched the Ruby/Sapphire/Emerald layout, but Emerald's security-key copy did not match"
         );
 
-        console.log("detectGen3Game Ruby/Sapphire layout match", {
+        logParseDebug("detectGen3Game Ruby/Sapphire layout match", {
             debug: debugResult
         });
 
@@ -178,7 +179,7 @@ export const detectGen3Game = (
             "Fell back to FRLG layout because the section 1 party count matched FRLG offsets"
         );
 
-        console.log("detectGen3Game FRLG fallback", {
+        logParseDebug("detectGen3Game FRLG fallback", {
             debug: debugResult
         });
 
@@ -194,7 +195,7 @@ export const detectGen3Game = (
         "No FRLG, Emerald, or Ruby/Sapphire heuristic matched the active save sections"
     );
 
-    console.log("detectGen3Game unsupported layout", {
+    logParseDebug("detectGen3Game unsupported layout", {
         debug: debugResult
     });
 

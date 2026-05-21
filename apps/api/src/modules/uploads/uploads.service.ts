@@ -6,6 +6,7 @@ import {
     type SupportedGame,
     type UploadManualGameSelectionRequirement
 } from "../../../../../packages/shared/src";
+import { logParseDebug } from "../../lib/debugLog";
 import prismaClient from "../../lib/prisma";
 import { getSaveProfileDex, syncSaveProfileDexFromParse } from "../dex/dex.service";
 import { parseUploadedSave } from "../parser/parser.service";
@@ -544,7 +545,7 @@ export const createUpload = async ({
     const storageProvider = getStorageProvider();
 
     try {
-        console.log("createUpload input", {
+        logParseDebug("createUpload input", {
             userId,
             originalFilename: file.originalname,
             fileSizeBytes: file.size,

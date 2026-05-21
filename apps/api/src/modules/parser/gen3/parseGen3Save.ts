@@ -20,6 +20,7 @@ import {
     extractTrainerInfo,
     type ExtractedTrainerInfo
 } from "./extractTrainerInfo";
+import { logParseDebug } from "../../../lib/debugLog";
 import { normalizeGen3SaveBuffer } from "./normalizeGen3SaveBuffer";
 import { readGen3SaveSections } from "./readGen3SaveSections";
 
@@ -95,7 +96,7 @@ const extractOptionalGen3Data = <T>({
 
 // parseGen3Save reads the active save slot, detects the correct Gen 3 layout, and extracts dashboard data.
 export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
-    console.log("parseGen3Save entered");
+    logParseDebug("parseGen3Save entered");
 
     // Normalize raw Gen 3 save bytes before section parsing so padded emulator saves work.
     const normalizedFileBuffer = normalizeGen3SaveBuffer(fileBuffer);
@@ -103,7 +104,7 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
     const { activeSaveIndex, sectionsById } = readGen3SaveSections(normalizedFileBuffer);
     const detectedGameResult = detectGen3Game(sectionsById);
 
-    console.log("parseGen3Save after readGen3SaveSections", {
+    logParseDebug("parseGen3Save after readGen3SaveSections", {
         activeSaveIndex,
         sectionCount: sectionsById.size,
         detectedGame: detectedGameResult.detectedGame,
@@ -172,7 +173,7 @@ export const parseGen3Save = (fileBuffer: Buffer): ParsedGen3Save => {
         return leftSectionId - rightSectionId;
     });
 
-    console.log("parseGen3Save trainer debug", {
+    logParseDebug("parseGen3Save trainer debug", {
         trainerName: trainerInfo.name,
         trainerGender: trainerInfo.gender,
         hasNationalDex: pokedexFlags.hasNationalDex,

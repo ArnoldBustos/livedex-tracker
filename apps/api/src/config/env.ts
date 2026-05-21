@@ -32,6 +32,9 @@ export const env = {
     // LOCAL_DEV_ACCOUNT_PASSWORD stores the dev-only credential used to sign in as dev@example.com after the auth migration.
     // localDevAccount.service.ts reads this when the dev-only gate is enabled and the canonical local account needs a credential.
     LOCAL_DEV_ACCOUNT_PASSWORD: process.env.LOCAL_DEV_ACCOUNT_PASSWORD || "devpassword1234",
+    // ENABLE_PARSE_DEBUG_LOGS controls verbose save-parser and upload diagnostics.
+    // Parser and upload services read this so normal local API output stays focused unless deep save debugging is needed.
+    ENABLE_PARSE_DEBUG_LOGS: getIsEnabledFlag(process.env.ENABLE_PARSE_DEBUG_LOGS),
     PORT: process.env.PORT || "4000",
     STORAGE_PROVIDER: process.env.STORAGE_PROVIDER || "local",
     // WEB_ORIGIN stores the web app origin allowed to make credentialed auth requests to the API.

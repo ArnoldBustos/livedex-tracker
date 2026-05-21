@@ -1,3 +1,4 @@
+import { logParseDebug } from "../../lib/debugLog";
 import prismaClient from "../../lib/prisma";
 import type { ImportedDexSnapshot } from "../parser/gen3/buildImportedDexSnapshot";
 
@@ -295,7 +296,7 @@ export const syncSaveProfileDexFromParse = async ({
     saveProfileId,
     importedDexSnapshot
 }: SyncSaveProfileDexFromParseParams) => {
-    console.log("syncSaveProfileDexFromParse input", {
+    logParseDebug("syncSaveProfileDexFromParse input", {
         saveProfileId,
         importedDexSnapshotEntryCount: importedDexSnapshot.entries.length,
         importedOwnershipTotal: importedDexSnapshot.summary.ownership.totalOwnedCount,

@@ -70,6 +70,12 @@ Local dev sign-in:
 - Email: `dev@example.com`
 - Password: `devpassword1234`
 
+Verbose parser/upload diagnostics are off by default. To debug save parsing, set this in `apps/api/.env` before starting the API:
+
+```env
+ENABLE_PARSE_DEBUG_LOGS="true"
+```
+
 ## Useful Commands
 
 ```sh
