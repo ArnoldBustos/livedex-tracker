@@ -1062,7 +1062,7 @@ const App = () => {
         return;
       }
 
-      const dexTemplate = await fetchDexTemplate();
+      const dexTemplate = await fetchDexTemplate(identity.game);
       const manualUploadResponse = getManualUploadResponse({
         currentUser,
         identity,

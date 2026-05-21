@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import {
+    getMaxNationalDexNumberForGame,
     MANUAL_GEN3_GAME_OVERRIDES,
     SUPPORTED_GAMES,
     type ManualGen3GameOverride,
@@ -35,11 +36,18 @@ type CreateGuestUploadParams = {
 // buildGuestDexResponse converts parser output into the frontend dex response shape
 // createGuestUpload uses this so guest mode can render dex data without persisting DB rows
 const buildGuestDexResponse = async ({
-    importedDexSnapshot
+    importedDexSnapshot,
+    game
 }: {
     importedDexSnapshot: ImportedDexSnapshot;
+    game: SupportedGame | null;
 }) => {
     const pokemonSpecies = await prismaClient.pokemonSpecies.findMany({
+        where: {
+            dexNumber: {
+                lte: getMaxNationalDexNumberForGame(game)
+            }
+        },
         orderBy: {
             dexNumber: "asc"
         }
@@ -500,7 +508,8 @@ export const createGuestUpload = async ({
                 : "Guest Session";
 
     const dexResponse = await buildGuestDexResponse({
-        importedDexSnapshot: parseResult.importedDexSnapshot
+        importedDexSnapshot: parseResult.importedDexSnapshot,
+        game: resolvedDetectedGame
     });
 
     return buildCompletedUploadResult({

@@ -1,3 +1,7 @@
+import {
+    getMaxNationalDexNumberForGame,
+    type SupportedGame
+} from "../../../../../packages/shared/src";
 import { logParseDebug } from "../../lib/debugLog";
 import prismaClient from "../../lib/prisma";
 import type { ImportedDexSnapshot } from "../parser/gen3/buildImportedDexSnapshot";
@@ -69,6 +73,11 @@ type DexSpeciesRecord = {
     generation: number;
     primaryType: string;
     secondaryType: string | null;
+};
+
+type OwnedSaveProfileContext = {
+    id: string;
+    game: SupportedGame | null;
 };
 
 // getEmptyDexState creates one false-initialized collection state.
@@ -402,8 +411,19 @@ const buildDexSummary = (entries: DexState[]) => {
 
 // getDexSpeciesRecords loads the canonical species rows used for both empty and resolved dex payloads.
 // getEmptyDex and getSaveProfileDex call this so the frontend always receives one consistent species ordering.
-const getDexSpeciesRecords = async (): Promise<DexSpeciesRecord[]> => {
+const getDexSpeciesRecords = async ({
+    maxNationalDexNumber
+}: {
+    maxNationalDexNumber?: number;
+} = {}): Promise<DexSpeciesRecord[]> => {
     return await prismaClient.pokemonSpecies.findMany({
+        where: typeof maxNationalDexNumber === "number"
+            ? {
+                dexNumber: {
+                    lte: maxNationalDexNumber
+                }
+            }
+            : undefined,
         select: {
             id: true,
             dexNumber: true,
@@ -420,8 +440,10 @@ const getDexSpeciesRecords = async (): Promise<DexSpeciesRecord[]> => {
 
 // getEmptyDex returns the blank dex template with every species initialized to false.
 // manual entry setup uses this so local shells render through the same dashboard path as uploads.
-export const getEmptyDex = async () => {
-    const pokemonSpecies = await getDexSpeciesRecords();
+export const getEmptyDex = async (game?: SupportedGame | null) => {
+    const pokemonSpecies = await getDexSpeciesRecords({
+        maxNationalDexNumber: getMaxNationalDexNumberForGame(game)
+    });
 
     const layeredEntries = pokemonSpecies.map((species) => {
         return {
@@ -564,13 +586,16 @@ const assertOwnedSaveProfile = async (userId: string, saveProfileId: string) => 
             userId
         },
         select: {
-            id: true
+            id: true,
+            game: true
         }
     });
 
     if (!saveProfile) {
         throw new Error("Save profile not found");
     }
+
+    return saveProfile as OwnedSaveProfileContext;
 };
 
 // assertExistingPokemonSpecies ensures a manual override only targets seeded species rows.
@@ -609,7 +634,19 @@ const hasAnyLayeredOverrideValue = (layeredOverrideState: LayeredDexOverrideStat
 // getSaveProfileDex returns the resolved dex payload for one save profile.
 // uploads and dex controllers call this so reads stay centralized in the dex module.
 export const getSaveProfileDex = async (saveProfileId: string) => {
-    const pokemonSpecies = await getDexSpeciesRecords();
+    const saveProfile = await prismaClient.saveProfile.findUnique({
+        where: {
+            id: saveProfileId
+        },
+        select: {
+            game: true
+        }
+    });
+    const pokemonSpecies = await getDexSpeciesRecords({
+        maxNationalDexNumber: getMaxNationalDexNumberForGame(
+            saveProfile ? saveProfile.game as SupportedGame | null : null
+        )
+    });
 
     const importedDexEntryBySpeciesId = await getImportedDexEntryMap(saveProfileId);
     const overrideDexEntryBySpeciesId = await getOverrideDexEntryMap(saveProfileId);
@@ -681,8 +718,24 @@ export const updateSaveProfileDexOverride = async ({
     pokemonSpeciesId,
     overridePatch
 }: UpdateSaveProfileDexOverrideParams) => {
-    await assertOwnedSaveProfile(userId, saveProfileId);
+    const saveProfile = await assertOwnedSaveProfile(userId, saveProfileId);
     await assertExistingPokemonSpecies(pokemonSpeciesId);
+
+    const pokemonSpecies = await prismaClient.pokemonSpecies.findUnique({
+        where: {
+            id: pokemonSpeciesId
+        },
+        select: {
+            dexNumber: true
+        }
+    });
+
+    if (
+        pokemonSpecies &&
+        pokemonSpecies.dexNumber > getMaxNationalDexNumberForGame(saveProfile.game)
+    ) {
+        throw new Error("Pokemon species is not available in this save profile's game");
+    }
 
     const importedState = await prismaClient.saveProfileDexEntry.findUnique({
         where: {

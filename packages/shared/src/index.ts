@@ -3,6 +3,11 @@ export {
     SUPPORTED_POKEDEX_MAX_NATIONAL_DEX_NUMBER
 } from "./pokedex";
 
+import {
+    GEN3_MAX_NATIONAL_DEX_NUMBER,
+    SUPPORTED_POKEDEX_MAX_NATIONAL_DEX_NUMBER
+} from "./pokedex";
+
 // SUPPORTED_GAMES lists the persisted save-title values shared by frontend and backend upload flows.
 export const SUPPORTED_GAMES = [
     "RUBY",
@@ -14,6 +19,24 @@ export const SUPPORTED_GAMES = [
 
 // SupportedGame stores the normalized save-title values persisted for uploads and save profiles.
 export type SupportedGame = (typeof SUPPORTED_GAMES)[number];
+
+// getMaxNationalDexNumberForGame returns the highest species usable in a specific save title.
+// API and web dex builders use this so the app-wide species catalog can grow without leaking later species into older games.
+export const getMaxNationalDexNumberForGame = (
+    game: SupportedGame | null | undefined
+) => {
+    if (
+        game === "RUBY" ||
+        game === "SAPPHIRE" ||
+        game === "EMERALD" ||
+        game === "FIRERED" ||
+        game === "LEAFGREEN"
+    ) {
+        return GEN3_MAX_NATIONAL_DEX_NUMBER;
+    }
+
+    return SUPPORTED_POKEDEX_MAX_NATIONAL_DEX_NUMBER;
+};
 
 // MANUAL_GEN3_GAME_OVERRIDES lists the allowed manual FRLG title choices accepted by the upload flow.
 export const MANUAL_GEN3_GAME_OVERRIDES = [

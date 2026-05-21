@@ -2,6 +2,7 @@ import { apiRequest } from "./client";
 import type { StoredUser } from "../auth/session";
 import type {
     DexResponse,
+    SupportedGame,
     UpdateDexEntryRequest
 } from "../../types/save";
 
@@ -35,6 +36,8 @@ export const patchDexEntryOverride = async ({
 
 // fetchDexTemplate loads the blank dex template used by manual save creation.
 // App.tsx calls this so manual entry reuses backend species data instead of duplicating it in the web app.
-export const fetchDexTemplate = async () => {
-    return await apiRequest<DexResponse>("/dex/template");
+export const fetchDexTemplate = async (game?: SupportedGame | null) => {
+    const queryString = game ? `?game=${encodeURIComponent(game)}` : "";
+
+    return await apiRequest<DexResponse>(`/dex/template${queryString}`);
 };

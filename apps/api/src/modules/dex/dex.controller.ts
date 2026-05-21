@@ -1,4 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
+import {
+    SUPPORTED_GAMES,
+    type SupportedGame
+} from "../../../../../packages/shared/src";
 import { resolveRequestUserId } from "../auth/requestUser.service";
 import { getEmptyDex, getOwnedSaveProfileDex, updateSaveProfileDexOverride } from "./dex.service";
 
@@ -45,6 +49,24 @@ const parsePokemonSpeciesId = (request: Request) => {
     }
 
     return pokemonSpeciesId;
+};
+
+// parseOptionalSupportedGameQuery reads the manual-template game cap from the query string.
+// getDexTemplate uses this so frontend manual shells receive only species available to the selected title.
+const parseOptionalSupportedGameQuery = (request: Request): SupportedGame | null => {
+    const rawGame = request.query.game;
+
+    if (typeof rawGame !== "string" || rawGame.trim().length === 0) {
+        return null;
+    }
+
+    const normalizedGame = rawGame.trim();
+
+    if (SUPPORTED_GAMES.includes(normalizedGame as SupportedGame)) {
+        return normalizedGame as SupportedGame;
+    }
+
+    return null;
 };
 
 // parseDexOverrideCollectionBody validates one nested collection patch object from the PATCH body.
@@ -182,11 +204,11 @@ export const getDexBySaveProfileId = async (
 // getDexTemplate returns the blank dex payload used by manual save setup flows.
 // dex.routes.ts exposes this so the frontend can create local manual shells without duplicating species data.
 export const getDexTemplate = async (
-    _request: Request,
+    request: Request,
     response: Response
 ) => {
     try {
-        const dexTemplate = await getEmptyDex();
+        const dexTemplate = await getEmptyDex(parseOptionalSupportedGameQuery(request));
         response.status(200).json(dexTemplate);
     } catch (error) {
         response.status(500).json({
