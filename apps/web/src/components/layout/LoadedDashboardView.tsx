@@ -579,9 +579,6 @@ export const LoadedDashboardView = ({
     onGoToLogin,
     onGoToRegister
 }: LoadedDashboardViewProps) => {
-    // pendingDeleteProfileId preserves the old inline delete confirmation state while the left rail remains in the file but no longer renders.
-    // LoadedDashboardView still defines this during phase 1 so the new profile-picker rollout stays low-risk and the legacy JSX can be removed later.
-    const [pendingDeleteProfileId, setPendingDeleteProfileId] = useState<string | null>(null);
     // isProfilePickerOpen tracks whether the saved-profile picker overlay is visible.
     // LoadedDashboardView owns this because opening the picker is a dashboard-layout concern tied to the summary header.
     const [isProfilePickerOpen, setIsProfilePickerOpen] = useState(false);
@@ -621,12 +618,6 @@ export const LoadedDashboardView = ({
                 ? uploadResponse.debug.trainerName
                 : "Unknown Trainer";
 
-    const trainerGender =
-        uploadResponse.trainerInfo && uploadResponse.trainerInfo.gender
-            ? uploadResponse.trainerInfo.gender
-            : uploadResponse.debug && uploadResponse.debug.trainerGender
-                ? uploadResponse.debug.trainerGender
-                : "Unknown";
     // displayGameLabel resolves one honest visible game label from exact-title detection or layout-family fallback.
     const displayGameLabel = getDisplayGameLabel({
         detectedGame: uploadResponse.upload.detectedGame,
@@ -846,9 +837,6 @@ export const LoadedDashboardView = ({
         setStagedOwnershipChanges({});
         setIsSelectModeActive(false);
     };
-    // shouldRenderLegacyProfileRail keeps the old left-rail JSX disabled during the modal rollout.
-    // TODO: Delete the dormant left-rail JSX in a dedicated cleanup pass after the dashboard layout stabilizes.
-    const shouldRenderLegacyProfileRail = false;
 
     return (
         <>
@@ -869,119 +857,6 @@ export const LoadedDashboardView = ({
                     "grid min-h-[calc(100vh-84px)] grid-cols-1 gap-4 bg-[#f3f4f6] px-4 py-4 xl:grid-cols-[minmax(0,1fr)_240px]"
                 }
             >
-                {shouldRenderLegacyProfileRail ? (
-                    <aside className="sticky top-4 self-start max-h-[calc(100vh-32px)] overflow-y-auto rounded-2xl bg-white p-4 shadow-sm flex flex-col gap-4">
-                        <div className="rounded-xl border border-[rgba(130,129,111,0.12)] bg-gray-50/70 p-4">
-                            <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#656554]">
-                                Profiles
-                            </div>
-
-                        <div className="mt-3 flex flex-col gap-2.5">
-                            {saveProfiles.map((saveProfile) => {
-                                const isActiveProfile = saveProfile.id === activeSaveProfileId;
-                                const isPendingDelete = pendingDeleteProfileId === saveProfile.id;
-
-                                return (
-                                    <div
-                                        key={saveProfile.id}
-                                        className={
-                                            isActiveProfile
-                                                ? "rounded-[16px] border border-[rgba(147,86,0,0.3)] bg-white px-3 py-3 shadow-sm"
-                                                : "rounded-[16px] border border-[rgba(130,129,111,0.12)] bg-white/90 px-3 py-3"
-                                        }
-                                    >
-                                        <button
-                                            className="flex w-full flex-col items-start text-left transition"
-                                            type="button"
-                                            onClick={() => {
-                                                onSelectSaveProfile(saveProfile.id);
-                                            }}
-                                        >
-                                            <div className="w-full truncate text-[15px] font-extrabold text-[#38392a]">
-                                                {saveProfile.name}
-                                            </div>
-
-                                            <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#935600]">
-                                                {isActiveProfile
-                                                    ? displayGameLabel
-                                                    : saveProfile.game || "Unknown Game"}
-                                            </div>
-
-                                            <div className="mt-1 text-[11px] text-[#656554]">
-                                                {isActiveProfile
-                                                    ? `${trainerName}${trainerGender === "Unknown" ? "" : ` · ${trainerGender} trainer`}`
-                                                    : "Saved profile"}
-                                            </div>
-                                        </button>
-
-                                        {!isPendingDelete ? (
-                                            <div className="mt-2 flex items-center justify-between gap-2 border-t border-[rgba(130,129,111,0.1)] pt-2">
-                                                <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#8a8b78]">
-                                                    {isActiveProfile ? "Active profile" : "Saved profile"}
-                                                </span>
-                                                <button
-                                                    className="rounded-md px-2 py-1 text-[11px] font-medium text-[#8a8b78] hover:bg-red-50 hover:text-[#912018]"
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setPendingDeleteProfileId(saveProfile.id);
-                                                    }}
-                                                >
-                                                    Delete
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <div className="mt-2 border-t border-[rgba(130,129,111,0.1)] pt-2">
-                                                <div className="rounded-xl border border-red-100 bg-[rgba(255,244,244,0.9)] p-3">
-                                                    <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#b42318]">
-                                                        Delete profile
-                                                    </div>
-
-                                                    <div className="mt-1 text-[11px] text-[#7a271a]">
-                                                        Remove this saved profile?
-                                                    </div>
-
-                                                    <div className="mt-2 grid grid-cols-2 gap-2">
-                                                        <button
-                                                            className="rounded-lg border border-[rgba(130,129,111,0.18)] bg-white px-3 py-2 text-[11px] font-medium text-[#656554] hover:bg-gray-50"
-                                                            type="button"
-                                                            onClick={() => {
-                                                                setPendingDeleteProfileId(null);
-                                                            }}
-                                                        >
-                                                            Cancel
-                                                        </button>
-
-                                                        <button
-                                                            className="rounded-lg bg-[#d92d20] px-3 py-2 text-[11px] font-medium text-white hover:bg-[#b42318]"
-                                                            type="button"
-                                                            onClick={async () => {
-                                                                await onDeleteProfile(saveProfile.id);
-                                                                setPendingDeleteProfileId(null);
-                                                            }}
-                                                        >
-                                                            Delete
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    <div className="mt-auto">
-                        <button
-                            className="w-full rounded-xl bg-green-700 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-green-800"
-                            type="button"
-                        >
-                            Generate Report
-                        </button>
-                    </div>
-                </aside>
-                ) : null}
-
                 <main className="flex flex-col gap-4">
                     {errorMessage ? (
                         <div className="message error-message">{errorMessage}</div>
